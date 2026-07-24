@@ -1,0 +1,72 @@
+{
+    "active_sessions": [
+        {
+            "user_id": "staff-001",
+            "status": "clocked_out",
+            "clock_in_time": "2026-06-02 11:28:24",
+            "clock_out_time": "2026-06-02 11:28:36"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "clocked_out",
+            "clock_in_time": "2026-06-02 11:28:40",
+            "clock_out_time": "2026-06-02 11:32:57"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "clocked_out",
+            "clock_in_time": "2026-06-02 11:32:59",
+            "clock_out_time": "2026-06-02 11:44:42"
+        }
+    ],
+    "attendance_records": [
+        {
+            "id": "6a1ea2386d1b5",
+            "user_id": "staff-001",
+            "type": "clock-in",
+            "timestamp": "2026-06-02 11:28:24",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a1ea244e78c2",
+            "user_id": "staff-001",
+            "type": "clock-out",
+            "timestamp": "2026-06-02 11:28:36",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a1ea24808f3f",
+            "user_id": "staff-001",
+            "type": "clock-in",
+            "timestamp": "2026-06-02 11:28:40",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a1ea3491920e",
+            "user_id": "staff-001",
+            "type": "clock-out",
+            "timestamp": "2026-06-02 11:32:57",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a1ea34b565d2",
+            "user_id": "staff-001",
+            "type": "clock-in",
+            "timestamp": "2026-06-02 11:32:59",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a1ea60a53b62",
+            "user_id": "staff-001",
+            "type": "clock-out",
+            "timestamp": "2026-06-02 11:44:42",
+            "date": "2026-06-02",
+            "location": "Office"
+        }
+    ]
+}

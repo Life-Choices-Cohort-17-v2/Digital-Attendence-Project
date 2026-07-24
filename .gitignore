@@ -1,0 +1,201 @@
+# ============================================
+# PROJECT-SPECIFIC – BLOCK ROOT-LEVEL DEPENDENCIES
+# ============================================
+
+# Node.js (scrapped but prevent accidental installs)
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+package.json
+npm-shrinkwrap.json
+
+# Frontend build artifacts (React leftovers – being converted)
+build/
+dist/
+.out/
+.next/
+.nuxt/
+.vite/
+
+# ============================================
+# BACKEND & PHP (XAMPP / Xneelo)
+# ============================================
+
+# Composer (if used later)
+vendor/
+composer.lock
+composer.phar
+
+# PHP error logs
+*.log
+error_log
+php_errors.log
+
+# XAMPP local configs (don't commit environment-specific files)
+.htaccess.local
+php.ini
+xampp/
+
+# Session files (PHP sessions stored locally)
+sessions/
+session/
+tmp/
+
+# ============================================
+# DATABASE (MySQL)
+# ============================================
+
+# Local database dumps
+*.sql
+*.sql.gz
+*.dump
+*.db
+*.sqlite
+*.sqlite3
+
+# phpMyAdmin temp files
+pma_*
+config.inc.php.local
+
+# ============================================
+# IDE & EDITOR FILES
+# ============================================
+
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# PHPStorm / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.*.swp
+
+# ============================================
+# OS GENERATED FILES
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.dircolors
+.trash/
+.dirstamp
+
+# ============================================
+# TESTING & COVERAGE
+# ============================================
+
+# Vitest / Jest
+coverage/
+.nyc_output/
+*.test.results.json
+
+# Thunder Client (local test collections – optional, keep if shared)
+# .thunder-client/   ← uncomment if you DON'T want to share test collections
+# thunder-tests/      ← uncomment if you DON'T want to share
+
+# PHPUnit (if added later)
+.phpunit.result.cache
+.phpunit.cache
+.build/
+
+# ============================================
+# ENVIRONMENT & CONFIGURATION
+# ============================================
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Sensitive credentials
+*.key
+*.pem
+*.crt
+*.p12
+.secrets/
+
+# ============================================
+# ARCHIVES & BACKUPS
+# ============================================
+
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.bak
+*.backup
+*.old
+*.orig
+
+# ============================================
+# TEMPORARY & CACHE FILES
+# ============================================
+
+*.cache
+.cache/
+.temp/
+.tmp/
+tmp/
+temp/
+*.tmp
+
+# ============================================
+# PROJECT-SPECIFIC (PREVENT WEEK 1 MISTAKES)
+# ============================================
+
+# Anything accidentally installed at root level
+!/.gitignore
+/*.json
+/*.lock
+/*.lockb
+/*.js
+/*.js.map
+/*.css
+/*.css.map
+package.json
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# Local XAMPP htdocs symlinks (if any)
+/htdocs/
+/xampp/
+
+# Backup of working files (common habit)
+*.backup-*
+*.save
+*.orig
+*~
