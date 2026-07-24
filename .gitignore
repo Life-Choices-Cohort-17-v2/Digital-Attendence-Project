@@ -1,64 +1,71 @@
 # ============================================
-# PROJECT-SPECIFIC – BLOCK ROOT-LEVEL DEPENDENCIES
+# BACKEND (TypeScript/Node.js)
 # ============================================
 
-# Node.js (scrapped but prevent accidental installs)
-node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-package-lock.json
-yarn.lock
-package.json
-npm-shrinkwrap.json
+# Dependencies
+backend/node_modules/
+backend/package-lock.json
+backend/yarn.lock
+backend/.pnpm-store/
 
-# Frontend build artifacts (React leftovers – being converted)
-build/
-dist/
-.out/
-.next/
-.nuxt/
-.vite/
+# Build outputs
+backend/dist/
+backend/build/
+backend/out/
+backend/.next/
+
+# TypeScript
+backend/*.tsbuildinfo
+backend/.tscache/
+
+# Environment
+backend/.env
+backend/.env.local
+backend/.env.*.local
+backend/.env.production
+backend/.env.development
 
 # ============================================
-# BACKEND & PHP (XAMPP / Xneelo)
+# PHP FRONTEND (No nested .gitignore)
 # ============================================
 
-# Composer (if used later)
-vendor/
-composer.lock
-composer.phar
+# Composer dependencies (if you add later)
+phpfrontend/vendor/
+phpfrontend/composer.lock
+phpfrontend/composer.phar
 
 # PHP error logs
-*.log
-error_log
-php_errors.log
+phpfrontend/*.log
+phpfrontend/error_log
+phpfrontend/php_errors.log
+phpfrontend/*.error.log
 
-# XAMPP local configs (don't commit environment-specific files)
-.htaccess.local
-php.ini
-xampp/
+# PHP session files
+phpfrontend/sessions/
+phpfrontend/session/
+phpfrontend/tmp/
+phpfrontend/temp/
 
-# Session files (PHP sessions stored locally)
-sessions/
-session/
-tmp/
+# PHP cache
+phpfrontend/.phpunit.result.cache
+phpfrontend/.phpunit.cache
+phpfrontend/cache/
+
+# PHP environment
+phpfrontend/.env
+phpfrontend/.env.local
+phpfrontend/.env.*.local
 
 # ============================================
-# DATABASE (MySQL)
+# DATABASE (MySQL/SQLite)
 # ============================================
 
-# Local database dumps
 *.sql
 *.sql.gz
-*.dump
-*.db
 *.sqlite
 *.sqlite3
-
-# phpMyAdmin temp files
-pma_*
-config.inc.php.local
+*.db
+*.dump
 
 # ============================================
 # IDE & EDITOR FILES
@@ -79,11 +86,12 @@ config.inc.php.local
 *.sublime-project
 *.sublime-workspace
 
-# Vim
+# Vim/Neovim
 *.swp
 *.swo
 *~
 .*.swp
+*.un~
 
 # ============================================
 # OS GENERATED FILES
@@ -97,7 +105,6 @@ config.inc.php.local
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.db
 
 # Windows
 Thumbs.db
@@ -114,16 +121,13 @@ $RECYCLE.BIN/
 # TESTING & COVERAGE
 # ============================================
 
-# Vitest / Jest
+# Backend tests
 coverage/
 .nyc_output/
 *.test.results.json
+jest.config.js
 
-# Thunder Client (local test collections – optional, keep if shared)
-# .thunder-client/   ← uncomment if you DON'T want to share test collections
-# thunder-tests/      ← uncomment if you DON'T want to share
-
-# PHPUnit (if added later)
+# PHPUnit (if added)
 .phpunit.result.cache
 .phpunit.cache
 .build/
@@ -132,19 +136,29 @@ coverage/
 # ENVIRONMENT & CONFIGURATION
 # ============================================
 
-# Environment variables
+# Environment variables (anywhere)
 .env
 .env.local
 .env.*.local
 .env.production
 .env.development
+.env.testing
+.env.backup
 
-# Sensitive credentials
+# Sensitive credentials (anywhere)
 *.key
 *.pem
 *.crt
 *.p12
+*.pem
 .secrets/
+secrets/
+
+# Config overrides (local only)
+*.local
+config.local.*
+php.ini
+.htaccess.local
 
 # ============================================
 # ARCHIVES & BACKUPS
@@ -158,6 +172,8 @@ coverage/
 *.backup
 *.old
 *.orig
+*.save
+*.backup-*
 
 # ============================================
 # TEMPORARY & CACHE FILES
@@ -170,32 +186,67 @@ coverage/
 tmp/
 temp/
 *.tmp
+*.temp
 
 # ============================================
-# PROJECT-SPECIFIC (PREVENT WEEK 1 MISTAKES)
+# LOGS
 # ============================================
 
-# Anything accidentally installed at root level
-!/.gitignore
-/*.json
-/*.lock
-/*.lockb
-/*.js
-/*.js.map
-/*.css
-/*.css.map
-package.json
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-bun.lockb
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+access.log
+error.log
 
-# Local XAMPP htdocs symlinks (if any)
+# ============================================
+# GIT & VERSION CONTROL
+# ============================================
+
+# Git files (but keep .github!)
+!.github/
+!.gitattributes
+
+# ============================================
+# PROJECT-SPECIFIC OVERRIDES
+# ============================================
+
+# KEEP these important files (don't ignore)
+!.htaccess
+!composer.json
+!package.json
+!tsconfig.json
+!php.ini.example
+
+# IGNORE XAMPP specific
 /htdocs/
 /xampp/
 
-# Backup of working files (common habit)
-*.backup-*
-*.save
-*.orig
-*~
+# IGNORE PHPMyAdmin
+pma_*
+config.inc.php.local
+
+# ============================================
+# MISCELLANEOUS
+# ============================================
+
+# Composer (global)
+composer.phar
+composer.lock
+vendor/
+
+# Node (global)
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# NPM debug
+npm-debug.log
+yarn-error.log
+
+# ============================================
+# DUPLICATE FILES (Remove duplicates)
+# ============================================
+# Delete one of these:
+# PULL_REQUEST_TEMPLATE.md OR pull-request-template.md
