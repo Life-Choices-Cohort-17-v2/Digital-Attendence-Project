@@ -1,8 +1,8 @@
-# Clock-It Frontend Migration - PHP/Alpine.js/Bootstrap
+# SpySee Frontend Migration - PHP/Alpine.js/Bootstrap
 
 ## Overview
 
-This document outlines the complete migration of the Clock-It frontend from React/TypeScript with Tailwind CSS to PHP with Alpine.js and Bootstrap. The application maintains the same functionality and user experience while using a traditional PHP server-side approach.
+This document outlines the complete migration of the SpySee frontend from React/TypeScript with Tailwind CSS to PHP with Alpine.js and Bootstrap. The application maintains the same functionality and user experience while using a traditional PHP server-side approach.
 
 ## File Structure
 
@@ -54,7 +54,7 @@ phpfrontend/
 
 ## Color Scheme
 
-Maintains the original Clock-It branding:
+Maintains the original SpySee branding:
 
 ```css
 --primary-navy: #093C5D

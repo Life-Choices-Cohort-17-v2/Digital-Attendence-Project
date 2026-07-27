@@ -1,8 +1,8 @@
-# Clock-It Frontend - Quick Start Guide
+# SpySee Frontend - Quick Start Guide
 
 ## 🚀 Getting Started
 
-This is the new PHP-based frontend for Clock-It. All React/TypeScript code has been converted to PHP with Alpine.js and Bootstrap.
+This is the new PHP-based frontend for SpySee. All React/TypeScript code has been converted to PHP with Alpine.js and Bootstrap.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ This is the new PHP-based frontend for Clock-It. All React/TypeScript code has b
 ## File Locations
 
 ```
-c:\xampp\htdocs\Clock-It\
+c:\xampp\htdocs\SpySee\
 ├── phpfrontend/
 │   ├── public/
 │   │   ├── index.php ← Start here
@@ -48,14 +48,14 @@ c:\xampp\htdocs\Clock-It\
 
 ### Option 1: Using XAMPP
 
-1. Place project in `C:\xampp\htdocs\Clock-It\`
+1. Place project in `C:\xampp\htdocs\SpySee\`
 2. Start Apache in XAMPP Control Panel
-3. Navigate to: `http://localhost/Clock-It/phpfrontend/public/`
+3. Navigate to: `http://localhost/SpySee/phpfrontend/public/`
 
 ### Option 2: Using PHP Built-in Server
 
 ```bash
-cd c:\xampp\htdocs\Clock-It\phpfrontend\public
+cd c:\xampp\htdocs\SpySee\phpfrontend\public
 php -S localhost:8000
 ```
 
@@ -67,9 +67,9 @@ Configure vhost in `httpd-vhosts.conf`:
 
 ```apache
 <VirtualHost *:80>
-    ServerName clock-it.local
-    DocumentRoot "C:\xampp\htdocs\Clock-It\phpfrontend\public"
-    <Directory "C:\xampp\htdocs\Clock-It\phpfrontend\public">
+    ServerName SpySee.local
+    DocumentRoot "C:\xampp\htdocs\SpySee\phpfrontend\public"
+    <Directory "C:\xampp\htdocs\SpySee\phpfrontend\public">
         AllowOverride All
         Require all granted
     </Directory>
@@ -78,10 +78,10 @@ Configure vhost in `httpd-vhosts.conf`:
 
 Add to `hosts` file:
 ```
-127.0.0.1 clock-it.local
+127.0.0.1 SpySee.local
 ```
 
-Navigate to: `http://clock-it.local`
+Navigate to: `http://SpySee.local`
 
 ## Page Structure
 
@@ -91,7 +91,7 @@ All staff pages include the same layout:
 
 ```
 ┌─────────────────────────────────┐
-│ Header (Clock-It + User Name)   │
+│ Header (SpySee + User Name)   │
 ├──────────┬──────────────────────┤
 │          │                      │
 │ Sidebar  │  Page Content        │

@@ -1,5 +1,5 @@
 <?php
-// Data management functions for Clock-It
+// Data management functions for SpySee
 
 $dataFile = __DIR__ . '/attendance.json';
 

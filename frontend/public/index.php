@@ -1,5 +1,5 @@
 <?php
-// Main Router for Clock-It System
+// Main Router for SpySee System
 declare(strict_types=1);
 
 session_start();
@@ -144,7 +144,7 @@ if (str_starts_with($path, '/api/')) {
 switch ($path) {
     case '/':
     case '/login':
-        $title = 'Login | Clock-It';
+        $title = 'Login | SpySee';
         $error = $_SESSION['login_error'] ?? null;
         unset($_SESSION['login_error']);
         view('login', compact('title', 'error'));
@@ -154,7 +154,7 @@ switch ($path) {
         if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             redirect_to('/login');
         }
-        $title = 'Staff Dashboard | Clock-It';
+        $title = 'Staff Dashboard | SpySee';
         $user = [
             'name' => $_SESSION['user_name'],
             'email' => $_SESSION['user_email'],
@@ -168,7 +168,7 @@ switch ($path) {
         if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             redirect_to('/login');
         }
-        $title = 'Scan QR Code | Clock-It';
+        $title = 'Scan QR Code | SpySee';
         $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
         view('staff/scan-qr', compact('title', 'user'));
         break;
@@ -177,7 +177,7 @@ switch ($path) {
         if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             redirect_to('/login');
         }
-        $title = 'Attendance History | Clock-It';
+        $title = 'Attendance History | SpySee';
         $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
         view('staff/history', compact('title', 'user'));
         break;
@@ -186,7 +186,7 @@ switch ($path) {
         if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             redirect_to('/login');
         }
-        $title = 'Calendar | Clock-It';
+        $title = 'Calendar | SpySee';
         $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
         view('staff/calendar', compact('title', 'user'));
         break;
@@ -195,7 +195,7 @@ switch ($path) {
         if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             redirect_to('/login');
         }
-        $title = 'Profile | Clock-It';
+        $title = 'Profile | SpySee';
         $user = [
             'name' => $_SESSION['user_name'],
             'email' => $_SESSION['user_email'],
@@ -209,7 +209,7 @@ switch ($path) {
         if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
             redirect_to('/login');
         }
-        $title = 'Admin Dashboard | Clock-It';
+        $title = 'Admin Dashboard | SpySee';
         $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
         view('admin/dashboard', compact('title', 'user'));
         break;
@@ -218,7 +218,7 @@ switch ($path) {
         if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
             redirect_to('/login');
         }
-        $title = 'User Management | Clock-It';
+        $title = 'User Management | SpySee';
         $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
         view('admin/users', compact('title', 'user'));
         break;
@@ -227,7 +227,7 @@ switch ($path) {
         if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
             redirect_to('/login');
         }
-        $title = 'Attendance Logs | Clock-It';
+        $title = 'Attendance Logs | SpySee';
         $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
         view('admin/attendance', compact('title', 'user'));
         break;
@@ -236,7 +236,7 @@ switch ($path) {
         if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
             redirect_to('/login');
         }
-        $title = 'QR Generator | Clock-It';
+        $title = 'QR Generator | SpySee';
         $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
         view('admin/qr', compact('title', 'user'));
         break;
@@ -245,14 +245,14 @@ switch ($path) {
         if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
             redirect_to('/login');
         }
-        $title = 'Settings | Clock-It';
+        $title = 'Settings | SpySee';
         $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
         view('admin/settings', compact('title', 'user'));
         break;
 
     default:
         http_response_code(404);
-        $title = 'Not Found | Clock-It';
+        $title = 'Not Found | SpySee';
         view('404', compact('title'));
         break;
 }

@@ -1,10 +1,10 @@
-# Clock-It Frontend Migration Summary
+# SpySee Frontend Migration Summary
 
 ## What Was Migrated
 
 ### From React/TypeScript to PHP/Alpine.js/Bootstrap
 
-This is a complete frontend rewrite converting the React-based Clock-It application to a PHP-based architecture while maintaining 100% functional parity and visual consistency.
+This is a complete frontend rewrite converting the React-based SpySee application to a PHP-based architecture while maintaining 100% functional parity and visual consistency.
 
 ## Migration Overview
 
