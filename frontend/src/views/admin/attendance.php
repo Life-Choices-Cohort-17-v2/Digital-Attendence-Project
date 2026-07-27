@@ -30,14 +30,14 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
                 <div class="page-header">
                     <div>
                         <h1>Attendance Logs</h1>
-                        <p>Full clock-event history with override and audit trail.</p>
+                        <p>Full onsite-event history with override and audit trail.</p>
                     </div>
                     <button class="btn-outline" @click="exportLogs()">📥 Export CSV</button>
                 </div>
 
                 <div class="history-filters">
                     <input type="text" x-model="searchQuery" placeholder="Search name or location...">
-                    <select x-model="filterType"><option value="all">All staff</option><option value="clock-in">Clock In</option><option value="clock-out">Clock Out</option></select>
+                    <select x-model="filterType"><option value="all">All staff</option><option value="sign-in">Sign In</option><option value="sign-out">Sign Out</option></select>
                 </div>
 
                 <div class="table-container">
@@ -49,7 +49,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
                             <template x-for="log in filteredLogs" :key="log.id">
                                 <tr>
                                     <td x-text="log.staff"></td>
-                                            <td><span class="sync-badge" :class="log.type === 'clock-in' ? 'synced' : ''" x-text="log.type"></span></td>
+                                            <td><span class="sync-badge" :class="log.type === 'sign-in' ? 'synced' : ''" x-text="log.type"></span></td>
                                             <td x-text="log.timestamp"></td>
                                             <td x-text="log.device || 'Mobile'"></td>
                                             <td x-text="log.location"></td>

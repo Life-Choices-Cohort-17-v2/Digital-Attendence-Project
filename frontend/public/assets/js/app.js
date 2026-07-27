@@ -108,13 +108,13 @@ window.api = {
 window.qrUtils = {
     getScanType(code) {
         const upperCode = code.toUpperCase().trim();
-        if (upperCode === 'CLOCK_IN' || upperCode === 'CLOCKIN') return 'clock-in';
-        if (upperCode === 'CLOCK_OUT' || upperCode === 'CLOCKOUT') return 'clock-out';
+        if (upperCode === 'sign_in' || upperCode === 'CLOCKIN') return 'sign-in';
+        if (upperCode === 'sign_out' || upperCode === 'CLOCKOUT') return 'sign-out';
         return null;
     },
     
     async recordScan(type, userId, location = 'Office') {
-        const endpoint = type === 'clock-in' ? 'api/clock-in.php' : 'api/clock-out.php';
+        const endpoint = type === 'sign-in' ? 'api/sign-in.php' : 'api/sign-out.php';
         try {
             const result = await window.api.post(endpoint, { type: type, user_id: userId, location: location });
             // window.api.post now handles showing error toasts

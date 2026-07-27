@@ -53,29 +53,29 @@ if ($path === '/login' && $method === 'POST') {
     $identifier = strtolower(trim((string) ($_POST['identifier'] ?? '')));
     $password = $_POST['password'] ?? '';
     
-    if (($identifier === 'admin@clockit.app' || $identifier === 'admin') && $password === 'admin123') {
+    if (($identifier === 'admin@spysee.app' || $identifier === 'admin') && $password === 'admin123') {
         $_SESSION['user_id'] = 'admin-001';
         $_SESSION['user_name'] = 'Admin User';
-        $_SESSION['user_email'] = 'admin@clockit.app';
+        $_SESSION['user_email'] = 'admin@spysee.app';
         $_SESSION['user_role'] = 'admin';
         $_SESSION['employee_id'] = 'ADM-001';
         redirect_to('/admin-dashboard');
-    } elseif (($identifier === 'sarah@clockit.app' || $identifier === 'sarah') && $password === 'sarah123') {
+    } elseif (($identifier === 'sarah@spysee.app' || $identifier === 'sarah') && $password === 'sarah123') {
         $_SESSION['user_id'] = 'staff-001';
         $_SESSION['user_name'] = 'Sarah Mthembu';
-        $_SESSION['user_email'] = 'sarah@clockit.app';
+        $_SESSION['user_email'] = 'sarah@spysee.app';
         $_SESSION['user_role'] = 'staff';
         $_SESSION['employee_id'] = 'S-101';
         redirect_to('/staff-dashboard');
-    } elseif (($identifier === 'staff@clockit.app' || $identifier === 'staff') && $password === 'password123') {
+    } elseif (($identifier === 'staff@spysee.app' || $identifier === 'staff') && $password === 'password123') {
         $_SESSION['user_id'] = 'staff-002';
         $_SESSION['user_name'] = 'Demo Staff';
-        $_SESSION['user_email'] = 'staff@clockit.app';
+        $_SESSION['user_email'] = 'staff@spysee.app';
         $_SESSION['user_role'] = 'staff';
         $_SESSION['employee_id'] = 'EMP-001';
         redirect_to('/staff-dashboard');
     } else {
-        $_SESSION['login_error'] = 'Invalid credentials. Use admin@clockit.app/admin123 or sarah@clockit.app/sarah123';
+        $_SESSION['login_error'] = 'Invalid credentials. Use admin@spysee.app/admin123 or sarah@spysee.app/sarah123';
         redirect_to('/login');
     }
 }
@@ -101,12 +101,12 @@ if (str_starts_with($path, '/api/')) {
         echo json_encode(getRecentActivity());
         exit;
     }
-    if ($path === '/api/clock-in.php') {
+    if ($path === '/api/sign-in.php') {
         $data = json_decode(file_get_contents('php://input'), true);
         echo json_encode(handleClockIn($data));
         exit;
     }
-    if ($path === '/api/clock-out.php') {
+    if ($path === '/api/sign-out.php') {
         $data = json_decode(file_get_contents('php://input'), true);
         echo json_encode(handleClockOut($data));
         exit;

@@ -308,7 +308,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                 <div class="status-block">
                     <div class="offsite-badge" x-text="isClockedIn ? 'ONSITE' : 'OFFSITE'" :style="isClockedIn ? 'color: #9CB07A; background: rgba(156, 176, 122, 0.12);' : ''">OFFSITE</div>
                     <p>You are currently</p>
-                    <h2 x-text="isClockedIn ? 'Clocked In' : 'Clocked Out'">Clocked Out</h2>
+                    <h2 x-text="isClockedIn ? 'Signed in' : 'Sign Out'">Sign Out</h2>
                     <a href="<?= route_url('/scan-qr') ?>" class="scan-btn">Scan QR</a>
                 </div>
 
@@ -444,14 +444,14 @@ function dashboardApp() {
         get selectedStatus() {
             const status = this.getDayStatus(this.selectedDay);
             if (status === 'present') return 'You were present on this day';
-            if (status === 'absent') return 'No clock-in recorded on this day';
+            if (status === 'absent') return 'No sign-in recorded on this day';
             if (status === 'leave') return 'You were on leave this day';
             return 'No attendance data for this day';
         },
         
         async init() {
             window.themeManager.initTheme();
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'User', 'email' => 'user@clockit.app']); ?>;
+            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'User', 'email' => 'user@spysee.app']); ?>;
             this.user = userData;
             await this.updateStatus();
             

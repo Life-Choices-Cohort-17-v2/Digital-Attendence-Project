@@ -78,13 +78,13 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
 
                     <div class="settings-card">
                         <h3>Location Settings</h3>
-                        <p>Configure clock-in location requirements.</p>
+                        <p>Configure sign-in location requirements.</p>
                         <div class="setting-row">
-                            <span class="setting-label">Max clock-in distance (meters)</span>
+                            <span class="setting-label">Max sign-in distance (meters)</span>
                             <input type="number" x-model="settings.maxDistance" style="width:80px; padding:8px; border-radius:8px; border:1px solid var(--border-color)">
                         </div>
                         <div class="setting-row">
-                            <span class="setting-label">Require GPS for clock-in</span>
+                            <span class="setting-label">Require GPS for sign-in</span>
                             <label class="switch">
                                 <input type="checkbox" x-model="settings.requireGPS">
                                 <span class="slider"></span>

@@ -5,7 +5,7 @@
  */
 
 // Get current status from localStorage or session
-$status = $_SESSION['attendance_status'] ?? 'Clocked Out';
+$status = $_SESSION['attendance_status'] ?? 'Sign Out';
 $location = $_SESSION['attendance_location'] ?? 'OFFSITE';
 ?>
 
@@ -39,7 +39,7 @@ $location = $_SESSION['attendance_location'] ?? 'OFFSITE';
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
         <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm13-2h1v4h-1v-4zm-4 4h4v1h-4v-1zm1-3h1v2h-1v-2z"/>
       </svg>
-      Scan QR Code to Clock In
+      Scan QR Code to Sign In
     </button>
 
     <p class="qr-hint">

@@ -192,7 +192,7 @@ The QR scanner on `/staff/scan-qr.php`:
 
 - Uses device camera
 - Supports both front and rear cameras
-- Accepts: `CLOCK_IN` or `CLOCK_OUT` codes
+- Accepts: `sign_in` or `sign_out` codes
 - Demo buttons for testing without QR code
 - Manual entry fallback
 - Results saved to localStorage

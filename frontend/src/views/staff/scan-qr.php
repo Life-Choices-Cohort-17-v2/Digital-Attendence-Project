@@ -71,7 +71,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             gap: 16px;
             margin-top: 24px;
         }
-        .demo-clock-in, .demo-clock-out {
+        .demo-sign-in, .demo-sign-out {
             flex: 1;
             padding: 14px;
             border: none;
@@ -79,11 +79,11 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             font-weight: 600;
             cursor: pointer;
         }
-        .demo-clock-in {
+        .demo-sign-in {
             background: rgba(156, 176, 122, 0.12);
             color: #728C47;
         }
-        .demo-clock-out {
+        .demo-sign-out {
             background: rgba(245, 158, 11, 0.12);
             color: #D97706;
         }
@@ -128,7 +128,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             
             <div class="scan-container">
                 <h1>Scan QR Code</h1>
-                <p>Point your camera at the workplace QR code to clock in or out.</p>
+                <p>Point your camera at the workplace QR code to Sign In or out.</p>
 
                 <div class="scanner-card">
                     <div class="scanner-header">
@@ -153,19 +153,19 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                         <div class="demo-qr-grid">
                             <div class="demo-qr-item">
                                 <div id="qr-display"></div>
-                                <p x-text="currentDemoType === 'clock-in' ? 'Clock In QR' : 'Clock Out QR'"></p>
+                                <p x-text="currentDemoType === 'sign-in' ? 'Sign In QR' : 'Sign Out QR'"></p>
                             </div>
                         </div>
                         <div class="demo-buttons">
-                            <button class="demo-clock-in" @click="demoClockIn()">✅ Demo: Clock In</button>
-                            <button class="demo-clock-out" @click="demoClockOut()">⏹️ Demo: Clock Out</button>
+                            <button class="demo-sign-in" @click="demoClockIn()">✅ Demo: Sign In</button>
+                            <button class="demo-sign-out" @click="demoClockOut()">⏹️ Demo: Sign Out</button>
                         </div>
                     </div>
 
                     <div class="manual-input">
                         <p>Or enter code manually:</p>
                         <div class="manual-row">
-                            <input type="text" x-model="manualCode" placeholder="CLOCK_IN or CLOCK_OUT">
+                            <input type="text" x-model="manualCode" placeholder="SIGN_IN or SIGN_OUT">
                         </div>
                         <button class="manual-submit-btn" @click="manualSubmit()">Submit</button>
                     </div>
@@ -189,11 +189,11 @@ function scanApp() {
         resultType: '',
         scannerActive: false,
         html5QrCode: null,
-        activeQRText: 'CLOCK_IN', // Default fallback
-        currentDemoType: 'clock-in',
+        activeQRText: 'sign_in', // Default fallback
+        currentDemoType: 'sign-in',
         
         async init() {
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff', 'email' => 'staff@clockit.app']); ?>;
+            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff', 'email' => 'staff@spysee.app']); ?>;
             this.user = userData;
             window.themeManager.initTheme();
             
@@ -261,31 +261,31 @@ function scanApp() {
         },
         
         async demoClockIn() {
-            const result = await window.qrUtils.recordScan('clock-in', this.user.id);
+            const result = await window.qrUtils.recordScan('sign-in', this.user.id);
             if (result && result.success) {
-                this.activeQRText = 'CLOCK_IN';
-                this.resultMessage = `✅ Clocked in successfully at ${new Date().toLocaleTimeString()}`;
+                this.activeQRText = 'sign_in';
+                this.resultMessage = `✅ Signed in successfully at ${new Date().toLocaleTimeString()}`;
                 this.resultType = 'success';
             } else if (result) {
                 this.resultMessage = result.message;
                 this.resultType = 'error';
             }
-            this.currentDemoType = 'clock-in';
+            this.currentDemoType = 'sign-in';
             this.renderQR();
             setTimeout(() => { this.resultMessage = ''; }, 3000);
         },
         
         async demoClockOut() {
-            const result = await window.qrUtils.recordScan('clock-out', this.user.id);
+            const result = await window.qrUtils.recordScan('sign-out', this.user.id);
             if (result && result.success) {
-                this.activeQRText = 'CLOCK_OUT';
-                this.resultMessage = `⏹️ Clocked out successfully at ${new Date().toLocaleTimeString()}`;
+                this.activeQRText = 'sign_out';
+                this.resultMessage = `⏹️ Sign Out successfully at ${new Date().toLocaleTimeString()}`;
                 this.resultType = 'success';
             } else if (result) {
                 this.resultMessage = result.message;
                 this.resultType = 'error';
             }
-            this.currentDemoType = 'clock-out';
+            this.currentDemoType = 'sign-out';
             this.renderQR();
             setTimeout(() => { this.resultMessage = ''; }, 3000);
         },
@@ -293,14 +293,14 @@ function scanApp() {
         async manualSubmit() {
             const type = window.qrUtils.getScanType(this.manualCode);
             if (!type) {
-                this.resultMessage = 'Invalid code. Use CLOCK_IN or CLOCK_OUT';
+                this.resultMessage = 'Invalid code. Use SIGN_IN or SIGN_OUT';
                 this.resultType = 'error';
                 setTimeout(() => { this.resultMessage = ''; }, 3000);
                 return;
             }
             const result = await window.qrUtils.recordScan(type, this.user.id);
             if (result && result.success) {
-                this.resultMessage = `${type === 'clock-in' ? 'Clocked in' : 'Clocked out'} successfully!`;
+                this.resultMessage = `${type === 'sign-in' ? 'Signed in' : 'Sign Out'} successfully!`;
                 this.resultType = 'success';
             } else if (result) {
                 this.resultMessage = result.message;

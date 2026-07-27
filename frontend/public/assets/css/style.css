@@ -1286,7 +1286,7 @@ body.dark-mode .demo-qr-item {
     margin-top: 24px;
 }
 
-.demo-clock-in, .demo-clock-out {
+.demo-sign-in, .demo-sign-out {
     flex: 1;
     padding: 14px;
     border: none;
@@ -1295,12 +1295,12 @@ body.dark-mode .demo-qr-item {
     cursor: pointer;
 }
 
-.demo-clock-in {
+.demo-sign-in {
     background: var(--olive-green-soft);
     color: var(--olive-green);
 }
 
-.demo-clock-out {
+.demo-sign-out {
     background: rgba(245, 158, 11, 0.12);
     color: #D97706;
 }

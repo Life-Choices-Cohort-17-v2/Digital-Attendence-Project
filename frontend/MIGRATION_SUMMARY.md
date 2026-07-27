@@ -223,7 +223,7 @@ DELETE /api/qr-codes/{id}
 
 Tables needed:
 - `users` - Employee data
-- `attendance_records` - Clock in/out logs
+- `attendance_records` - Sign In/out logs
 - `qr_codes` - QR code management
 - `settings` - Admin configuration
 

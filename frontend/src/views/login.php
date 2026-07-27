@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $title ?? 'Clock It - Login' ?></title>
+    <title><?= $title ?? 'SpySee - Login' ?></title>
     <style>
         * {
             margin: 0;
@@ -407,12 +407,12 @@
         <!-- Left Side - Full height blue section (DESKTOP ONLY - hidden on mobile/tablet) -->
         <div class="login-left">
             <div class="login-brand">
-                <h1>Clock It</h1>
+                <h1>SpySee</h1>
             </div>
             <h2>Real-time attendance.<br>Always connected.<br>Built for frontline staff.</h2>
-            <p>Fast QR-based clock-in. Live onsite visibility. Seamless Google Sheets sync — wherever your team works.</p>
+            <p>Fast QR-based sign-in. Live onsite visibility. Seamless Google Sheets sync — wherever your team works.</p>
             <div class="feature-badges">
-                <div class="badge-item">&lt;2s <span>Clock-in time</span></div>
+                <div class="badge-item">&lt;2s <span>sign-in time</span></div>
                 <div class="badge-item">100% <span>User friendly</span></div>
                 <div class="badge-item">Live <span>Sheets sync</span></div>
             </div>
@@ -433,7 +433,7 @@
                 <form method="post" action="<?= route_url('/login') ?>" @submit="loading = true">
                     <div class="input-group">
                         <label>Email</label>
-                        <input type="text" name="identifier" required placeholder="sarah@clockit.app">
+                        <input type="text" name="identifier" required placeholder="sarah@spysee.app">
                     </div>
                     <div class="input-group">
                         <label>Password</label>
@@ -454,13 +454,13 @@
                 <div class="demo-accounts">
                     <p>DEMO ACCOUNTS</p>
                     <div class="demo-items">
-                        <div><strong>admin@clockit.app</strong> / admin123 <span class="role-badge admin">Admin</span></div>
-                        <div><strong>sarah@clockit.app</strong> / sarah123 <span class="role-badge staff">Staff</span></div>
+                        <div><strong>admin@spysee.app</strong> / admin123 <span class="role-badge admin">Admin</span></div>
+                        <div><strong>sarah@spysee.app</strong> / sarah123 <span class="role-badge staff">Staff</span></div>
                     </div>
                 </div>
 
                 <div class="login-footer">
-                    <p>© Clock It - Secure attendance for modern teams</p>
+                    <p>© SpySee - Secure attendance for modern teams</p>
                 </div>
             </div>
         </div>
