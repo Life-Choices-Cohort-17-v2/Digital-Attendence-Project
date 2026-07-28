@@ -1,1 +1,0 @@
-//authMiddleware.ts file
