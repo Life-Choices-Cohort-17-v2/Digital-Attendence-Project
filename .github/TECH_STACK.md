@@ -1,6 +1,6 @@
 # 🛠️ Tech Stack & Getting Started Guide
 
-This document outlines our official technical architecture and provides step-by-step instructions on how to download, install, and execute the Clock-It codebase locally.
+This document outlines our official technical architecture and provides step-by-step instructions on how to download, install, and execute the SpySee codebase locally.
 
 ---
 

@@ -1,0 +1,195 @@
+{
+    "active_sessions": [
+        {
+            "user_id": "staff-001",
+            "status": "signed_out",
+            "sign_in_time": "2026-06-02 11:28:24",
+            "sign_out_time": "2026-06-02 11:28:36"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "signed_out",
+            "sign_in_time": "2026-06-02 11:28:40",
+            "sign_out_time": "2026-06-02 11:32:57"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "signed_out",
+            "sign_in_time": "2026-06-02 11:32:59",
+            "sign_out_time": "2026-06-02 11:44:42"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "signed_out",
+            "sign_in_time": "2026-07-27 15:16:37",
+            "sign_out_time": "2026-07-27 15:17:07"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "signed_out",
+            "sign_in_time": "2026-07-27 15:17:12",
+            "sign_out_time": "2026-07-27 15:17:17"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "signed_out",
+            "sign_in_time": "2026-07-27 15:17:20",
+            "sign_out_time": "2026-07-27 15:17:25"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "signed_out",
+            "sign_in_time": "2026-07-27 15:17:31",
+            "sign_out_time": "2026-07-27 15:18:14"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "signed_out",
+            "sign_in_time": "2026-07-27 15:18:17",
+            "sign_out_time": "2026-07-27 15:30:54"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "signed_in",
+            "sign_in_time": "2026-07-27 15:30:57"
+        }
+    ],
+    "attendance_records": [
+        {
+            "id": "6a1ea2386d1b5",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-06-02 11:28:24",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a1ea244e78c2",
+            "user_id": "staff-001",
+            "type": "sign-out",
+            "timestamp": "2026-06-02 11:28:36",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a1ea24808f3f",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-06-02 11:28:40",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a1ea3491920e",
+            "user_id": "staff-001",
+            "type": "sign-out",
+            "timestamp": "2026-06-02 11:32:57",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a1ea34b565d2",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-06-02 11:32:59",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a1ea60a53b62",
+            "user_id": "staff-001",
+            "type": "sign-out",
+            "timestamp": "2026-06-02 11:44:42",
+            "date": "2026-06-02",
+            "location": "Office"
+        },
+        {
+            "id": "6a675a3545ea9",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-07-27 15:16:37",
+            "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a675a539932d",
+            "user_id": "staff-001",
+            "type": "sign-out",
+            "timestamp": "2026-07-27 15:17:07",
+            "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a675a5863097",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-07-27 15:17:12",
+            "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a675a5d8c1de",
+            "user_id": "staff-001",
+            "type": "sign-out",
+            "timestamp": "2026-07-27 15:17:17",
+            "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a675a607a1cd",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-07-27 15:17:20",
+            "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a675a6511638",
+            "user_id": "staff-001",
+            "type": "sign-out",
+            "timestamp": "2026-07-27 15:17:25",
+            "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a675a6bae16c",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-07-27 15:17:31",
+            "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a675a96c494b",
+            "user_id": "staff-001",
+            "type": "sign-out",
+            "timestamp": "2026-07-27 15:18:14",
+            "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a675a9934dbc",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-07-27 15:18:17",
+            "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a675d8e95d17",
+            "user_id": "staff-001",
+            "type": "sign-out",
+            "timestamp": "2026-07-27 15:30:54",
+            "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a675d91b2779",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-07-27 15:30:57",
+            "date": "2026-07-27",
+            "location": "Office"
+        }
+    ]
+}
