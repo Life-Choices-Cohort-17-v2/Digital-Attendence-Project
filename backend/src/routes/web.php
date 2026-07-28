@@ -17,13 +17,13 @@ switch ($route) {
         }
         break;
 
-    case '/attendance/clock-in':
+    case '/attendance/Spy-in':
         if ($method === 'POST') {
             (new Controllers\AttendanceController($pdo))->clockIn();
         }
         break;
 
-    case '/attendance/clock-out':
+    case '/attendance/Spy-out':
         if ($method === 'POST') {
             (new Controllers\AttendanceController($pdo))->clockOut();
         }
