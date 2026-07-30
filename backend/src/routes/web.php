@@ -3,40 +3,74 @@
  * CENTRAL APPLICATION ROUTER
  */
 
-$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$method = $_SERVER['REQUEST_METHOD'];
+spl_autoload_register(function ($class) {
+    // Standard PSR-4 style mapping relative to src/
+    $relPath = str_replace('\\', '/', $class) . '.php';
+    
+    // 1. Exact match attempt: backend/src/Validators/AttendanceValidator.php
+    $file = __DIR__ . '/../' . $relPath;
+    if (file_exists($file)) {
+        require_once $file;
+        return;
+    }
 
-// Standardize route path
-$route = str_replace('/backend', '', $uri);
+    // 2. Lowercase folder + exact filename fallback: backend/src/validators/AttendanceValidator.php
+    $parts = explode('\\', $class);
+    $fileName = array_pop($parts);
+    $dirPath = strtolower(implode('/', $parts));
+    $mixedFile = __DIR__ . '/../' . $dirPath . '/' . $fileName . '.php';
+    if (file_exists($mixedFile)) {
+        require_once $mixedFile;
+        return;
+    }
+});
+
+$requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+$uri = parse_url($requestUri, PHP_URL_PATH);
+$uri = rtrim($uri, '/');
+if (empty($uri)) {
+    $uri = '/';
+}
+
+$route = preg_replace('#^/backend#', '', $uri);
+
+header('Content-Type: application/json');
 
 switch ($route) {
-    // --- PERSON 3: ATTENDANCE CLOCK ENGINE ROUTES ---
+    case '/':
+        echo json_encode(['success' => true, 'message' => 'Digital Attendance System API running']);
+        break;
+
+    // --- ATTENDANCE CLOCK ENGINE ---
     case '/attendance/scan':
         if ($method === 'POST') {
-            (new Controllers\AttendanceController($pdo))->scan();
+            (new Controllers\AttendanceController($pdo ?? null))->scan();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
         }
         break;
 
-    case '/attendance/Spy-in':
+    case '/attendance/clock-in':
         if ($method === 'POST') {
-            (new Controllers\AttendanceController($pdo))->clockIn();
+            (new Controllers\AttendanceController($pdo ?? null))->clockIn();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
         }
         break;
 
-    case '/attendance/Spy-out':
+    case '/attendance/clock-out':
         if ($method === 'POST') {
-            (new Controllers\AttendanceController($pdo))->clockOut();
+            (new Controllers\AttendanceController($pdo ?? null))->clockOut();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
         }
         break;
 
-    // --- PERSON 2: AUTHENTICATION ROUTES ---
-    case '/auth/login':
-        if ($method === 'POST') {
-            (new Controllers\AuthController($pdo))->login();
-        }
-        break;
-
-    // Default 404
     default:
         http_response_code(404);
         echo json_encode(['success' => false, 'message' => 'Route not found.']);

@@ -1,55 +1,70 @@
 <?php
-namespace App\Data;
+namespace Data;
 
-use App\Helpers\TimeHelper;
+use Helpers\TimeHelper;
+use Exception;
 
-/**
- * ATTENDANCE BUSINESS RULES & GUARDS
- * Owner: Person 3 (Clock Engine Lead)
- */
 class AttendanceRules 
 {
     /**
-     * Validates double-scan / cooldown prevention
+     * Checks if the employee is known and active
      */
-    public static function enforceCooldown(?array $activeShift): ?array 
+    public static function validateEmployee(?array $employee): void 
     {
-        if (!$activeShift) {
-            return null;
+        if (!$employee) {
+            throw new Exception("Employee badge or ID not found.");
         }
 
-        if (TimeHelper::isWithinCooldown($activeShift['clock_in'], 30)) {
-            return [
-                'allowed' => false,
-                'status_code' => 429,
-                'message' => 'Cooldown active: Please wait 30 seconds between scans.'
-            ];
+        if (($employee['status'] ?? '') !== 'active') {
+            throw new Exception("Employee account is inactive. Action denied.");
         }
-
-        return ['allowed' => true];
     }
 
     /**
-     * Verifies if employee account status allows clocking
+     * Rules specific to clocking IN
      */
-    public static function canUserClock(?array $user): array 
+    public static function canClockIn(?array $employee, bool $isClockedIn, ?string $lastClockTime): void 
     {
-        if (!$user) {
-            return [
-                'allowed' => false,
-                'status_code' => 404,
-                'message' => 'Employee badge/ID not found in database.'
-            ];
+        self::validateEmployee($employee);
+
+        if ($isClockedIn) {
+            throw new Exception("Employee is already clocked in.");
         }
 
-        if (empty($user['is_active'])) {
-            return [
-                'allowed' => false,
-                'status_code' => 403,
-                'message' => 'Employee account is inactive. Clock-in denied.'
-            ];
-        }
-
-        return ['allowed' => true];
+        self::enforceCooldown($lastClockTime, 30);
     }
-}
+
+    /**
+     * Rules specific to clocking OUT
+     */
+// AttendanceRules.php
+        public static function canClockOut(?array $employee, bool $isClockedIn, ?string $lastClockTime): void 
+        {
+            self::validateEmployee($employee);
+
+            if (!$isClockedIn) {
+                throw new Exception("Employee is not currently clocked in.");
+            }
+
+            // 0 or short delay so clocking out after clocking in isn't blocked
+            self::enforceCooldown($lastClockTime, 0); 
+        }
+
+    /**
+     * Enforces a cooldown against double-scans or rapid retries
+     */
+    public static function enforceCooldown(
+            ?string $lastActionTime, 
+            int $cooldownSeconds = 30
+        ): void {
+            if (!$lastActionTime) {
+                return;
+            }
+
+            $elapsed = time() - strtotime($lastActionTime);
+            if ($elapsed < $cooldownSeconds) {
+                $remaining = $cooldownSeconds - $elapsed;
+                throw new Exception("Please wait {$remaining} seconds before repeating this action.");
+            }
+        }
+    }
