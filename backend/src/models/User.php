@@ -1,33 +1,42 @@
-import { User } from '../types';
+<?php
+namespace Models;
 
-// Seed initial test accounts for the team
-export const MOCK_USERS: User[] = [
-  {
-    id: 'usr_001',
-    employeeId: 'EMP001',
-    email: 'staff@insite.com',
-    passwordHash: 'password123',
-    firstName: 'Alex',
-    lastName: 'Morgan',
-    role: 'staff',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'usr_002',
-    employeeId: 'ADM001',
-    email: 'admin@insite.com',
-    passwordHash: 'admin123',
-    firstName: 'Sarah',
-    lastName: 'Connor',
-    role: 'admin',
-    createdAt: new Date().toISOString()
-  }
-];
+use Config\Database;
 
-export const findUserByEmployeeId = (employeeId: string): User | undefined => {
-  return MOCK_USERS.find(u => u.employeeId.toUpperCase() === employeeId.toUpperCase());
-};
+class User {
+    private $db;
 
-export const findUserById = (id: string): User | undefined => {
-  return MOCK_USERS.find(u => u.id === id);
-};
+    public function __construct() {
+        $this->db = Database::getInstance()->getPdo();
+    }
+
+    public function find($id) {
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch();
+    }
+
+    public function findByEmail($email) {
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        return $stmt->fetch();
+    }
+
+    public function getOnsiteStaff() {
+        $today = date('Y-m-d');
+        $sql = "SELECT DISTINCT u.* FROM users u
+                JOIN attendance_records a ON u.id = a.user_id
+                WHERE DATE(a.timestamp) = ? AND a.type = 'sign_in'
+                AND NOT EXISTS (
+                    SELECT 1 FROM attendance_records a2
+                    WHERE a2.user_id = u.id AND DATE(a2.timestamp) = ?
+                    AND a2.type = 'sign_out' AND a2.timestamp > a.timestamp
+                )
+                AND u.status = 'active'";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$today, $today]);
+        return $stmt->fetchAll();
+    }
+
+    // Other methods: create, update, delete, etc.
+}
