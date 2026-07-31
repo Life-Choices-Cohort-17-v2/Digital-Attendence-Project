@@ -18,18 +18,22 @@ class AttendanceService
         $this->attendanceModel = new Attendance($pdo);
     }
 
-    public function processScan(string $qrCode): array 
-    {
-        $employee = $this->employeeModel->findByQrCode($qrCode);
-        AttendanceRules::validateEmployee($employee);
+   public function processScan(string $qrCode): array
+{
+    $employee = $this->employeeModel->findByQrCode($qrCode);
 
-        $isClockedIn = $this->attendanceModel->isClockedIn($employee['employee_id']);
+    AttendanceRules::validateEmployee($employee);
 
-        return [
-            'employee' => $employee,
-            'current_status' => $isClockedIn ? 'clocked_in' : 'clocked_out'
-        ];
-    }
+    $employeeId = $employee['employee_id'];
+
+    $isClockedIn = $this->attendanceModel->isClockedIn($employeeId);
+
+    return [
+        'employee_id' => $employeeId,
+        'name' => $employee['name'],
+        'status' => $isClockedIn ? 'CLOCKED_IN' : 'CLOCKED_OUT'
+    ];
+}
 
     public function clockIn(string $employeeId): array 
     {

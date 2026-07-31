@@ -24,7 +24,7 @@ class AttendanceController
             $qrCode = AttendanceValidator::validateScanInput($input);
             
             // If your flow is scan -> instant clock-in:
-            $result = $this->attendanceService->clockInByQr($qrCode);
+            $result = $this->attendanceService->processScan($qrCode);
             
             // OR if your flow is scan -> return status check:
             // $result = $this->attendanceService->processScan($qrCode);
