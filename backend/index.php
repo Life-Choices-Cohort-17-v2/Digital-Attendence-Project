@@ -13,7 +13,7 @@ spl_autoload_register(function ($class) {
 });
 
 // Load DB connection config
-require_once __DIR__ . '/src/config/db.php';
+require_once __DIR__ . '/src/config/Database.php';
 
 // Dispatch Request to Router
 require_once __DIR__ . '/src/routes/web.php';
