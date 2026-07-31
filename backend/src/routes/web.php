@@ -10,6 +10,19 @@ $method = $_SERVER['REQUEST_METHOD'];
 $route = str_replace('/backend', '', $uri);
 
 switch ($route) {
+
+    case '/qr/generate':
+        if ($method === 'GET') {
+            (new Controllers\QRController($pdo))->generate();
+        }
+        break;
+
+    case '/qr/validate':
+        if ($method === 'POST') {
+            (new Controllers\QRController($pdo))->validate();
+        }
+        break;
+
     // --- PERSON 3: ATTENDANCE CLOCK ENGINE ROUTES ---
     case '/attendance/scan':
         if ($method === 'POST') {

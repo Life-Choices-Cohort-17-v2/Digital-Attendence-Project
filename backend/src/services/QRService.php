@@ -64,6 +64,10 @@ final class QRService
         if (!function_exists('imagecreate')) {
             throw new RuntimeException('The GD extension is required to render QR PNGs.');
         }
+        if (!class_exists('QRCode')) {
+            require_once __DIR__ . '/../../vendor/phpqrcode/qrlib.php';
+        }
+
 
         $matrix = \QRCode::getMinimumQRCode($token, QR_ERROR_CORRECT_LEVEL_M);
         $moduleCount = $matrix->getModuleCount();

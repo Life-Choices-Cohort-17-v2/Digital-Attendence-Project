@@ -31,11 +31,32 @@ final class QRCode
     }
 
     /**
+     * Ensures the qr_codes table exists
+     */
+    public static function ensureTableExists(PDO $pdo): void
+    {
+        $sql = "CREATE TABLE IF NOT EXISTS qr_codes (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            employee_id VARCHAR(50) NOT NULL,
+            token VARCHAR(32) NOT NULL UNIQUE,
+            issued_at DATETIME NOT NULL,
+            expires_at DATETIME NULL,
+            revoked_at DATETIME NULL,
+            INDEX idx_token (token),
+            INDEX idx_employee (employee_id)
+        )";
+        $pdo->exec($sql);
+    }
+
+    /**
      * Issues a new QR code for an employee and persists it.
      * $ttlSeconds = null means it never expires (badge-style).
      */
     public static function issueFor(PDO $pdo, string $employeeId, ?int $ttlSeconds = null): self
     {
+        // Ensure table exists
+        self::ensureTableExists($pdo);
+
         $token = bin2hex(random_bytes(16)); // 32 hex chars, opaque
         $issuedAt = date('Y-m-d H:i:s');
         $expiresAt = $ttlSeconds !== null ? date('Y-m-d H:i:s', time() + $ttlSeconds) : null;

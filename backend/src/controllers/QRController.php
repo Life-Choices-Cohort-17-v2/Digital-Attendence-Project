@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Exceptions\QRException;
 use App\Services\QRService;
+use PDO;
 
 /**
  * backend/src/controllers/QRController.php
@@ -21,8 +22,10 @@ use App\Services\QRService;
  */
 final class QRController
 {
-    public function __construct(private readonly QRService $qrService)
+    private QRService $qrService;
+    public function __construct(private readonly PDO $pdo)
     {
+        $this->qrService = new QRService($this->pdo);
     }
 
     public function generate(): void
@@ -77,6 +80,7 @@ final class QRController
                 'success' => true,
                 'employee_id' => $qrCode->employeeId,
                 'issued_at' => $qrCode->issuedAt,
+                'message' => 'QR code is valid and active.',
             ]);
         } catch (QRException $e) {
             http_response_code(200); // still a well-formed response, just success:false
