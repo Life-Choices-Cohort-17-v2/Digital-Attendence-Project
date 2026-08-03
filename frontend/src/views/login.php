@@ -430,7 +430,7 @@
                     <div class="error-message"><?= htmlspecialchars($error) ?></div>
                 <?php endif; ?>
 
-                <form method="post" action="<?= route_url('/login') ?>" @submit="loading = true">
+                <form method="post" action="<?= route_url('/auth/login') ?>" @submit="loading = true">
                     <div class="input-group">
                         <label>Email</label>
                         <input type="text" name="identifier" required placeholder="sarah@spysee.app">
@@ -454,8 +454,8 @@
                 <div class="demo-accounts">
                     <p>DEMO ACCOUNTS</p>
                     <div class="demo-items">
-                        <div><strong>admin@spysee.app</strong> / admin123 <span class="role-badge admin">Admin</span></div>
-                        <div><strong>sarah@spysee.app</strong> / sarah123 <span class="role-badge staff">Staff</span></div>
+                        <div><strong>admin@spysee.app</strong> / password <span class="role-badge admin">Admin</span></div>
+                        <div><strong>sarah@spysee.app</strong> / password <span class="role-badge staff">Staff</span></div>
                     </div>
                 </div>
 

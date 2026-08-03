@@ -1,16 +1,37 @@
 <?php
 /**
  * CENTRAL APPLICATION ROUTER
+ * Fixed path resolution and subfolder support.
  */
 
+// --- SIMPLE AUTOLOADER ---
+spl_autoload_register(function (string $class) {
+    $class = ltrim($class, '\\');
+    $file = __DIR__ . '/../' . str_replace('\\', '/', $class) . '.php';
+    if (file_exists($file)) {
+        require_once $file;
+    }
+});
+
+// --- GLOBAL CLASSES (not namespaced) ---
+require_once __DIR__ . '/../config/DataBase.php';
+require_once __DIR__ . '/../exceptions/AuthenticationException.php';
+
+// --- DATABASE CONNECTION ---
+$pdo = DataBase::getConnection();
+
+// --- ROUTING ---
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
 
-// Standardize route path
-$route = str_replace('/backend', '', $uri);
+// Strip the base path (e.g., /insite/Digital-Attendence-Project/backend) so we get /auth/login
+$route = substr($uri, strlen(BASE_PATH));
+
+// Also remove any trailing index.php if present (shouldn't happen, but safe)
+$route = str_replace('/index.php', '', $route);
 
 switch ($route) {
-    // --- PERSON 3: ATTENDANCE CLOCK ENGINE ROUTES ---
+    // --- PERSON 3: ATTENDANCE CLOCK ENGINE ROUTES (stubs) ---
     case '/attendance/scan':
         if ($method === 'POST') {
             (new Controllers\AttendanceController($pdo))->scan();
@@ -31,6 +52,19 @@ switch ($route) {
 
     // --- PERSON 2: AUTHENTICATION ROUTES ---
     case '/auth/login':
+        if ($method === 'POST') {
+            (new Controllers\AuthController($pdo))->login();
+        }
+        break;
+
+    case '/auth/logout':
+        if ($method === 'POST') {
+            (new Controllers\AuthController($pdo))->logout();
+        }
+        break;
+
+    // Optional: support form action="/login"
+    case '/login':
         if ($method === 'POST') {
             (new Controllers\AuthController($pdo))->login();
         }

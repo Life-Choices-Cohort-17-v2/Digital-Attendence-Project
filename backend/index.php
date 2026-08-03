@@ -1,19 +1,12 @@
 <?php
 /**
- * FRONT CONTROLLER
- * Single entry point for all HTTP requests
+ * Front Controller – every request to /backend/* comes here.
  */
+session_start();
 
-// Basic Autoloader for src classes
-spl_autoload_register(function ($class) {
-    $file = __DIR__ . '/src/' . str_replace('\\', '/', $class) . '.php';
-    if (file_exists($file)) {
-        require_once $file;
-    }
-});
+// Define the base path so routes can be matched correctly.
+// $_SERVER['SCRIPT_NAME'] is e.g. /insite/Digital-Attendence-Project/backend/index.php
+// so dirname gives /insite/Digital-Attendence-Project/backend
+define('BASE_PATH', dirname($_SERVER['SCRIPT_NAME']));
 
-// Load DB connection config
-require_once __DIR__ . '/src/config/db.php';
-
-// Dispatch Request to Router
 require_once __DIR__ . '/src/routes/web.php';
