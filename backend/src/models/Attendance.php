@@ -4,37 +4,55 @@ namespace Models;
 class Attendance 
 {
     private ?\PDO $pdo;
-
-    // Simulated in-memory session clock states
-    private static array $mockClockedIn = [];
-    private static array $lastScanTime = [];
+    private string $storageFile;
 
     public function __construct(?\PDO $pdo = null) 
     {
         $this->pdo = $pdo;
+        // Temporary JSON file to persist state across HTTP requests
+        $this->storageFile = sys_get_temp_dir() . '/attendance_mock_state.json';
+    }
+
+    private function loadState(): array 
+    {
+        if (!file_exists($this->storageFile)) {
+            return ['clockedIn' => [], 'lastScanTime' => []];
+        }
+        return json_decode(file_get_contents($this->storageFile), true) ?? ['clockedIn' => [], 'lastScanTime' => []];
+    }
+
+    private function saveState(array $state): void 
+    {
+        file_put_contents($this->storageFile, json_encode($state));
     }
 
     public function isClockedIn(string $employeeId): bool 
     {
-        return self::$mockClockedIn[$employeeId] ?? false;
+        $state = $this->loadState();
+        return $state['clockedIn'][$employeeId] ?? false;
     }
 
     public function getLastClockTime(string $employeeId): ?string 
     {
-        return self::$lastScanTime[$employeeId] ?? null;
+        $state = $this->loadState();
+        return $state['lastScanTime'][$employeeId] ?? null;
     }
 
     public function recordClockIn(string $employeeId, string $timestamp): bool 
     {
-        self::$mockClockedIn[$employeeId] = true;
-        self::$lastScanTime[$employeeId] = $timestamp;
+        $state = $this->loadState();
+        $state['clockedIn'][$employeeId] = true;
+        $state['lastScanTime'][$employeeId] = $timestamp;
+        $this->saveState($state);
         return true;
     }
 
     public function recordClockOut(string $employeeId, string $timestamp): bool 
     {
-        self::$mockClockedIn[$employeeId] = false;
-        self::$lastScanTime[$employeeId] = $timestamp;
+        $state = $this->loadState();
+        $state['clockedIn'][$employeeId] = false;
+        $state['lastScanTime'][$employeeId] = $timestamp;
+        $this->saveState($state);
         return true;
     }
 }

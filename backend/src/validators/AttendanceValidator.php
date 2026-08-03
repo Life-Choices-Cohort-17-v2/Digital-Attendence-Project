@@ -20,4 +20,19 @@ class AttendanceValidator
 
         return $qrCode;
     }
+
+    public static function validateClockInput(array $input): string
+    {
+        if (!isset($input['employee_id'])) {
+            throw new Exception('Employee ID is required.');
+        }
+
+        $employeeId = trim($input['employee_id']);
+
+        if ($employeeId === '') {
+            throw new Exception('Employee ID cannot be empty.');
+        }
+
+        return $employeeId;
+    }
 }
