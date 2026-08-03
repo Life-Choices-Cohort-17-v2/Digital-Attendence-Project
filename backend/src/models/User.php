@@ -1,33 +1,36 @@
-import { User } from '../types';
+<?php
+namespace Models;
 
-// Seed initial test accounts for the team
-export const MOCK_USERS: User[] = [
-  {
-    id: 'usr_001',
-    employeeId: 'EMP001',
-    email: 'staff@insite.com',
-    passwordHash: 'password123',
-    firstName: 'Alex',
-    lastName: 'Morgan',
-    role: 'staff',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'usr_002',
-    employeeId: 'ADM001',
-    email: 'admin@insite.com',
-    passwordHash: 'admin123',
-    firstName: 'Sarah',
-    lastName: 'Connor',
-    role: 'admin',
-    createdAt: new Date().toISOString()
-  }
-];
+use DataBase;
+use PDO;
 
-export const findUserByEmployeeId = (employeeId: string): User | undefined => {
-  return MOCK_USERS.find(u => u.employeeId.toUpperCase() === employeeId.toUpperCase());
-};
+class User {
+    /**
+     * Find a user by email.
+     *
+     * @param string $email
+     * @return array|null
+     */
+    public static function findByEmail(string $email): ?array {
+        $pdo = DataBase::getConnection();
+        $stmt = $pdo->prepare("
+            SELECT id, employee_id, name, email, password_hash, role, department, position, status
+            FROM users
+            WHERE email = ?
+        ");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+        return $user ?: null;
+    }
 
-export const findUserById = (id: string): User | undefined => {
-  return MOCK_USERS.find(u => u.id === id);
-};
+    /**
+     * Verify password.
+     *
+     * @param string $password
+     * @param string $hash
+     * @return bool
+     */
+    public static function verifyPassword(string $password, string $hash): bool {
+        return password_verify($password, $hash);
+    }
+}
