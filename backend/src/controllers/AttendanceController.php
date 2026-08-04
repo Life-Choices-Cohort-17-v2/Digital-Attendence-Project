@@ -1,103 +1,68 @@
 <?php
-namespace App\Controllers;
+namespace Controllers;
 
-use App\Validators\AttendanceValidator;
-use App\Services\AttendanceService;
+require_once __DIR__ . '/../validators/AttendanceValidator.php';
 
-/**
- * ATTENDANCE CONTROLLER
- * Owner: Person 3 (Clock Engine Lead)
- */
+use Services\AttendanceService;
+use Validators\AttendanceValidator;
+use Exception;
+
 class AttendanceController 
 {
     private AttendanceService $attendanceService;
 
-    public function __construct(AttendanceService $attendanceService) 
+    public function __construct(?\PDO $pdo = null) 
     {
-        $this->attendanceService = $attendanceService;
+        $this->attendanceService = new AttendanceService($pdo);
     }
 
-    /**
-     * POST /attendance/scan
-     * Smart Endpoint for Person 4's QR Scanner
-     */
     public function scan(): void 
     {
-        $this->setJsonHeaders();
+        $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        $rawInput = json_decode(file_get_contents('php://input'), true) ?? $_POST;
-
-        // 1. Validate Input Payload
-        $validation = AttendanceValidator::validateScanInput($rawInput);
-        if (!$validation['is_valid']) {
+        try {
+            $qrCode = AttendanceValidator::validateScanInput($input);
+            
+            // If your flow is scan -> instant clock-in:
+            $result = $this->attendanceService->processScan($qrCode);
+            
+            // OR if your flow is scan -> return status check:
+            // $result = $this->attendanceService->processScan($qrCode);
+            
+            echo json_encode(['success' => true, 'data' => $result]);
+        } catch (Exception $e) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => $validation['message']]);
-            return;
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
-
-        // 2. Process Scan via Engine Service
-        $result = $this->attendanceService->processScan(
-            $validation['employee_id'],
-            $validation['location']
-        );
-
-        // 3. Respond
-        http_response_code($result['status_code'] ?? 200);
-        echo json_encode($result);
     }
 
-    /**
-     * POST /attendance/clock-in
-     */
     public function clockIn(): void 
     {
-        $this->setJsonHeaders();
-        $rawInput = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        $validation = AttendanceValidator::validateScanInput($rawInput);
-        if (!$validation['is_valid']) {
+        try {
+            $employeeId = AttendanceValidator::validateClockInput($input);
+            $result = $this->attendanceService->clockIn($employeeId);
+            
+            echo json_encode(['success' => true, 'data' => $result]);
+        } catch (Exception $e) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => $validation['message']]);
-            return;
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
-
-        // Direct Force Clock-In
-        $result = $this->attendanceService->processScan($validation['employee_id'], $validation['location']);
-        http_response_code($result['status_code'] ?? 200);
-        echo json_encode($result);
     }
 
-    /**
-     * POST /attendance/clock-out
-     */
     public function clockOut(): void 
     {
-        $this->setJsonHeaders();
-        $rawInput = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        $validation = AttendanceValidator::validateScanInput($rawInput);
-        if (!$validation['is_valid']) {
+        try {
+            $employeeId = AttendanceValidator::validateClockInput($input);
+            $result = $this->attendanceService->clockOut($employeeId);
+            
+            echo json_encode(['success' => true, 'data' => $result]);
+        } catch (Exception $e) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => $validation['message']]);
-            return;
-        }
-
-        // Direct Force Clock-Out
-        $result = $this->attendanceService->processScan($validation['employee_id'], $validation['location']);
-        http_response_code($result['status_code'] ?? 200);
-        echo json_encode($result);
-    }
-
-    private function setJsonHeaders(): void 
-    {
-        header('Content-Type: application/json');
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: POST, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type');
-
-        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-            http_response_code(200);
-            exit();
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
 }
