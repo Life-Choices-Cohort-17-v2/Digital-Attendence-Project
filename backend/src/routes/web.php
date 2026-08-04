@@ -1,8 +1,7 @@
 <?php
-/**
- * CENTRAL APPLICATION ROUTER
- */
+// routes/web.php
 
+<<<<<<< HEAD
 spl_autoload_register(function ($class) {
     // Standard PSR-4 style mapping relative to src/
     $relPath = str_replace('\\', '/', $class) . '.php';
@@ -62,7 +61,7 @@ switch ($route) {
         }
         break;
 
-    case '/attendance/clock-out':
+      case '/attendance/clock-out':
         if ($method === 'POST') {
             (new Controllers\AttendanceController($pdo ?? null))->clockOut();
         } else {

@@ -1,8 +1,6 @@
 <?php
-/**
- * FRONT CONTROLLER
- * Single entry point for all HTTP requests
- */
+// index.php (entry point)
+require_once __DIR__ . '/vendor/autoload.php';
 
 require_once __DIR__ . '/src/config/DataBase.php';
 
@@ -28,5 +26,29 @@ spl_autoload_register(function ($class) {
 // Load DB connection config
 require_once __DIR__ . '/src/config/DataBase.php';
 
-// Dispatch Request to Router
-require_once __DIR__ . '/src/routes/web.php';
+$routes = require __DIR__ . '/src/routes/web.php';
+$routeKey = $method . ' ' . $path;
+
+if (!isset($routes[$routeKey])) {
+    http_response_code(404);
+    echo json_encode(['error' => 'Not found']);
+    exit;
+}
+
+list($controllerName, $action) = $routes[$routeKey];
+$controllerClass = "Controllers\\$controllerName";
+if (!class_exists($controllerClass)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Controller not found']);
+    exit;
+}
+
+$controller = new $controllerClass();
+if (!method_exists($controller, $action)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Action not found']);
+    exit;
+}
+
+// Call the action
+$controller->$action();
