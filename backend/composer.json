@@ -1,0 +1,18 @@
+{
+    "autoload": {
+        "psr-4": {
+            "Config\\": "src/config/",
+            "Controllers\\": "src/controllers/",
+            "Data\\": "src/data/",
+            "Exceptions\\": "src/exceptions/",
+            "Helpers\\": "src/helpers/",
+            "Middleware\\": "src/middleware/",
+            "Models\\": "src/models/",
+            "Services\\": "src/services/",
+            "Validators\\": "src/validators/"
+        }
+    },
+    "require": {
+        "php": ">=8.0"
+    }
+}
