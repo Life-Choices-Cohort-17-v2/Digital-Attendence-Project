@@ -1,26 +1,22 @@
 <?php
-// routes/web.php
+/**
+ * CENTRAL APPLICATION ROUTER
+ */
 
-<<<<<<< HEAD
 spl_autoload_register(function ($class) {
-    // Standard PSR-4 style mapping relative to src/
     $relPath = str_replace('\\', '/', $class) . '.php';
-    
-    // 1. Exact match attempt: backend/src/Validators/AttendanceValidator.php
     $file = __DIR__ . '/../' . $relPath;
     if (file_exists($file)) {
         require_once $file;
         return;
     }
 
-    // 2. Lowercase folder + exact filename fallback: backend/src/validators/AttendanceValidator.php
     $parts = explode('\\', $class);
     $fileName = array_pop($parts);
     $dirPath = strtolower(implode('/', $parts));
-    $mixedFile = __DIR__ . '/../' . $dirPath . '/' . $fileName . '.php';
-    if (file_exists($mixedFile)) {
-        require_once $mixedFile;
-        return;
+    $fallback = __DIR__ . '/../' . $dirPath . '/' . $fileName . '.php';
+    if (file_exists($fallback)) {
+        require_once $fallback;
     }
 });
 
@@ -42,7 +38,6 @@ switch ($route) {
         echo json_encode(['success' => true, 'message' => 'Digital Attendance System API running']);
         break;
 
-    // --- ATTENDANCE CLOCK ENGINE ---
     case '/attendance/scan':
         if ($method === 'POST') {
             (new Controllers\AttendanceController($pdo ?? null))->scan();
@@ -61,7 +56,7 @@ switch ($route) {
         }
         break;
 
-      case '/attendance/clock-out':
+    case '/attendance/clock-out':
         if ($method === 'POST') {
             (new Controllers\AttendanceController($pdo ?? null))->clockOut();
         } else {

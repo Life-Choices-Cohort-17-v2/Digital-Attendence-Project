@@ -1,42 +1,54 @@
 <?php
 namespace Models;
 
-use Config\Database;
+class User
+{
+    private \PDO $pdo;
 
-class User {
-    private $db;
-
-    public function __construct() {
-        $this->db = Database::getInstance()->getPdo();
+    public function __construct(\PDO $pdo)
+    {
+        $this->pdo = $pdo;
     }
 
-    public function find($id) {
-        $stmt = $this->db->prepare("SELECT * FROM users WHERE id = ?");
-        $stmt->execute([$id]);
-        return $stmt->fetch();
+    public function findByEmail(string $email): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
+        $stmt->execute(['email' => $email]);
+        $user = $stmt->fetch();
+        return $user ?: null;
     }
 
-    public function findByEmail($email) {
-        $stmt = $this->db->prepare("SELECT * FROM users WHERE email = ?");
-        $stmt->execute([$email]);
-        return $stmt->fetch();
+    public function findById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $id]);
+        $user = $stmt->fetch();
+        return $user ?: null;
     }
 
-    public function getOnsiteStaff() {
-        $today = date('Y-m-d');
-        $sql = "SELECT DISTINCT u.* FROM users u
-                JOIN attendance_records a ON u.id = a.user_id
-                WHERE DATE(a.timestamp) = ? AND a.type = 'sign_in'
-                AND NOT EXISTS (
-                    SELECT 1 FROM attendance_records a2
-                    WHERE a2.user_id = u.id AND DATE(a2.timestamp) = ?
-                    AND a2.type = 'sign_out' AND a2.timestamp > a.timestamp
-                )
-                AND u.status = 'active'";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$today, $today]);
-        return $stmt->fetchAll();
+    public function findByEmployeeId(string $employeeId): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE employee_id = :employee_id LIMIT 1');
+        $stmt->execute(['employee_id' => $employeeId]);
+        $user = $stmt->fetch();
+        return $user ?: null;
     }
 
-    // Other methods: create, update, delete, etc.
+    public function countAll(): int
+    {
+        $stmt = $this->pdo->query('SELECT COUNT(*) AS count FROM users');
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function countInactive(): int
+    {
+        $stmt = $this->pdo->query("SELECT COUNT(*) AS count FROM users WHERE status = 'inactive'");
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function countActive(): int
+    {
+        $stmt = $this->pdo->query("SELECT COUNT(*) AS count FROM users WHERE status = 'active'");
+        return (int) $stmt->fetchColumn();
+    }
 }

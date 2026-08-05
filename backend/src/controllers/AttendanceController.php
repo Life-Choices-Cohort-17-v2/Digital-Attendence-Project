@@ -7,28 +7,25 @@ use Services\AttendanceService;
 use Validators\AttendanceValidator;
 use Exception;
 
-class AttendanceController 
+class AttendanceController
 {
     private AttendanceService $attendanceService;
 
-    public function __construct(?\PDO $pdo = null) 
+    public function __construct(?\PDO $pdo = null)
     {
         $this->attendanceService = new AttendanceService($pdo);
     }
 
-    public function scan(): void 
+    public function scan(): void
     {
+        header('Content-Type: application/json');
         $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
         try {
-            $qrCode = AttendanceValidator::validateScanInput($input);
-            
-            // If your flow is scan -> instant clock-in:
-            $result = $this->attendanceService->processScan($qrCode);
-            
-            // OR if your flow is scan -> return status check:
-            // $result = $this->attendanceService->processScan($qrCode);
-            
+            $qrToken = AttendanceValidator::validateScanInput($input);
+            $location = $input['location'] ?? null;
+            $device = $input['device'] ?? 'Mobile';
+            $result = $this->attendanceService->processScan($qrToken, $location, $device);
             echo json_encode(['success' => true, 'data' => $result]);
         } catch (Exception $e) {
             http_response_code(400);
@@ -36,14 +33,16 @@ class AttendanceController
         }
     }
 
-    public function clockIn(): void 
+    public function clockIn(): void
     {
+        header('Content-Type: application/json');
         $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
         try {
             $employeeId = AttendanceValidator::validateClockInput($input);
-            $result = $this->attendanceService->clockIn($employeeId);
-            
+            $location = $input['location'] ?? null;
+            $device = $input['device'] ?? 'Mobile';
+            $result = $this->attendanceService->clockIn($employeeId, $location, $device);
             echo json_encode(['success' => true, 'data' => $result]);
         } catch (Exception $e) {
             http_response_code(400);
@@ -51,14 +50,16 @@ class AttendanceController
         }
     }
 
-    public function clockOut(): void 
+    public function clockOut(): void
     {
+        header('Content-Type: application/json');
         $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
         try {
             $employeeId = AttendanceValidator::validateClockInput($input);
-            $result = $this->attendanceService->clockOut($employeeId);
-            
+            $location = $input['location'] ?? null;
+            $device = $input['device'] ?? 'Mobile';
+            $result = $this->attendanceService->clockOut($employeeId, $location, $device);
             echo json_encode(['success' => true, 'data' => $result]);
         } catch (Exception $e) {
             http_response_code(400);

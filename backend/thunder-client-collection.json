@@ -1,0 +1,78 @@
+{
+  "_type": "collection",
+  "name": "Digital Attendance Backend",
+  "version": "1.0.0",
+  "createdAt": 1722760000000,
+  "modifiedAt": 1722760000000,
+  "requests": [
+    {
+      "_type": "request",
+      "_id": "login",
+      "name": "Login",
+      "url": "http://localhost:8000/backend/login",
+      "method": "POST",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "raw",
+        "raw": "{\n  \"email\": \"admin@spysee.app\",\n  \"password\": \"password\"\n}"
+      },
+      "description": "Authenticate admin user."
+    },
+    {
+      "_type": "request",
+      "_id": "clock-in",
+      "name": "Attendance Clock-In",
+      "url": "http://localhost:8000/backend/attendance/clock-in",
+      "method": "POST",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "raw",
+        "raw": "{\n  \"employee_id\": \"S001\",\n  \"location\": \"HQ Entrance\"\n}"
+      },
+      "description": "Clock in a staff member using employee ID."
+    },
+    {
+      "_type": "request",
+      "_id": "clock-out",
+      "name": "Attendance Clock-Out",
+      "url": "http://localhost:8000/backend/attendance/clock-out",
+      "method": "POST",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "raw",
+        "raw": "{\n  \"employee_id\": \"S001\",\n  \"location\": \"HQ Exit\"\n}"
+      },
+      "description": "Clock out a staff member using employee ID."
+    },
+    {
+      "_type": "request",
+      "_id": "dashboard-stats",
+      "name": "Dashboard Stats",
+      "url": "http://localhost:8000/backend/dashboard/stats",
+      "method": "GET",
+      "description": "Fetch dashboard statistics for the attendance system."
+    },
+    {
+      "_type": "request",
+      "_id": "dashboard-onsite",
+      "name": "Dashboard Onsite",
+      "url": "http://localhost:8000/backend/dashboard/onsite",
+      "method": "GET",
+      "description": "Fetch currently clocked-in employees."
+    },
+    {
+      "_type": "request",
+      "_id": "dashboard-recent",
+      "name": "Dashboard Recent Activity",
+      "url": "http://localhost:8000/backend/dashboard/recent",
+      "method": "GET",
+      "description": "Fetch recent attendance activity."
+    }
+  ]
+}

@@ -1,36 +1,26 @@
 <?php
 namespace Models;
 
-use Config\Database;
+class QrCode
+{
+    private \PDO $pdo;
 
-class QRCode {
-    private $db;
-
-    public function __construct() {
-        $this->db = Database::getInstance()->getPdo();
+    public function __construct(\PDO $pdo)
+    {
+        $this->pdo = $pdo;
     }
 
-    public function create($data) {
-        $sql = "INSERT INTO qr_codes (code, type, location, created_by, is_active)
-                VALUES (:code, :type, :location, :created_by, :is_active)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($data);
-        return $this->db->lastInsertId();
-    }
-
-    public function findByCode($code) {
-        $stmt = $this->db->prepare("SELECT * FROM qr_codes WHERE code = ?");
-        $stmt->execute([$code]);
-        return $stmt->fetch();
-    }
-
-    public function getActive($type) {
-        $stmt = $this->db->prepare("SELECT * FROM qr_codes WHERE type = ? AND is_active = 1 ORDER BY created_at DESC LIMIT 1");
-        $stmt->execute([$type]);
-        return $stmt->fetch();
-    }
-
-    public function update($id, $data) {
-        // implementation
+    public function findByToken(string $token): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT q.*, u.id AS user_id, u.employee_id, u.name, u.email, u.status
+            FROM qr_codes q
+            JOIN users u ON u.employee_id = q.employee_id
+            WHERE q.token = :token
+            LIMIT 1'
+        );
+        $stmt->execute(['token' => $token]);
+        $record = $stmt->fetch();
+        return $record ?: null;
     }
 }

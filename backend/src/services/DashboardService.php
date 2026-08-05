@@ -1,52 +1,47 @@
 <?php
 namespace Services;
 
-use Models\User;
 use Models\Attendance;
+use Models\User;
 
-class DashboardService {
-    private $userModel;
-    private $attendanceModel;
+class DashboardService
+{
+    private ?\PDO $pdo;
+    private User $userModel;
+    private Attendance $attendanceModel;
 
-    public function __construct() {
-        $this->userModel = new User();
-        $this->attendanceModel = new Attendance();
+    public function __construct(?\PDO $pdo = null)
+    {
+        $this->pdo = $pdo;
+        if ($this->pdo === null) {
+            throw new \Exception('Database connection is required for DashboardService.');
+        }
+        $this->userModel = new User($this->pdo);
+        $this->attendanceModel = new Attendance($this->pdo);
     }
 
-    public function getStats() {
+    public function getStats(): array
+    {
+        $totalEmployees = $this->userModel->countAll();
+        $inactiveEmployees = $this->userModel->countInactive();
+        $clockedInEmployees = $this->attendanceModel->countClockedIn();
+        $clockedIn = $this->attendanceModel->getClockedInUsers();
+
         return [
-            'currentlyOnsite' => count($this->userModel->getOnsiteStaff()),
-            'totalClockedInToday' => $this->attendanceModel->getTodayEvents(),
-            'pendingSync' => count($this->attendanceModel->getPendingSync()),
-            'totalEventsToday' => $this->attendanceModel->getTodayEvents() // extend if needed
+            'total_employees' => $totalEmployees,
+            'clocked_in_employees' => $clockedInEmployees,
+            'inactive_employees' => $inactiveEmployees,
+            'clocked_in' => $clockedIn,
         ];
     }
 
-    public function getOnsiteStaff() {
-        $staff = $this->userModel->getOnsiteStaff();
-        return array_map(function($u) {
-            // get last sign-in time
-            $stmt = $this->attendanceModel->db->prepare(
-                "SELECT timestamp FROM attendance_records WHERE user_id = ? AND type = 'sign_in' AND DATE(timestamp) = ? ORDER BY timestamp DESC LIMIT 1"
-            );
-            $stmt->execute([$u['id'], date('Y-m-d')]);
-            $time = $stmt->fetch();
-            return [
-                'id' => $u['id'],
-                'name' => $u['name'],
-                'role' => $u['position'] ?? $u['department'] ?? 'Staff',
-                'sign_in_time' => $time ? $time['timestamp'] : null
-            ];
-        }, $staff);
+    public function getOnsiteStaff(): array
+    {
+        return $this->attendanceModel->getClockedInUsers();
     }
 
-    public function getRecentActivity($limit = 10) {
-        $stmt = $this->attendanceModel->db->prepare(
-            "SELECT a.*, u.name FROM attendance_records a 
-             JOIN users u ON a.user_id = u.id 
-             ORDER BY a.timestamp DESC LIMIT ?"
-        );
-        $stmt->execute([$limit]);
-        return $stmt->fetchAll();
+    public function getRecentActivity(): array
+    {
+        return $this->attendanceModel->getRecentRecords(10);
     }
 }

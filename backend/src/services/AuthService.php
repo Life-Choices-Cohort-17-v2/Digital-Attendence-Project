@@ -3,44 +3,57 @@ namespace Services;
 
 use Models\User;
 
-class AuthService {
-    private $userModel;
+class AuthService
+{
+    private \PDO $pdo;
+    private User $userModel;
 
-    public function __construct() {
-        $this->userModel = new User();
+    public function __construct(\PDO $pdo)
+    {
+        $this->pdo = $pdo;
+        $this->userModel = new User($pdo);
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
     }
 
-    public function login($identifier, $password) {
-        $user = $this->userModel->findByEmail($identifier);
+    public function login(string $email, string $password): array
+    {
+        $user = $this->userModel->findByEmail($email);
         if (!$user || !password_verify($password, $user['password_hash'])) {
-            return ['success' => false, 'message' => 'Invalid credentials'];
+            return ['success' => false, 'message' => 'Invalid credentials.'];
         }
+
         if ($user['status'] !== 'active') {
-            return ['success' => false, 'message' => 'Account inactive'];
+            return ['success' => false, 'message' => 'Account is inactive.'];
         }
 
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_name'] = $user['name'];
-        $_SESSION['user_email'] = $user['email'];
         $_SESSION['user_role'] = $user['role'];
-        $_SESSION['employee_id'] = $user['employee_id'];
-        return ['success' => true, 'user' => $user];
+
+        return ['success' => true, 'user' => [
+            'id' => $user['id'],
+            'employee_id' => $user['employee_id'],
+            'name' => $user['name'],
+            'email' => $user['email'],
+            'role' => $user['role'],
+        ]];
     }
 
-    public function logout() {
+    public function logout(): void
+    {
         $_SESSION = [];
-        session_destroy();
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
     }
 
-    public function isLoggedIn() {
-        return isset($_SESSION['user_id']);
-    }
-
-    public function getCurrentUser() {
-        if (!$this->isLoggedIn()) return null;
-        return $this->userModel->find($_SESSION['user_id']);
+    public function getCurrentUser(): ?array
+    {
+        if (!isset($_SESSION['user_id'])) {
+            return null;
+        }
+        return $this->userModel->findById((int) $_SESSION['user_id']);
     }
 }
