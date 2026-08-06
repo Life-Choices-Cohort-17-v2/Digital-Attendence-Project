@@ -1,6 +1,16 @@
 <?php
+// frontend/src/views/admin/dashboard.php
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+
+// Use isLoggedIn() from GoogleSheets.php
+if (!isLoggedIn()) {
+    header('Location: ' . route_url('/login'));
+    exit;
+}
+
+// Check role
+$role = $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
+if ($role !== 'admin') {
     header('Location: ' . route_url('/login'));
     exit;
 }
@@ -9,16 +19,287 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $title ?? 'Admin Dashboard' ?></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Admin Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="<?= asset_url('js/app.js') ?>"></script>
-    <style>[x-cloak] { display: none !important; }</style>
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        :root {
+            --primary: #2f6f4f;
+            --primary-light: #e9f4ee;
+            --danger: #a3432f;
+            --paper: #fafaf8;
+            --line: #dcdcd6;
+            --muted: #6b6f76;
+            --ink: #1b1f23;
+            --radius: 12px;
+            --shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--paper);
+            color: var(--ink);
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0 16px;
+            border-bottom: 1px solid var(--line);
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .header h1 { font-size: 22px; }
+        .header .sub { color: var(--muted); font-size: 14px; }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .fullscreen-btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .fullscreen-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--line);
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--ink);
+            text-decoration: none;
+            touch-action: manipulation;
+        }
+        .btn-outline.danger { border-color: var(--danger); color: var(--danger); }
+        
+        /* QR Section - Compact on Dashboard */
+        .qr-section {
+            background: #fff;
+            border: 2px solid var(--line);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.1s;
+        }
+        .qr-section:active {
+            transform: scale(0.99);
+        }
+        .qr-section .label {
+            font-size: 13px;
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        #qrbox {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 180px;
+            margin: 8px 0 4px;
+        }
+        #qrbox img, #qrbox canvas { max-width: 100%; height: auto; }
+        
+        .countdown {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 2px 0;
+        }
+        .countdown-label { font-size: 12px; color: var(--muted); }
+        
+        .refresh-btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            margin-top: 8px;
+        }
+        .refresh-btn:active { opacity: 0.7; }
+        
+        .qr-info {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 6px;
+        }
+        .qr-info strong { color: var(--ink); }
+        
+        .staff-count {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .staff-count b { color: var(--primary); }
+        
+        .staff-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .staff-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 12px;
+            background: var(--paper);
+            border-radius: 6px;
+            border: 1px solid var(--line);
+            font-size: 13px;
+        }
+        .badge-in { color: var(--primary); font-weight: 600; }
+        .badge-out { color: var(--danger); font-weight: 600; }
+        
+        .card {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow);
+        }
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .spinner {
+            text-align: center;
+            padding: 20px;
+            color: var(--muted);
+        }
+        .spinner .dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin: 0 4px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+        .spinner .dot:nth-child(2) { animation-delay: 0.2s; }
+        .spinner .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .stat-box {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-box .number {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .stat-box .label {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        
+        /* Scan Toast */
+        .scan-toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px 24px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 600;
+            display: none;
+            animation: slideUp 0.4s ease;
+            z-index: 1000;
+            max-width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+        }
+        .scan-toast.success {
+            display: block;
+            background: var(--primary);
+            color: #fff;
+            border: 2px solid var(--primary);
+        }
+        .scan-toast .name { font-weight: 700; }
+        .scan-toast .time { font-weight: 400; font-size: 13px; opacity: 0.8; margin-top: 4px; }
+        .scan-toast .location-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        
+        @media (max-width: 480px) {
+            .header { flex-direction: column; gap: 8px; align-items: stretch; text-align: center; }
+            .header-actions { justify-content: center; }
+            .staff-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .stat-box .number { font-size: 20px; }
+            .qr-section { padding: 16px; }
+            #qrbox { min-height: 150px; }
+        }
+    </style>
 </head>
 <body>
 
 <script>window.themeManager.initTheme();</script>
+
 <div x-data="dashboardApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
     <div class="app-layout">
         <?php $activePage = 'dashboard'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
@@ -32,236 +313,59 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
                         <h1>Admin Dashboard</h1>
                         <p>Live overview of your team's attendance.</p>
                     </div>
-                    <div class="action-buttons">
-                        <button class="btn-outline" @click="syncData()" :disabled="isSyncing">
-                            <span x-text="isSyncing ? 'Syncing...' : 'Sync now'"></span>
-                        </button>
-                        <button class="btn-primary" @click="exportData()">Export to Sheets</button>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <a href="<?= route_url('/admin-dashboard/qr') ?>" class="fullscreen-btn">📱 QR Fullscreen</a>
+                        <a href="<?= route_url('/logout') ?>" class="btn-outline danger" style="padding: 8px 16px; font-size: 13px;">🚪 Logout</a>
                     </div>
                 </div>
 
-                <div x-show="isLoading" class="stats-grid">
-                    <template x-for="i in 4">
-                        <div class="metric-card animate-pulse"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
-                    </template>
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="number" x-text="stats.currentlyOnsite || 0"></div>
+                        <div class="label">Currently Onsite</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="number" x-text="stats.totalClockedInToday || 0"></div>
+                        <div class="label">Signed In Today</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="number" x-text="stats.totalEventsToday || 0"></div>
+                        <div class="label">Total Events</div>
+                    </div>
                 </div>
 
-                <div x-show="!isLoading">
-                    <div class="stats-grid">
-                        <!-- Currently Onsite - Location Pin/Map Marker Icon -->
-                        <div class="metric-card">
-                            <div class="metric-top">
-                                <div class="stat-icon icon-olive">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                                        <circle cx="12" cy="10" r="3"/>
-                                    </svg>
-                                </div>
-                                <div class="live-badge">
-                                    <div class="live-dot"></div>
-                                    <span class="live-text">Live</span>
-                                </div>
-                            </div>
-                            <div class="stat-value" x-text="stats.currentlyOnsite"></div>
-                            <div class="stat-label">Currently onsite</div>
-                            <div class="stat-subtitle">Live count, updates within seconds</div>
-                        </div>
-                        
-                        <!-- Total Signed in Today - Calendar Icon -->
-                        <div class="metric-card">
-                            <div class="metric-top">
-                                <div class="stat-icon icon-olive">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                                        <line x1="16" y1="2" x2="16" y2="6"/>
-                                        <line x1="8" y1="2" x2="8" y2="6"/>
-                                        <line x1="3" y1="10" x2="21" y2="10"/>
-                                    </svg>
-                                </div>
-                            </div>
-                            <div class="stat-value" x-text="stats.totalClockedInToday"></div>
-                            <div class="stat-label">Total Signed in today</div>
-                            <div class="stat-subtitle" x-text="weekday"></div>
-                        </div>
-                        
-                        <!-- Pending Sync - Cloud/Upload Icon -->
-                        <div class="metric-card">
-                            <div class="metric-top">
-                                <div class="stat-icon icon-olive">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
-                                        <path d="m9 15 3-3 3 3"/>
-                                        <path d="M12 12v6"/>
-                                    </svg>
-                                </div>
-                            </div>
-                            <div class="stat-value" x-text="stats.pendingSync"></div>
-                            <div class="stat-label">Pending sync</div>
-                            <div class="stat-subtitle" x-text="stats.pendingSync > 0 ? 'Needs sync' : 'All synced'"></div>
-                        </div>
-                        
-                        <!-- Total Events Today - Trending Up/Activity Icon -->
-                        <div class="metric-card">
-                            <div class="metric-top">
-                                <div class="stat-icon icon-olive">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="23 6 13.5 15.5 8.5 10.5 2 17"/>
-                                        <polyline points="17 6 23 6 23 12"/>
-                                    </svg>
-                                </div>
-                            </div>
-                            <div class="stat-value" x-text="stats.totalEventsToday"></div>
-                            <div class="stat-label">Total events today</div>
-                            <div class="stat-subtitle">In + Out</div>
-                        </div>
+                <!-- QR Section (Compact on Dashboard) -->
+                <div class="qr-section" id="qrCard">
+                    <div class="label">📱 Scan to Clock In/Out</div>
+                    <div id="qrbox"><div style="color:var(--muted);">⏳ Generating...</div></div>
+                    <div class="countdown" id="countdown">30</div>
+                    <div class="countdown-label">seconds until refresh</div>
+                    <div class="staff-count" id="staffCount">👥 <b>0</b> staff online</div>
+                    <button class="refresh-btn" onclick="generateQR()">🔄 Refresh Now</button>
+                    <div class="qr-info">
+                        💡 Each QR is valid for <strong>one scan only</strong>. New code every 30s.
                     </div>
+                </div>
 
-                    <!-- Feature Cards -->
-                    <div class="feature-grid">
-                        <!-- QR Generator - QR Code Icon -->
-                        <div class="feature-card" onclick="window.location.href='<?= route_url('/admin-dashboard/qr-generator') ?>'">
-                            <div class="feature-top">
-                                <div class="feature-icon icon-olive">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="3" y="3" width="7" height="7"/>
-                                        <rect x="14" y="3" width="7" height="7"/>
-                                        <rect x="14" y="14" width="7" height="7"/>
-                                        <rect x="3" y="14" width="7" height="7"/>
-                                    </svg>
-                                </div>
-                                <div class="arrow-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="9 18 15 12 9 6"/>
-                                    </svg>
-                                </div>
-                            </div>
-                            <h3>QR Generator</h3>
-                            <p>Create and manage sign-in QR codes</p>
-                        </div>
-                        
-                        <!-- Attendance Logs - List/Document Icon -->
-                        <div class="feature-card" onclick="window.location.href='<?= route_url('/admin-dashboard/attendance') ?>'">
-                            <div class="feature-top">
-                                <div class="feature-icon icon-olive">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <line x1="8" y1="6" x2="21" y2="6"/>
-                                        <line x1="8" y1="12" x2="21" y2="12"/>
-                                        <line x1="8" y1="18" x2="21" y2="18"/>
-                                        <line x1="3" y1="6" x2="3.01" y2="6"/>
-                                        <line x1="3" y1="12" x2="3.01" y2="12"/>
-                                        <line x1="3" y1="18" x2="3.01" y2="18"/>
-                                    </svg>
-                                </div>
-                                <div class="arrow-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="9 18 15 12 9 6"/>
-                                    </svg>
-                                </div>
-                            </div>
-                            <h3>Attendance Logs</h3>
-                            <p>All signed-in events with full audit trail</p>
-                        </div>
-                        
-                        <!-- Settings - Settings/Gear Icon -->
-                        <div class="feature-card" onclick="window.location.href='<?= route_url('/admin-dashboard/settings') ?>'">
-                            <div class="feature-top">
-                                <div class="feature-icon icon-olive">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <circle cx="12" cy="12" r="3"/>
-                                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                                    </svg>
-                                </div>
-                                <div class="arrow-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="9 18 15 12 9 6"/>
-                                    </svg>
-                                </div>
-                            </div>
-                            <h3>Settings</h3>
-                            <p>Manage users and integration</p>
-                        </div>
+                <!-- Scan Result Toast -->
+                <div id="scanToast" class="scan-toast">
+                    <div id="toastContent">
+                        <span id="toastIcon">✅</span>
+                        <span id="toastText">Sign in successful</span>
+                        <div class="name" id="toastName"></div>
+                        <div class="location-badge" id="toastLocation">📍 HQ</div>
+                        <div class="time" id="toastTime"></div>
                     </div>
+                </div>
 
-                    <div class="large-card">
-                        <div class="section-header">
-                            <div class="section-header-left">
-                                <h3>Currently onsite</h3>
-                                <p>Live count, updates within seconds</p>
-                            </div>
-                            <div class="live-indicator">
-                                <div class="live-dot"></div>
-                                <span class="live-text">Live</span>
-                            </div>
-                        </div>
-                        <div x-show="onsiteStaff.length === 0" class="empty-state">No staff currently onsite.</div>
-                        <div class="staff-list" x-show="onsiteStaff.length > 0">
-                            <template x-for="person in onsiteStaff" :key="person.id">
-                                <div class="staff-item">
-                                    <div class="staff-left">
-                                        <div class="staff-avatar" x-text="getInitials(person.name)"></div>
-                                        <div class="staff-info">
-                                            <div class="staff-name" x-text="person.name"></div>
-                                            <div class="staff-id" x-text="person.role"></div>
-                                        </div>
-                                    </div>
-                                    <div class="staff-right">
-                                        <div class="status-pill">
-                                            <div class="status-dot"></div>
-                                            Onsite
-                                        </div>
-                                        <div class="staff-time">since <span x-text="formatTime(person.sign_in_time)"></span></div>
-                                    </div>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-
-                    <div class="large-card">
-                        <div class="section-header">
-                            <h3 class="section-title">Recent Activity</h3>
-                            <button class="view-all-btn" onclick="window.location.href='<?= route_url('/admin-dashboard/attendance') ?>'">View all →</button>
-                        </div>
-                        <div x-show="recentEvents.length === 0" class="empty-state">No recent activity.</div>
-                        <div class="activity-list" x-show="recentEvents.length > 0">
-                            <template x-for="event in recentEvents" :key="event.id">
-                                <div class="activity-item">
-                                    <div class="activity-left">
-                                        <div class="activity-indicator" :class="event.action.replace('-', '')"></div>
-                                        <div class="activity-info">
-                                            <div class="activity-name" x-text="event.name"></div>
-                                            <div class="activity-type" x-text="event.action"></div>
-                                        </div>
-                                    </div>
-                                    <div class="activity-time">
-                                        <div class="activity-time-value" x-text="formatTime(event.timestamp)"></div>
-                                        <div class="activity-date" x-text="formatDate(event.timestamp)"></div>
-                                    </div>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-
-                    <div class="sheets-card">
-                        <div class="sheets-content">
-                            <div class="sheets-left">
-                                <div class="sheets-icon">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                        <polyline points="14 2 14 8 20 8"/>
-                                        <line x1="16" y1="13" x2="8" y2="13"/>
-                                        <line x1="16" y1="17" x2="8" y2="17"/>
-                                        <polyline points="10 9 9 9 8 9"/>
-                                    </svg>
-                                </div>
-                                <div class="sheets-info">
-                                    <h3>Sheets Integration</h3>
-                                    <p>Sync attendance data to Google Sheets</p>
-                                </div>
-                            </div>
-                            <div class="sheets-right">
-                                <div class="connection-status">Not connected</div>
-                                <button class="connect-btn" onclick="alert('Connect to Google Sheets - Demo only')">Connect</button>
-                            </div>
+                <!-- Staff Status -->
+                <div class="card">
+                    <div class="card-title">👥 Staff Status</div>
+                    <div id="staffList">
+                        <div class="spinner">
+                            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                            <div style="margin-top:6px;font-size:13px;">Loading staff...</div>
                         </div>
                     </div>
                 </div>
@@ -271,67 +375,206 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
 </div>
 
 <script>
-function dashboardApp() {
-    return {
-        sidebarOpen: false,
-        isLoading: true,
-        isSyncing: false,
-        stats: { currentlyOnsite: 0, totalClockedInToday: 0, pendingSync: 0, totalEventsToday: 0 },
-        onsiteStaff: [],
-        recentEvents: [],
-        weekday: '',
-        refreshInterval: null,
+// ============================================================
+// ADMIN DASHBOARD - QR + STATS
+// ============================================================
+
+let timer = null;
+let secondsLeft = 30;
+let qrCodeInstance = null;
+let toastTimeout = null;
+let locations = ['HQ Entrance', 'HQ Exit', 'Lobby', 'Office A', 'Office B'];
+let currentLocationIndex = 0;
+
+function getBaseUrl() {
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' ||
+                        window.location.hostname === '0.0.0.0';
+    
+    if (isLocalhost) {
+        return 'https://glance-rancidity-level.ngrok-free.dev';
+    }
+    return window.location.origin;
+}
+
+async function generateQR() {
+    const box = document.getElementById('qrbox');
+    if (!box) return;
+    
+    box.innerHTML = '<div style="color:var(--muted);">⏳ Generating...</div>';
+    
+    try {
+        const token = Math.random().toString(36).substring(2, 10);
+        const expires = new Date(Date.now() + 30000).toISOString();
         
-        async init() {
-            window.themeManager.initTheme();
-            this.weekday = getWeekday();
-            await this.loadDashboard();
-            this.refreshInterval = setInterval(() => this.loadDashboard(), 30000);
-        },
+        const location = locations[currentLocationIndex % locations.length];
+        currentLocationIndex++;
         
-        async loadDashboard() {
-            try {
-                const [statsData, staffData, eventsData] = await Promise.all([
-                    fetch('api/dashboard-stats.php').then(r => r.json()),
-                    fetch('api/onsite-staff.php').then(r => r.json()),
-                    fetch('api/recent-activity.php').then(r => r.json())
-                ]);
-                this.stats = statsData.data || statsData;
-                this.onsiteStaff = staffData.data || staffData;
-                this.recentEvents = eventsData.data || eventsData;
-                this.isLoading = false;
-            } catch (err) {
-                console.error('Error loading dashboard:', err);
-                this.isLoading = false;
-            }
-        },
+        const baseUrl = getBaseUrl();
+        const qrUrl = baseUrl + '/scan.php?' + 
+            'token=' + encodeURIComponent(token) +
+            '&expires=' + encodeURIComponent(expires) +
+            '&staff_id=QR_SCAN' +
+            '&name=QR_Scan' +
+            '&method=QR' +
+            '&location=' + encodeURIComponent(location);
         
-        async syncData() {
-            this.isSyncing = true;
-            await this.loadDashboard();
-            setTimeout(() => this.isSyncing = false, 500);
-        },
+        console.log('QR URL:', qrUrl);
         
-        exportData() {
-            if (this.onsiteStaff.length === 0) { 
-                window.appUtils.showToast('No data to export', 'info'); 
-                return; 
-            }
-            let csv = "Name,Role,Sign In Time\n";
-            this.onsiteStaff.forEach(p => { 
-                csv += `"${p.name}","${p.role}","${formatTime(p.sign_in_time)}"\n`; 
-            });
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `attendance_${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
-            window.appUtils.showToast('Export completed!', 'success');
-        }
+        box.innerHTML = '';
+        const div = document.createElement('div');
+        box.appendChild(div);
+        qrCodeInstance = new QRCode(div, {
+            text: qrUrl,
+            width: 200,
+            height: 200,
+            colorDark: '#1b1f23',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+        });
+        
+        startCountdown(30);
+    } catch (err) {
+        box.innerHTML = '<div style="color:#a3432f;">❌ Error: ' + err.message + '</div>';
     }
 }
+
+function startCountdown(seconds) {
+    if (timer) clearInterval(timer);
+    secondsLeft = seconds;
+    const countdownEl = document.getElementById('countdown');
+    if (countdownEl) countdownEl.textContent = secondsLeft;
+    
+    timer = setInterval(() => {
+        secondsLeft -= 1;
+        if (secondsLeft <= 0) {
+            generateQR();
+        } else {
+            const el = document.getElementById('countdown');
+            if (el) el.textContent = secondsLeft;
+        }
+    }, 1000);
+}
+
+function showToast(message, type, name = '', location = '', timestamp = '') {
+    const toast = document.getElementById('scanToast');
+    const icon = document.getElementById('toastIcon');
+    const text = document.getElementById('toastText');
+    const nameEl = document.getElementById('toastName');
+    const locationEl = document.getElementById('toastLocation');
+    const timeEl = document.getElementById('toastTime');
+    
+    icon.textContent = type === 'success' ? '✅' : '❌';
+    text.textContent = message;
+    nameEl.textContent = name ? '[' + name + ']' : '';
+    locationEl.textContent = location ? '📍 ' + location : '📍 HQ';
+    timeEl.textContent = timestamp ? 'at ' + timestamp : '';
+    
+    toast.className = 'scan-toast ' + type;
+    toast.style.display = 'block';
+    
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+        toast.style.display = 'none';
+    }, 8000);
+}
+
+async function loadStaff() {
+    try {
+        const response = await fetch('/api/onsite-staff.php');
+        const data = await response.json();
+        const staff = data.data || [];
+        const container = document.getElementById('staffList');
+        
+        if (staff.length > 0) {
+            const html = staff.map(s => {
+                const status = s.status === 'signed_in' ? 'in' : 'out';
+                return `
+                    <div class="staff-item">
+                        <span>${escapeHtml(s.name)}</span>
+                        <span class="${status === 'in' ? 'badge-in' : 'badge-out'}">${status === 'in' ? '✅ In' : '❌ Out'}</span>
+                    </div>
+                `;
+            }).join('');
+            container.innerHTML = '<div class="staff-grid">' + html + '</div>';
+            document.getElementById('staffCount').innerHTML = '👥 <b>' + staff.length + '</b> staff online';
+        } else {
+            container.innerHTML = '<div style="color:var(--muted);font-size:14px;">No staff currently signed in.</div>';
+            document.getElementById('staffCount').innerHTML = '👥 <b>0</b> staff online';
+        }
+    } catch (err) {
+        console.error('Error loading staff:', err);
+        document.getElementById('staffList').innerHTML = '<div style="color:var(--danger);font-size:14px;">❌ Error loading staff</div>';
+    }
+}
+
+async function loadStats() {
+    try {
+        const response = await fetch('/api/dashboard-stats.php');
+        const data = await response.json();
+        const stats = data.data || {};
+        const numbers = document.querySelectorAll('.stat-box .number');
+        if (numbers.length >= 3) {
+            numbers[0].textContent = stats.currentlyOnsite || 0;
+            numbers[1].textContent = stats.totalClockedInToday || 0;
+            numbers[2].textContent = stats.totalEventsToday || 0;
+        }
+    } catch (err) {
+        console.error('Error loading stats:', err);
+    }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        if (m === '"') return '&quot;';
+        return m;
+    });
+}
+
+async function checkScanResult() {
+    try {
+        const response = await fetch('/api/check-scan-result.php');
+        const data = await response.json();
+        if (data.success && data.name) {
+            showToast(
+                data.action + ' successful',
+                'success',
+                data.name,
+                data.location || 'HQ',
+                data.timestamp
+            );
+            setTimeout(() => { loadStaff(); loadStats(); }, 1000);
+        }
+    } catch (e) {
+        // Silently fail
+    }
+}
+
+// Click on QR card to refresh (but not on buttons)
+document.getElementById('qrCard')?.addEventListener('click', function(e) {
+    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+    generateQR();
+});
+
+// Init
+generateQR();
+loadStaff();
+loadStats();
+setInterval(loadStaff, 15000);
+setInterval(loadStats, 30000);
+setInterval(checkScanResult, 3000);
+
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        checkScanResult();
+        loadStaff();
+        loadStats();
+    }
+});
 </script>
 </body>
 </html>

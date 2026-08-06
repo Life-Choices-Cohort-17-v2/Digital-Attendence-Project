@@ -9,52 +9,59 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title><?= $title ?? 'Scan QR Code' ?></title>
     <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="<?= asset_url('js/app.js') ?>"></script>
     <style>
-        .demo-qr-section {
+        [x-cloak] { display: none !important; }
+        
+        .scan-container {
+            padding: 28px 32px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .scan-container h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--heading);
+            margin-bottom: 8px;
+        }
+        .scan-container > p {
+            color: var(--text);
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        .scanner-card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 20px;
             padding: 24px;
-            margin-top: 24px;
+            margin-top: 0;
         }
-        .demo-qr-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 16px;
-            color: var(--heading);
-        }
-        .demo-qr-grid {
-            display: flex;
-            justify-content: center;
-            padding: 10px 0;
-        }
-        .demo-qr-item {
-            max-width: 200px; /* Limit width of the card */
-            margin: 0 auto; /* Center the card */
+        .scanner-header {
             text-align: center;
-            padding: 20px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            aspect-ratio: 1 / 1; /* Make the card square */
-            display: flex; /* Use flex to center content vertically */
-            flex-direction: column;
-            justify-content: center;
+            margin-bottom: 20px;
         }
-        .demo-qr-item p {
-            margin-top: 12px;
-            font-weight: 500;
-            color: var(--heading);
+        .ready-badge {
+            display: inline-block;
+            background: var(--olive-green-soft);
+            color: var(--olive-green);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-bottom: 16px;
         }
+        .scanner-header p {
+            color: var(--text);
+            font-size: 14px;
+        }
+        
+        /* Camera Section - Full width */
         .camera-section {
-            margin-bottom: 24px;
+            margin-bottom: 0;
         }
         .camera-btn {
             width: 100%;
@@ -64,57 +71,113 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             border: none;
             border-radius: 12px;
             font-weight: 600;
+            font-size: 16px;
             cursor: pointer;
+            transition: 0.2s;
         }
-        .demo-buttons {
-            display: flex;
-            gap: 16px;
-            margin-top: 24px;
+        .camera-btn:hover {
+            background: var(--sidebar-hover);
         }
-        .demo-sign-in, .demo-sign-out {
-            flex: 1;
-            padding: 14px;
-            border: none;
-            border-radius: 12px;
-            font-weight: 600;
-            cursor: pointer;
+        .camera-btn.stop {
+            background: #ef4444;
         }
-        .demo-sign-in {
-            background: rgba(156, 176, 122, 0.12);
-            color: #728C47;
+        .camera-btn.stop:hover {
+            background: #dc2626;
         }
-        .demo-sign-out {
-            background: rgba(245, 158, 11, 0.12);
-            color: #D97706;
-        }
+        
         #reader {
             width: 100%;
             border-radius: 12px;
             overflow: hidden;
             margin-top: 15px;
+            min-height: 300px;
         }
-        /* Adjust QR code size for mobile */
-        #qr-display canvas, #qr-display img {
-            width: 120px !important; /* Smaller size for mobile */
-            height: 120px !important;
-            margin: 0 auto; /* Center the QR code */
-        }
-        .manual-submit-btn {
+        #reader video {
             width: 100%;
+            height: auto;
+            min-height: 300px;
+            object-fit: cover;
+        }
+        
+        /* Zoom controls */
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
             margin-top: 12px;
-            padding: 12px 24px;
-            background: var(--olive-green);
-            color: var(--sidebar-blue);
-            border: none;
+            padding: 8px;
+            background: var(--background);
             border-radius: 12px;
+        }
+        .zoom-controls button {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: var(--card-bg);
+            color: var(--heading);
+            font-size: 24px;
+            font-weight: 700;
             cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: 0.2s;
+            touch-action: manipulation;
+        }
+        .zoom-controls button:active {
+            transform: scale(0.9);
+        }
+        .zoom-controls .zoom-level {
+            font-size: 14px;
             font-weight: 600;
-            transition: background 0.2s ease;
+            color: var(--text);
+            min-width: 50px;
+            text-align: center;
         }
-        .manual-submit-btn:hover {
-            background: var(--olive-green-bright);
+        
+        .result-message {
+            margin-top: 16px;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
         }
-        [x-cloak] { display: none !important; }
+        .result-message.success {
+            display: block;
+            background: var(--olive-green-soft);
+            color: var(--olive-green);
+        }
+        .result-message.error {
+            display: block;
+            background: rgba(220, 38, 38, 0.1);
+            color: #DC2626;
+        }
+        .result-message.info {
+            display: block;
+            background: #f0f0ed;
+            color: var(--muted);
+        }
+        
+        .scan-instructions {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--background);
+            border-radius: 12px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text);
+        }
+        .scan-instructions strong {
+            color: var(--heading);
+        }
+        
+        @media (max-width: 480px) {
+            .scan-container { padding: 16px; }
+            .scanner-card { padding: 16px; }
+            #reader { min-height: 250px; }
+            #reader video { min-height: 250px; }
+        }
     </style>
 </head>
 <body>
@@ -124,16 +187,17 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
         <?php $activePage = 'scan'; include __DIR__ . '/staff-sidebar.php'; ?>
         
         <main class="main-content">
-            <?php if (file_exists(__DIR__ . '/../partials/top-nav.php')) include __DIR__ . '/../partials/top-nav.php'; ?>
+            <?php include __DIR__ . '/../partials/top-nav.php'; ?>
             
             <div class="scan-container">
                 <h1>Scan QR Code</h1>
-                <p>Point your camera at the workplace QR code to Sign In or out.</p>
+                <p>Point your camera at the workplace QR code to sign in or out.</p>
 
                 <div class="scanner-card">
                     <div class="scanner-header">
-                        <span class="ready-badge">● Ready to scan</span>
-                        <p>Fast camera recognition. Your activity syncs instantly.</p>
+                        <span class="ready-badge" x-show="!scannerActive">● Ready to scan</span>
+                        <span class="ready-badge" x-show="scannerActive" style="background: #fef3c7; color: #d97706;" x-cloak>● Scanning...</span>
+                        <p>Hold steady and center the QR code in the frame.</p>
                     </div>
 
                     <!-- Camera Section -->
@@ -141,37 +205,23 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                         <button class="camera-btn" @click="startScanner()" x-show="!scannerActive">
                             📷 Open Camera to Scan
                         </button>
-                        <button class="camera-btn" style="background: #ef4444;" @click="stopScanner()" x-show="scannerActive" x-cloak>
-                            Stop Camera
+                        <button class="camera-btn stop" @click="stopScanner()" x-show="scannerActive" x-cloak>
+                            ⏹️ Stop Camera
                         </button>
                         <div id="reader" x-show="scannerActive" x-cloak></div>
-                    </div>
-
-                    <!-- Demo QR Codes Section -->
-                    <div class="demo-qr-section">
-                        <div class="demo-qr-title">Demo QR Codes</div>
-                        <div class="demo-qr-grid">
-                            <div class="demo-qr-item">
-                                <div id="qr-display"></div>
-                                <p x-text="currentDemoType === 'sign-in' ? 'Sign In QR' : 'Sign Out QR'"></p>
-                            </div>
-                        </div>
-                        <div class="demo-buttons">
-                            <button class="demo-sign-in" @click="demoClockIn()">✅ Demo: Sign In</button>
-                            <button class="demo-sign-out" @click="demoClockOut()">⏹️ Demo: Sign Out</button>
+                        
+                        <!-- Zoom Controls -->
+                        <div class="zoom-controls" x-show="scannerActive" x-cloak>
+                            <button @click="zoomOut()" title="Zoom Out">−</button>
+                            <span class="zoom-level" x-text="Math.round(zoomLevel * 100) + '%'"></span>
+                            <button @click="zoomIn()" title="Zoom In">+</button>
                         </div>
                     </div>
 
-                    <div class="manual-input">
-                        <p>Or enter code manually:</p>
-                        <div class="manual-row">
-                            <input type="text" x-model="manualCode" placeholder="SIGN_IN or SIGN_OUT">
-                        </div>
-                        <button class="manual-submit-btn" @click="manualSubmit()">Submit</button>
-                    </div>
-
-                    <div class="result-message" x-show="resultMessage" :class="resultType">
-                        <p x-text="resultMessage"></p>
+                    <div class="result-message" :class="resultType" x-show="resultMessage" x-text="resultMessage"></div>
+                    
+                    <div class="scan-instructions">
+                        💡 <strong>Tip:</strong> If the camera won't focus, tap the screen to adjust.
                     </div>
                 </div>
             </div>
@@ -184,130 +234,202 @@ function scanApp() {
     return {
         sidebarOpen: false,
         user: { id: '', name: '', email: '' },
-        manualCode: '',
         resultMessage: '',
         resultType: '',
         scannerActive: false,
         html5QrCode: null,
-        activeQRText: 'sign_in', // Default fallback
-        currentDemoType: 'sign-in',
+        zoomLevel: 1.0,
+        isProcessing: false,
         
         async init() {
             const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff', 'email' => 'staff@spysee.app']); ?>;
             this.user = userData;
             window.themeManager.initTheme();
-            
-            // Initial fetch of the active QR code from admin side
-            await this.fetchActiveQR();
-            
-            // Refresh the QR code every 30 seconds to stay in sync with admin
-            setInterval(() => this.fetchActiveQR(), 30000);
-        },
-
-        async fetchActiveQR() {
-            try {
-                const response = await fetch('api/active-qr.php');
-                const data = await response.json();
-                if (data.success && data.code) {
-                    this.activeQRText = data.code;
-                    this.renderQR();
-                }
-            } catch (err) {
-                console.error('Failed to sync QR with server:', err);
-                this.renderQR(); // Fallback to current state
-            }
-        },
-
-        renderQR() {
-            const container = document.getElementById("qr-display");
-            container.innerHTML = '';
-            if (typeof QRCode !== 'undefined') {
-                new QRCode(container, {
-                    text: this.activeQRText,
-                    width: 120, // Adjusted for mobile view
-                    height: 120, // Adjusted for mobile view
-                    colorDark: "#093C5D",
-                    colorLight: "#ffffff"
-                });
-            }
         },
 
         async startScanner() {
             this.scannerActive = true;
-            this.html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
+            this.resultMessage = '';
+            this.resultType = '';
+            
             try {
+                this.html5QrCode = new Html5Qrcode("reader");
+                
+                // Better config for mobile - larger qrbox and higher fps
+                const config = { 
+                    fps: 15, 
+                    qrbox: { width: 280, height: 280 },
+                    aspectRatio: 1.0
+                };
+                
+                // Try environment camera first (rear camera)
+                const cameraId = { facingMode: "environment" };
+                
                 await this.html5QrCode.start(
-                    { facingMode: "environment" }, 
-                    config, 
+                    cameraId,
+                    config,
                     (decodedText) => {
-                        this.manualCode = decodedText;
-                        this.manualSubmit();
-                        this.stopScanner();
+                        // QR code detected!
+                        this.handleScan(decodedText);
+                    },
+                    (error) => {
+                        // Ignore errors during scanning
+                        // console.debug(error);
                     }
                 );
+                
+                // Apply initial zoom if available
+                this.applyZoom();
+                
             } catch (err) {
                 console.error("Camera error:", err);
                 this.scannerActive = false;
+                
+                let errorMsg = '❌ Camera access denied. ';
+                if (err.name === 'NotAllowedError') {
+                    errorMsg += 'Please allow camera access in your browser settings.';
+                } else if (err.name === 'NotFoundError') {
+                    errorMsg += 'No camera found on this device.';
+                } else {
+                    errorMsg += 'Please try again.';
+                }
+                this.resultMessage = errorMsg;
+                this.resultType = 'error';
             }
         },
 
         async stopScanner() {
             if (this.html5QrCode) {
-                await this.html5QrCode.stop();
+                try {
+                    await this.html5QrCode.stop();
+                } catch (err) {
+                    // ignore
+                }
                 this.scannerActive = false;
             }
         },
         
-        async demoClockIn() {
-            const result = await window.qrUtils.recordScan('sign-in', this.user.id);
-            if (result && result.success) {
-                this.activeQRText = 'sign_in';
-                this.resultMessage = `✅ Signed in successfully at ${new Date().toLocaleTimeString()}`;
-                this.resultType = 'success';
-            } else if (result) {
-                this.resultMessage = result.message;
-                this.resultType = 'error';
-            }
-            this.currentDemoType = 'sign-in';
-            this.renderQR();
-            setTimeout(() => { this.resultMessage = ''; }, 3000);
+        zoomIn() {
+            this.zoomLevel = Math.min(this.zoomLevel + 0.1, 3.0);
+            this.applyZoom();
         },
         
-        async demoClockOut() {
-            const result = await window.qrUtils.recordScan('sign-out', this.user.id);
-            if (result && result.success) {
-                this.activeQRText = 'sign_out';
-                this.resultMessage = `⏹️ Sign Out successfully at ${new Date().toLocaleTimeString()}`;
-                this.resultType = 'success';
-            } else if (result) {
-                this.resultMessage = result.message;
-                this.resultType = 'error';
-            }
-            this.currentDemoType = 'sign-out';
-            this.renderQR();
-            setTimeout(() => { this.resultMessage = ''; }, 3000);
+        zoomOut() {
+            this.zoomLevel = Math.max(this.zoomLevel - 0.1, 0.5);
+            this.applyZoom();
         },
         
-        async manualSubmit() {
-            const type = window.qrUtils.getScanType(this.manualCode);
-            if (!type) {
-                this.resultMessage = 'Invalid code. Use SIGN_IN or SIGN_OUT';
-                this.resultType = 'error';
-                setTimeout(() => { this.resultMessage = ''; }, 3000);
-                return;
+        applyZoom() {
+            // Apply zoom to the video element
+            const video = document.querySelector('#reader video');
+            if (video) {
+                video.style.transform = `scale(${this.zoomLevel})`;
+                video.style.transformOrigin = 'center center';
             }
-            const result = await window.qrUtils.recordScan(type, this.user.id);
-            if (result && result.success) {
-                this.resultMessage = `${type === 'sign-in' ? 'Signed in' : 'Sign Out'} successfully!`;
-                this.resultType = 'success';
-            } else if (result) {
-                this.resultMessage = result.message;
+        },
+
+        async handleScan(decodedText) {
+            // Prevent multiple scans
+            if (this.isProcessing) return;
+            this.isProcessing = true;
+            
+            console.log('QR Code detected:', decodedText);
+            
+            // Parse the QR data
+            let staffId = this.user.id;
+            let location = 'HQ';
+            let name = this.user.name;
+            
+            try {
+                // Try to parse as URL with params
+                if (decodedText.includes('scan.php?')) {
+                    const url = new URL(decodedText);
+                    staffId = url.searchParams.get('staff_id') || this.user.id;
+                    location = url.searchParams.get('location') || 'HQ';
+                    name = url.searchParams.get('name') || this.user.name;
+                    
+                    // Send the scan to the server
+                    const response = await fetch('/scan.php?' + url.searchParams.toString());
+                    
+                    // Check if redirected
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                        return;
+                    }
+                    
+                    // Or call the API directly
+                    const result = await this.recordScan(staffId, name, location);
+                    if (result && result.success) {
+                        this.resultMessage = result.message || '✅ Sign in/out successful!';
+                        this.resultType = 'success';
+                        this.stopScanner();
+                        setTimeout(() => {
+                            window.location.href = '/staff-dashboard';
+                        }, 1500);
+                        return;
+                    }
+                }
+                
+                // Fallback: try direct scan
+                const result = await this.recordScan(this.user.id, this.user.name, 'HQ');
+                if (result && result.success) {
+                    this.resultMessage = result.message || '✅ Sign in/out successful!';
+                    this.resultType = 'success';
+                    this.stopScanner();
+                    setTimeout(() => {
+                        window.location.href = '/staff-dashboard';
+                    }, 1500);
+                    return;
+                }
+                
+            } catch (err) {
+                console.error('Error processing scan:', err);
+                this.resultMessage = '❌ Failed to process QR code. Please try again.';
                 this.resultType = 'error';
             }
-            this.manualCode = '';
-            setTimeout(() => { this.resultMessage = ''; }, 3000);
+            
+            this.isProcessing = false;
+            
+            // Auto stop scanner after success
+            if (this.resultType === 'success') {
+                this.stopScanner();
+            }
+        },
+
+        async recordScan(staffId, name, location) {
+            try {
+                // Call the API directly
+                const response = await fetch('/api/sign-in.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: staffId,
+                        name: name,
+                        location: location
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // If the API says already signed in, try signing out
+                if (result.message === 'Already Signed in') {
+                    const outResponse = await fetch('/api/sign-out.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: staffId,
+                            name: name,
+                            location: location
+                        })
+                    });
+                    return await outResponse.json();
+                }
+                
+                return result;
+            } catch (err) {
+                console.error('API Error:', err);
+                return { success: false, message: 'Connection error' };
+            }
         }
     }
 }

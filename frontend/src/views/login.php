@@ -14,7 +14,7 @@
         :root {
             --sidebar-blue: #093C5D;
             --olive-green: #9CB07A;
-            --background: #FFFFFF; /* Changed to white for the login section background */
+            --background: #FFFFFF;
             --card-bg: #FFFFFF;
             --border-color: #E8EDF2;
             --heading: #093C5D;
@@ -29,14 +29,12 @@
             overflow: hidden;
         }
 
-        /* Login Container - Full screen on desktop */
         .login-container {
             display: flex;
             width: 100%;
             height: 100vh;
         }
 
-        /* Left Side - Full height blue section (Desktop only) */
         .login-left {
             flex: 1;
             background: var(--sidebar-blue);
@@ -89,7 +87,6 @@
             margin-top: 4px;
         }
 
-        /* Right Side - Login Form */
         .login-right {
             flex: 1;
             display: flex;
@@ -125,7 +122,6 @@
             font-size: 14px;
         }
 
-        /* Form Styles */
         .input-group {
             margin-bottom: 20px;
         }
@@ -154,38 +150,6 @@
             border-color: var(--olive-green);
         }
 
-        .login-options {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-
-        .checkbox {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: var(--text);
-            cursor: pointer;
-        }
-
-        .checkbox input {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-        }
-
-        .forgot-link {
-            font-size: 13px;
-            color: var(--olive-green);
-            text-decoration: none;
-        }
-
-        .forgot-link:hover {
-            text-decoration: underline;
-        }
-
         .login-btn {
             width: 100%;
             padding: 14px;
@@ -203,7 +167,6 @@
             background: #1a5270;
         }
 
-        /* Demo Accounts */
         .demo-accounts {
             margin-top: 32px;
             padding-top: 24px;
@@ -251,18 +214,6 @@
             color: var(--olive-green);
         }
 
-        /* Footer */
-        .login-footer {
-            margin-top: 32px;
-            text-align: center;
-        }
-
-        .login-footer p {
-            font-size: 11px;
-            color: var(--muted);
-        }
-
-        /* Error Message */
         .error-message {
             background: rgba(220, 38, 38, 0.1);
             color: #DC2626;
@@ -270,22 +221,9 @@
             border-radius: 12px;
             margin-bottom: 20px;
             font-size: 13px;
+            text-align: center;
         }
 
-        /* Dark Mode Variables Override for Login */
-        body.dark-mode {
-            --background: #0f172a;
-            --card-bg: #1e293b;
-            --border-color: #334155;
-            --heading: #f1f5f9;
-            --text: #94a3b8;
-            --muted: #64748b;
-            --sidebar-blue: #1e3a5f;
-        }
-
-        [x-cloak] { display: none !important; }
-
-        /* Theme Toggle specifically for login page */
         .login-theme-toggle {
             position: absolute;
             top: 24px;
@@ -309,9 +247,6 @@
             transform: translateY(-2px);
         }
 
-        /* ============================================
-           MOBILE & TABLET - Hide blue section
-        ============================================ */
         @media (max-width: 900px) {
             body {
                 overflow: auto;
@@ -330,7 +265,6 @@
                 background: var(--card-bg);
             }
 
-            /* Hide blue section on mobile/tablet */
             .login-left {
                 display: none;
             }
@@ -351,29 +285,15 @@
             .login-header h3 {
                 font-size: 24px;
             }
-
-            .login-header p {
-                font-size: 13px;
-            }
         }
 
-        /* Small mobile devices */
         @media (max-width: 480px) {
             .login-right {
                 padding: 30px 16px;
             }
-
-            .login-card {
-                padding: 0;
-            }
-
-            .input-group input {
-                padding: 12px 14px;
-            }
-
-            .login-btn {
-                padding: 12px;
-            }
+            .login-card { padding: 0; }
+            .input-group input { padding: 12px 14px; }
+            .login-btn { padding: 12px; }
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -385,7 +305,6 @@
 <script>window.themeManager.initTheme();</script>
 
 <main class="login-page" x-data="{ loading: false }">
-    <!-- Theme Toggle -->
     <button class="login-theme-toggle" x-data="{ dark: window.themeManager.isDark() }" @click="dark = window.themeManager.toggleTheme()" type="button" title="Toggle Theme">
         <svg x-show="!dark" class="moon-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#093C5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -404,7 +323,7 @@
     </button>
 
     <div class="login-container">
-        <!-- Left Side - Full height blue section (DESKTOP ONLY - hidden on mobile/tablet) -->
+        <!-- Left Side -->
         <div class="login-left">
             <div class="login-brand">
                 <h1>SpySee</h1>
@@ -418,7 +337,7 @@
             </div>
         </div>
 
-        <!-- Right Side - Login Form (Full width on mobile) -->
+        <!-- Right Side - Login Form -->
         <div class="login-right">
             <div class="login-card">
                 <div class="login-header">
@@ -430,22 +349,16 @@
                     <div class="error-message"><?= htmlspecialchars($error) ?></div>
                 <?php endif; ?>
 
-                <form method="post" action="<?= route_url('/login') ?>" @submit="loading = true">
+                <form method="POST" action="<?= route_url('/login') ?>" @submit="loading = true">
                     <div class="input-group">
-                        <label>Email</label>
-                        <input type="text" name="identifier" required placeholder="sarah@spysee.app">
+                        <label>Staff / Admin ID</label>
+                        <input type="text" name="username" placeholder="e.g. STF-001 or ADMIN-001" required>
                     </div>
                     <div class="input-group">
-                        <label>Password</label>
-                        <input type="password" name="password" required placeholder="••••••">
+                        <label>PIN / Password</label>
+                        <input type="password" name="password" placeholder="Enter your PIN or password" required>
                     </div>
-                    <div class="login-options">
-                        <label class="checkbox">
-                            <input type="checkbox" name="remember"> Remember me
-                        </label>
-                        <a href="#" class="forgot-link">Forgot password?</a>
-                    </div>
-                    <button type="submit" name="login" class="login-btn" :disabled="loading">
+                    <button type="submit" class="login-btn" :disabled="loading">
                         <span x-show="!loading">Login</span>
                         <span x-show="loading" x-cloak>Signing in...</span>
                     </button>
@@ -454,13 +367,13 @@
                 <div class="demo-accounts">
                     <p>DEMO ACCOUNTS</p>
                     <div class="demo-items">
-                        <div><strong>admin@spysee.app</strong> / admin123 <span class="role-badge admin">Admin</span></div>
-                        <div><strong>sarah@spysee.app</strong> / sarah123 <span class="role-badge staff">Staff</span></div>
+                        <div><strong>STF-001</strong> / 1234 <span class="role-badge staff">Staff</span></div>
+                        <div><strong>ADMIN-001</strong> / admin123 <span class="role-badge admin">Admin</span></div>
                     </div>
                 </div>
 
-                <div class="login-footer">
-                    <p>© SpySee - Secure attendance for modern teams</p>
+                <div class="login-footer" style="margin-top: 32px; text-align: center;">
+                    <p style="font-size: 11px; color: var(--muted);">© SpySee - Secure attendance for modern teams</p>
                 </div>
             </div>
         </div>

@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 session_start();
 
+// Force no cache for development
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+
+// ============================================================
+// ROUTER SETUP
+// ============================================================
 $requestPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
 $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
 $baseUrl = rtrim(str_replace('\\', '/', dirname($scriptName)), '/');
@@ -21,9 +29,14 @@ $path = '/' . trim($path, '/');
 $path = $path === '/' ? '/' : rtrim($path, '/');
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-// Load data functions
+// ============================================================
+// LOAD FUNCTIONS
+// ============================================================
 require_once __DIR__ . '/../data/functions.php';
 
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
 function view(string $view, array $data = []): void
 {
     extract($data);
@@ -42,105 +55,164 @@ function asset_url(string $path): string
     return ($GLOBALS['baseUrl'] ?? '') . '/assets/' . ltrim($path, '/');
 }
 
+function api_url(string $path = ''): string
+{
+    $path = '/' . trim($path, '/');
+    return ($GLOBALS['baseUrl'] ?? '') . '/index.php/api' . ($path === '/' ? '' : $path);
+}
+
 function redirect_to(string $path): never
 {
     header('Location: ' . route_url($path));
     exit;
 }
 
-// Handle login
-if ($path === '/login' && $method === 'POST') {
-    $identifier = strtolower(trim((string) ($_POST['identifier'] ?? '')));
-    $password = $_POST['password'] ?? '';
-    
-    if (($identifier === 'admin@spysee.app' || $identifier === 'admin') && $password === 'admin123') {
-        $_SESSION['user_id'] = 'admin-001';
-        $_SESSION['user_name'] = 'Admin User';
-        $_SESSION['user_email'] = 'admin@spysee.app';
-        $_SESSION['user_role'] = 'admin';
-        $_SESSION['employee_id'] = 'ADM-001';
-        redirect_to('/admin-dashboard');
-    } elseif (($identifier === 'sarah@spysee.app' || $identifier === 'sarah') && $password === 'sarah123') {
-        $_SESSION['user_id'] = 'staff-001';
-        $_SESSION['user_name'] = 'Sarah Mthembu';
-        $_SESSION['user_email'] = 'sarah@spysee.app';
-        $_SESSION['user_role'] = 'staff';
-        $_SESSION['employee_id'] = 'S-101';
-        redirect_to('/staff-dashboard');
-    } elseif (($identifier === 'staff@spysee.app' || $identifier === 'staff') && $password === 'password123') {
-        $_SESSION['user_id'] = 'staff-002';
-        $_SESSION['user_name'] = 'Demo Staff';
-        $_SESSION['user_email'] = 'staff@spysee.app';
-        $_SESSION['user_role'] = 'staff';
-        $_SESSION['employee_id'] = 'EMP-001';
-        redirect_to('/staff-dashboard');
-    } else {
-        $_SESSION['login_error'] = 'Invalid credentials. Use admin@spysee.app/admin123 or sarah@spysee.app/sarah123';
-        redirect_to('/login');
-    }
+function getSessionRole(): ?string {
+    return $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
 }
 
+// ============================================================
+// HANDLE LOGIN - USING GOOGLE SHEETS
+// ============================================================
+if ($path === '/login' && $method === 'POST') {
+    $username = trim($_POST['username'] ?? '');
+    $password = trim($_POST['password'] ?? '');
+    
+    $creds = getCredentialsFromSheets();
+    
+    if ($creds && $creds['success']) {
+        $loggedIn = false;
+        
+        // Check Staff - matches your Apps Script Staff sheet
+        foreach ($creds['staff'] as $staff) {
+            if ($staff['staff_id'] === $username && $staff['pin'] === $password && $staff['active'] === 'YES') {
+                $_SESSION['logged_in'] = true;
+                $_SESSION['user_type'] = 'staff';
+                $_SESSION['user_role'] = 'staff';
+                $_SESSION['staff_id'] = $staff['staff_id'];
+                $_SESSION['staff_name'] = $staff['name'];
+                $_SESSION['user_id'] = $staff['staff_id'];
+                $_SESSION['user_name'] = $staff['name'];
+                $_SESSION['employee_id'] = $staff['staff_id'];
+                $loggedIn = true;
+                
+                if (!empty($_SESSION['redirect_after_login'])) {
+                    $redirectUrl = $_SESSION['redirect_after_login'];
+                    unset($_SESSION['redirect_after_login']);
+                    header('Location: ' . $redirectUrl);
+                    exit;
+                }
+                header('Location: /index.php/staff-dashboard');
+                exit;
+            }
+        }
+        
+        // Check Admin - matches your Apps Script Admin sheet
+        foreach ($creds['admins'] as $admin) {
+            if ($admin['admin_id'] === $username && $admin['password'] === $password) {
+                $_SESSION['logged_in'] = true;
+                $_SESSION['user_type'] = 'admin';
+                $_SESSION['user_role'] = 'admin';
+                $_SESSION['staff_id'] = $admin['admin_id'];
+                $_SESSION['staff_name'] = $admin['name'];
+                $_SESSION['user_id'] = $admin['admin_id'];
+                $_SESSION['user_name'] = $admin['name'];
+                $_SESSION['employee_id'] = $admin['admin_id'];
+                $loggedIn = true;
+                
+                if (!empty($_SESSION['redirect_after_login'])) {
+                    $redirectUrl = $_SESSION['redirect_after_login'];
+                    unset($_SESSION['redirect_after_login']);
+                    header('Location: ' . $redirectUrl);
+                    exit;
+                }
+                header('Location: /index.php/admin-dashboard');
+                exit;
+            }
+        }
+        
+        if (!$loggedIn) {
+            $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
+        }
+    } else {
+        $_SESSION['login_error'] = '❌ Could not connect to Google Sheets. Check your config.';
+    }
+    
+    header('Location: /index.php/login');
+    exit;
+}
+
+// ============================================================
+// HANDLE LOGOUT
+// ============================================================
 if ($path === '/logout') {
     session_destroy();
-    redirect_to('/login');
+    header('Location: /index.php/login');
+    exit;
 }
 
-// API Routes
+// ============================================================
+// API ROUTES
+// ============================================================
 if (str_starts_with($path, '/api/')) {
     header('Content-Type: application/json');
     
-    if ($path === '/api/dashboard-stats.php') {
+    if ($path === '/api/dashboard-stats.php' || $path === '/api/dashboard-stats') {
         echo json_encode(getDashboardStats());
         exit;
     }
-    if ($path === '/api/onsite-staff.php') {
+    if ($path === '/api/onsite-staff.php' || $path === '/api/onsite-staff') {
         echo json_encode(getOnsiteStaff());
         exit;
     }
-    if ($path === '/api/recent-activity.php') {
+    if ($path === '/api/recent-activity.php' || $path === '/api/recent-activity') {
         echo json_encode(getRecentActivity());
         exit;
     }
-    if ($path === '/api/sign-in.php') {
-        $data = json_decode(file_get_contents('php://input'), true);
+    if ($path === '/api/sign-in.php' || $path === '/api/sign-in') {
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
         echo json_encode(handleClockIn($data));
         exit;
     }
-    if ($path === '/api/sign-out.php') {
-        $data = json_decode(file_get_contents('php://input'), true);
+    if ($path === '/api/sign-out.php' || $path === '/api/sign-out') {
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
         echo json_encode(handleClockOut($data));
         exit;
     }
-    if ($path === '/api/user-history.php') {
+    if ($path === '/api/user-history.php' || $path === '/api/user-history') {
         $userId = $_GET['user_id'] ?? $_SESSION['user_id'] ?? '';
         echo json_encode(getUserHistory($userId));
         exit;
     }
-    if ($path === '/api/attendance-logs.php') {
+    if ($path === '/api/attendance-logs.php' || $path === '/api/attendance-logs') {
         echo json_encode(getAllAttendanceLogs());
         exit;
     }
-    if ($path === '/api/users.php') {
+    if ($path === '/api/users.php' || $path === '/api/users') {
         echo json_encode(getAllUsers());
         exit;
     }
-    if ($path === '/api/qr-codes.php') {
-        echo json_encode(getQRCodes());
-        exit;
-    }
-    if ($path === '/api/generate-qr.php') {
-        $data = json_decode(file_get_contents('php://input'), true);
-        echo json_encode(generateQRCode($data));
-        exit;
-    }
-    if ($path === '/api/revoke-qr.php') {
-        $data = json_decode(file_get_contents('php://input'), true);
-        echo json_encode(revokeQRCode($data));
+    if ($path === '/api/check-scan-result.php' || $path === '/api/check-scan-result') {
+        if (isset($_SESSION['qr_result'])) {
+            $result = $_SESSION['qr_result'];
+            unset($_SESSION['qr_result']);
+            echo json_encode([
+                'success' => true,
+                'name' => $result['name'] ?? '',
+                'action' => $result['action'] ?? '',
+                'location' => $result['location'] ?? 'HQ',
+                'timestamp' => $result['timestamp'] ?? date('Y-m-d H:i:s')
+            ]);
+        } else {
+            echo json_encode(['success' => false]);
+        }
         exit;
     }
 }
 
-// Page Routes
+// ============================================================
+// PAGE ROUTES
+// ============================================================
 switch ($path) {
     case '/':
     case '/login':
@@ -151,102 +223,141 @@ switch ($path) {
         break;
 
     case '/staff-dashboard':
-        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
+        if (!isLoggedIn()) {
             redirect_to('/login');
+            break;
         }
+        
+        $role = getSessionRole();
+        if ($role !== 'staff') {
+            if ($role === 'admin') {
+                redirect_to('/admin-dashboard');
+                break;
+            }
+            redirect_to('/login');
+            break;
+        }
+        
         $title = 'Staff Dashboard | SpySee';
         $user = [
-            'name' => $_SESSION['user_name'],
-            'email' => $_SESSION['user_email'],
-            'employeeId' => $_SESSION['employee_id'],
-            'role' => $_SESSION['user_role']
+            'name' => $_SESSION['user_name'] ?? 'Staff',
+            'email' => $_SESSION['user_email'] ?? '',
+            'employeeId' => $_SESSION['employee_id'] ?? '',
+            'role' => 'staff'
         ];
         view('staff/dashboard', compact('title', 'user'));
         break;
 
     case '/scan-qr':
-        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
+        if (!isLoggedIn() || getSessionRole() !== 'staff') {
             redirect_to('/login');
+            break;
         }
         $title = 'Scan QR Code | SpySee';
-        $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
+        $user = ['name' => $_SESSION['user_name'] ?? 'Staff', 'email' => $_SESSION['user_email'] ?? ''];
         view('staff/scan-qr', compact('title', 'user'));
         break;
 
     case '/history':
-        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
+        if (!isLoggedIn() || getSessionRole() !== 'staff') {
             redirect_to('/login');
+            break;
         }
         $title = 'Attendance History | SpySee';
-        $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
+        $user = ['name' => $_SESSION['user_name'] ?? 'Staff', 'email' => $_SESSION['user_email'] ?? ''];
         view('staff/history', compact('title', 'user'));
         break;
 
     case '/calendar':
-        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
+        if (!isLoggedIn() || getSessionRole() !== 'staff') {
             redirect_to('/login');
+            break;
         }
         $title = 'Calendar | SpySee';
-        $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
+        $user = ['name' => $_SESSION['user_name'] ?? 'Staff', 'email' => $_SESSION['user_email'] ?? ''];
         view('staff/calendar', compact('title', 'user'));
         break;
 
     case '/profile':
-        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
+        if (!isLoggedIn() || getSessionRole() !== 'staff') {
             redirect_to('/login');
+            break;
         }
         $title = 'Profile | SpySee';
         $user = [
-            'name' => $_SESSION['user_name'],
-            'email' => $_SESSION['user_email'],
-            'employeeId' => $_SESSION['employee_id'],
-            'role' => $_SESSION['user_role']
+            'name' => $_SESSION['user_name'] ?? 'Staff',
+            'email' => $_SESSION['user_email'] ?? '',
+            'employeeId' => $_SESSION['employee_id'] ?? '',
+            'role' => 'staff'
         ];
         view('staff/profile', compact('title', 'user'));
         break;
 
     case '/admin-dashboard':
-        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+        if (!isLoggedIn() || getSessionRole() !== 'admin') {
             redirect_to('/login');
+            break;
         }
         $title = 'Admin Dashboard | SpySee';
-        $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
+        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
         view('admin/dashboard', compact('title', 'user'));
         break;
 
     case '/admin-dashboard/users':
-        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+        if (!isLoggedIn() || getSessionRole() !== 'admin') {
             redirect_to('/login');
+            break;
         }
         $title = 'User Management | SpySee';
-        $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
+        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
         view('admin/users', compact('title', 'user'));
         break;
 
     case '/admin-dashboard/attendance':
-        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+        if (!isLoggedIn() || getSessionRole() !== 'admin') {
             redirect_to('/login');
+            break;
         }
         $title = 'Attendance Logs | SpySee';
-        $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
+        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
         view('admin/attendance', compact('title', 'user'));
         break;
 
-    case '/admin-dashboard/qr-generator':
-        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+    case '/admin-dashboard/qr':
+        // Fullscreen QR page for wall-mounted tablets
+        if (!isLoggedIn() || getSessionRole() !== 'admin') {
             redirect_to('/login');
+            break;
         }
-        $title = 'QR Generator | SpySee';
-        $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
-        view('admin/qr', compact('title', 'user'));
+        $title = 'QR Terminal | SpySee';
+        view('admin/qr', compact('title'));
+        break;
+
+    case '/admin-dashboard/qr-generator':
+        // Redirect old QR generator route to the QR page
+        if (!isLoggedIn() || getSessionRole() !== 'admin') {
+            redirect_to('/login');
+            break;
+        }
+        redirect_to('/admin-dashboard/qr');
+        break;
+
+    case '/admin-dashboard/qr-display':
+        // Redirect old QR display route to the QR page
+        if (!isLoggedIn() || getSessionRole() !== 'admin') {
+            redirect_to('/login');
+            break;
+        }
+        redirect_to('/admin-dashboard/qr');
         break;
 
     case '/admin-dashboard/settings':
-        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+        if (!isLoggedIn() || getSessionRole() !== 'admin') {
             redirect_to('/login');
+            break;
         }
         $title = 'Settings | SpySee';
-        $user = ['name' => $_SESSION['user_name'], 'email' => $_SESSION['user_email']];
+        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
         view('admin/settings', compact('title', 'user'));
         break;
 
