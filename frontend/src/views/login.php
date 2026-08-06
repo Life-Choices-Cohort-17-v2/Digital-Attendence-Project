@@ -14,7 +14,7 @@
         :root {
             --sidebar-blue: #093C5D;
             --olive-green: #9CB07A;
-            --background: #FFFFFF; /* Changed to white for the login section background */
+            --background: #FFFFFF;
             --card-bg: #FFFFFF;
             --border-color: #E8EDF2;
             --heading: #093C5D;
@@ -29,14 +29,12 @@
             overflow: hidden;
         }
 
-        /* Login Container - Full screen on desktop */
         .login-container {
             display: flex;
             width: 100%;
             height: 100vh;
         }
 
-        /* Left Side - Full height blue section (Desktop only) */
         .login-left {
             flex: 1;
             background: var(--sidebar-blue);
@@ -52,7 +50,76 @@
         .login-brand h1 {
             font-size: 32px;
             font-weight: 700;
-            margin-bottom: 80px;
+            margin-bottom: 12px; /* reduced to bring eye closer */
+        }
+
+        /* ============================================
+           👁️  EYE WATCHER (added)
+        ============================================ */
+        .eye-watcher {
+            width: 56px;
+            height: 56px;
+            background: #FFFFFF;
+            border: 5px solid #FFFFFF;
+            border-radius: 75% 0;
+            transform: scaleY(1) rotate(45deg);
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+            user-select: none;
+            margin-top: 4px;
+            transition: transform 0.2s ease;
+        }
+
+        .eye-watcher .pupil {
+            width: 22px;
+            height: 22px;
+            background-color: #000000;
+            border-radius: 50%;
+            position: absolute;
+            transform: rotate(-45deg) translate(0px, 0px);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Catchlight */
+        .eye-watcher .pupil::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            width: 6px;
+            height: 6px;
+            background: var(--olive-green, #9CB07A);
+            border-radius: 50%;
+        }
+
+        /* Blink animation */
+        .eye-watcher.blinking {
+            animation: eyeBlink 0.2s ease-in-out;
+        }
+
+        @keyframes eyeBlink {
+            0%, 100% { transform: scaleY(1) rotate(45deg); }
+            50%      { transform: scaleY(0.05) rotate(45deg); }
+        }
+
+        /* Sleep mode: pupil moves down and eye slightly closes */
+        .eye-watcher.sleeping .pupil {
+            transform: rotate(-45deg) translate(0px, 8px) !important;
+            transition: transform 0.8s ease-in;
+        }
+        .eye-watcher.sleeping {
+            opacity: 0.7;
+        }
+        .eye-watcher.awake .pupil {
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .eye-watcher.awake {
+            opacity: 1;
         }
 
         .login-left h2 {
@@ -61,6 +128,7 @@
             line-height: 1.2;
             margin-bottom: 24px;
             max-width: 500px;
+            margin-top: 20px;
         }
 
         .login-left p {
@@ -89,7 +157,6 @@
             margin-top: 4px;
         }
 
-        /* Right Side - Login Form */
         .login-right {
             flex: 1;
             display: flex;
@@ -125,7 +192,6 @@
             font-size: 14px;
         }
 
-        /* Form Styles */
         .input-group {
             margin-bottom: 20px;
         }
@@ -203,7 +269,6 @@
             background: #1a5270;
         }
 
-        /* Demo Accounts */
         .demo-accounts {
             margin-top: 32px;
             padding-top: 24px;
@@ -251,7 +316,6 @@
             color: var(--olive-green);
         }
 
-        /* Footer */
         .login-footer {
             margin-top: 32px;
             text-align: center;
@@ -262,7 +326,6 @@
             color: var(--muted);
         }
 
-        /* Error Message */
         .error-message {
             background: rgba(220, 38, 38, 0.1);
             color: #DC2626;
@@ -272,7 +335,6 @@
             font-size: 13px;
         }
 
-        /* Dark Mode Variables Override for Login */
         body.dark-mode {
             --background: #0f172a;
             --card-bg: #1e293b;
@@ -285,7 +347,6 @@
 
         [x-cloak] { display: none !important; }
 
-        /* Theme Toggle specifically for login page */
         .login-theme-toggle {
             position: absolute;
             top: 24px;
@@ -309,9 +370,6 @@
             transform: translateY(-2px);
         }
 
-        /* ============================================
-           MOBILE & TABLET - Hide blue section
-        ============================================ */
         @media (max-width: 900px) {
             body {
                 overflow: auto;
@@ -330,7 +388,6 @@
                 background: var(--card-bg);
             }
 
-            /* Hide blue section on mobile/tablet */
             .login-left {
                 display: none;
             }
@@ -357,7 +414,6 @@
             }
         }
 
-        /* Small mobile devices */
         @media (max-width: 480px) {
             .login-right {
                 padding: 30px 16px;
@@ -408,6 +464,10 @@
         <div class="login-left">
             <div class="login-brand">
                 <h1>SpySee</h1>
+                <!-- 👁️ Interactive Eye (added here) -->
+                <div class="eye-watcher" id="spyEye" title="SpySee is watching">
+                    <div class="pupil" id="eyePupil"></div>
+                </div>
             </div>
             <h2>Real-time attendance.<br>Always connected.<br>Built for frontline staff.</h2>
             <p>Fast QR-based sign-in. Live onsite visibility. Seamless Google Sheets sync — wherever your team works.</p>
@@ -466,6 +526,102 @@
         </div>
     </div>
 </main>
+
+<!-- ============================================
+     👁️  JAVASCRIPT FOR EYE TRACKING, BLINK & SLEEP
+     ============================================ -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const eye = document.getElementById('spyEye');
+        const pupil = document.getElementById('eyePupil');
+        if (!eye || !pupil) return;
+
+        // ---- Cursor tracking ----
+        let lastMoveTime = Date.now();
+        let isSleeping = false;
+        let sleepTimeout = null;
+
+        function wakeUp() {
+            if (isSleeping) {
+                isSleeping = false;
+                eye.classList.remove('sleeping');
+                eye.classList.add('awake');
+                // Return pupil to center smoothly
+                pupil.style.transform = 'rotate(-45deg) translate(0px, 0px)';
+                clearTimeout(sleepTimeout);
+            }
+            lastMoveTime = Date.now();
+        }
+
+        function goToSleep() {
+            if (!isSleeping) {
+                isSleeping = true;
+                eye.classList.remove('awake');
+                eye.classList.add('sleeping');
+                // Pupil moves down (as if closing)
+                pupil.style.transform = 'rotate(-45deg) translate(0px, 8px)';
+            }
+        }
+
+        // Track mouse movement on the whole document
+        document.addEventListener('mousemove', function(e) {
+            const rect = eye.getBoundingClientRect();
+            const eyeCenterX = rect.left + rect.width / 2;
+            const eyeCenterY = rect.top + rect.height / 2;
+
+            const deltaX = e.clientX - eyeCenterX;
+            const deltaY = e.clientY - eyeCenterY;
+            const angle = Math.atan2(deltaY, deltaX);
+
+            // Limit pupil movement (max 8px)
+            const maxDistance = 8;
+            const distance = Math.min(Math.hypot(deltaX, deltaY) / 15, maxDistance);
+
+            const moveX = Math.cos(angle) * distance;
+            const moveY = Math.sin(angle) * distance;
+
+            // Only move if awake
+            if (!isSleeping) {
+                pupil.style.transform = `rotate(-45deg) translate(${moveX}px, ${moveY}px)`;
+            }
+
+            // Reset inactivity timer
+            wakeUp();
+            clearTimeout(sleepTimeout);
+            sleepTimeout = setTimeout(goToSleep, 20000); // 20 seconds
+        });
+
+        // ---- Click to blink ----
+        eye.addEventListener('click', function() {
+            if (this.classList.contains('blinking')) return;
+
+            // Wake up if sleeping
+            if (isSleeping) {
+                wakeUp();
+                // Reset the sleep timer
+                clearTimeout(sleepTimeout);
+                sleepTimeout = setTimeout(goToSleep, 20000);
+            }
+
+            this.classList.add('blinking');
+            console.log('👁️ SpySee: Eye blink logged (attention check)');
+
+            this.addEventListener('animationend', function() {
+                this.classList.remove('blinking');
+            }, { once: true });
+        });
+
+        // ---- Initial timer: start sleep after 20s of no mouse movement ----
+        sleepTimeout = setTimeout(goToSleep, 20000);
+
+        // Also wake on keypress (user is active)
+        document.addEventListener('keydown', function() {
+            wakeUp();
+            clearTimeout(sleepTimeout);
+            sleepTimeout = setTimeout(goToSleep, 20000);
+        });
+    });
+</script>
 
 </body>
 </html>

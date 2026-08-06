@@ -32,10 +32,10 @@ $activePage = $activePage ?? 'dashboard';
                 <div class="user-email"><?= htmlspecialchars($_SESSION['user_email'] ?? 'staff@spysee.app') ?></div>
             </div>
         </div>
-        <a href="<?= route_url('/logout') ?>" class="logout-btn">
+        <button class="logout-btn" onclick="if(confirm('Are you sure you want to logout?')) window.location.href='<?= route_url('/logout') ?>'" type="button">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
             Sign out
-        </a>
+        </button>
     </div>
 </aside>
 <div id="sidebarOverlay" class="sidebar-overlay" :class="{ 'show': sidebarOpen }" @click="sidebarOpen = false"></div>

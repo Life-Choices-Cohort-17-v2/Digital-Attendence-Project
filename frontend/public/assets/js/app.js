@@ -1,6 +1,4 @@
-/**app.js */
-
-// Theme Manager
+/** app.js – enhanced with error checks */
 window.themeManager = {
     _applyTheme(isDark) {
         if (isDark) {
@@ -19,79 +17,62 @@ window.themeManager = {
             document.body.style.setProperty('--text', '#5C6B7A');
         }
     },
-
     initTheme() {
         const savedTheme = localStorage.getItem('theme') || 'light';
         this._applyTheme(savedTheme === 'dark');
     },
-    
     toggleTheme() {
         const isDark = document.body.classList.toggle('dark-mode');
-        const theme = isDark ? 'dark' : 'light';
-        localStorage.setItem('theme', theme);
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
         this._applyTheme(isDark);
         return isDark;
     },
-
     isDark() {
         return document.body.classList.contains('dark-mode');
     }
 };
 
-// Helper functions
+// Helpers
 window.getInitials = function(name) {
     if (!name) return '?';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
 };
-
 window.formatTime = function(dateString) {
     if (!dateString) return '--:--';
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
 };
-
 window.formatDate = function(dateString) {
     if (!dateString) return '--';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' });
 };
-
 window.formatDateTime = function(dateString) {
     if (!dateString) return '--';
     const date = new Date(dateString);
     return date.toLocaleString('en-ZA');
 };
-
 window.getWeekday = function() {
     return new Date().toLocaleDateString('en-ZA', { weekday: 'long' });
 };
 
-// App Utilities (including global toast)
 window.appUtils = {
     showToast(message, type = 'success') {
-        // Remove existing toast
-        const existingToast = document.querySelector('.toast-message');
-        if (existingToast) existingToast.remove();
-        
+        const existing = document.querySelector('.toast-message');
+        if (existing) existing.remove();
         const toast = document.createElement('div');
         toast.className = `toast-message ${type}`;
         toast.textContent = message;
         document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
+        setTimeout(() => toast.remove(), 3000);
     }
 };
 
-
-// API Helper
 window.api = {
     async get(endpoint) {
         const response = await fetch(endpoint);
         return response.json();
     },
-    
     async post(endpoint, data) {
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -104,24 +85,21 @@ window.api = {
     }
 };
 
-// QR Utils
 window.qrUtils = {
     getScanType(code) {
-        const upperCode = code.toUpperCase().trim();
-        if (upperCode === 'sign_in' || upperCode === 'CLOCKIN') return 'sign-in';
-        if (upperCode === 'sign_out' || upperCode === 'CLOCKOUT') return 'sign-out';
+        const upper = code.toUpperCase().trim();
+        if (upper === 'SIGN_IN' || upper === 'CLOCKIN') return 'sign-in';
+        if (upper === 'SIGN_OUT' || upper === 'CLOCKOUT') return 'sign-out';
         return null;
     },
-    
     async recordScan(type, userId, location = 'Office') {
         const endpoint = type === 'sign-in' ? 'api/sign-in.php' : 'api/sign-out.php';
         try {
-            const result = await window.api.post(endpoint, { type: type, user_id: userId, location: location });
-            // window.api.post now handles showing error toasts
+            const result = await window.api.post(endpoint, { type, user_id: userId, location });
             return result;
         } catch (error) {
             console.error('Error recording scan:', error);
-            window.appUtils.showToast('Failed to record. Please check your connection.', 'error');
+            window.appUtils.showToast('Failed to record. Check connection.', 'error');
             return null;
         }
     }
