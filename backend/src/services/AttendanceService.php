@@ -18,22 +18,25 @@ class AttendanceService
         $this->attendanceModel = new Attendance($pdo);
     }
 
-   public function processScan(string $qrCode): array
-{
-    $employee = $this->employeeModel->findByQrCode($qrCode);
+    public function processScan(string $qrCode): array
+    {
+        $employee = $this->employeeModel->findByQrCode($qrCode);
 
-    AttendanceRules::validateEmployee($employee);
+        // Verify employee exists and account status
+        AttendanceRules::validateEmployee($employee);
 
-    $employeeId = $employee['employee_id'];
+        // Verify QR token expiration and revocation
+        AttendanceRules::validateQrCode($employee);
 
-    $isClockedIn = $this->attendanceModel->isClockedIn($employeeId);
+        $employeeId = $employee['employee_id'];
+        $isClockedIn = $this->attendanceModel->isClockedIn($employeeId);
 
-    return [
-        'employee_id' => $employeeId,
-        'name' => $employee['name'],
-        'status' => $isClockedIn ? 'CLOCKED_IN' : 'CLOCKED_OUT'
-    ];
-}
+        return [
+            'employee_id' => $employeeId,
+            'name' => $employee['name'],
+            'status' => $isClockedIn ? 'CLOCKED_IN' : 'CLOCKED_OUT'
+        ];
+    }
 
     public function clockIn(string $employeeId): array 
     {
@@ -47,6 +50,16 @@ class AttendanceService
         $now = TimeHelper::getCurrentTimestamp();
         $this->attendanceModel->recordClockIn($employeeId, $now);
 
+        // Non-blocking handoff to Google Sheets (Person 6)
+        if (class_exists('\Services\GoogleSheetsService')) {
+            try {
+                $sheetsService = new \Services\GoogleSheetsService();
+                $sheetsService->syncRecord($employeeId, 'CLOCKED_IN', $now);
+            } catch (\Throwable $e) {
+                error_log("Google Sheets sync failed: " . $e->getMessage());
+            }
+        }
+
         return [
             'action' => 'CLOCKED_IN',
             'message' => "Clock-in recorded successfully for {$employee['name']}.",
@@ -58,11 +71,9 @@ class AttendanceService
     public function clockInByQr(string $qrCode): array 
     {
         $employee = $this->employeeModel->findByQrCode($qrCode);
-        if (!$employee) {
-            throw new Exception("Employee not found for QR code.");
-        }
+        AttendanceRules::validateEmployee($employee);
+        AttendanceRules::validateQrCode($employee);
 
-        // Standardized key to 'employee_id'
         return $this->clockIn($employee['employee_id']); 
     }
 
@@ -77,6 +88,16 @@ class AttendanceService
 
         $now = TimeHelper::getCurrentTimestamp();
         $this->attendanceModel->recordClockOut($employeeId, $now);
+
+        // Non-blocking handoff to Google Sheets (Person 6)
+        if (class_exists('\Services\GoogleSheetsService')) {
+            try {
+                $sheetsService = new \Services\GoogleSheetsService();
+                $sheetsService->syncRecord($employeeId, 'CLOCKED_OUT', $now);
+            } catch (\Throwable $e) {
+                error_log("Google Sheets sync failed: " . $e->getMessage());
+            }
+        }
 
         return [
             'action' => 'CLOCKED_OUT',

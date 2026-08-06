@@ -10,7 +10,11 @@ use App\Services\GoogleSheetsService;
  * ATTENDANCE CORE SERVICE ENGINE
  * Owner: Person 3 (Clock Engine Lead)
  */
-class AttendanceService 
+namespace App\Exceptions;
+
+use Exception;
+
+class AttendanceException extends Exception 
 {
     private Attendance $attendanceModel;
     private User $userModel;

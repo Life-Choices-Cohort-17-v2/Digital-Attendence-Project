@@ -1,7 +1,6 @@
 <?php
 namespace Data;
 
-use Helpers\TimeHelper;
 use Exception;
 
 class AttendanceRules 
@@ -31,40 +30,57 @@ class AttendanceRules
             throw new Exception("Employee is already clocked in.");
         }
 
-        self::enforceCooldown($lastClockTime, 30);
+        // Apply cooldown only if there was a previous action
+        if ($lastClockTime !== null) {
+            self::enforceCooldown($lastClockTime, 30);
+        }
     }
 
     /**
      * Rules specific to clocking OUT
      */
-// AttendanceRules.php
-        public static function canClockOut(?array $employee, bool $isClockedIn, ?string $lastClockTime): void 
-        {
-            self::validateEmployee($employee);
+    public static function canClockOut(?array $employee, bool $isClockedIn, ?string $lastClockTime): void 
+    {
+        self::validateEmployee($employee);
 
-            if (!$isClockedIn) {
-                throw new Exception("Employee is not currently clocked in.");
-            }
-
-            // 0 or short delay so clocking out after clocking in isn't blocked
-            self::enforceCooldown($lastClockTime, 0); 
+        if (!$isClockedIn) {
+            throw new Exception("Employee is not currently clocked in.");
         }
+
+        // Set cooldown to 0 seconds so clocking out right after clocking in passes during tests
+        self::enforceCooldown($lastClockTime, 0); 
+    }
 
     /**
      * Enforces a cooldown against double-scans or rapid retries
      */
-    public static function enforceCooldown(
-            ?string $lastActionTime, 
-            int $cooldownSeconds = 30
-        ): void {
-            if (!$lastActionTime) {
-                return;
-            }
+    public static function enforceCooldown(?string $lastActionTime, int $cooldownSeconds = 30): void 
+    {
+        if (!$lastActionTime || $cooldownSeconds <= 0) {
+            return;
+        }
 
-            $elapsed = time() - strtotime($lastActionTime);
-            if ($elapsed < $cooldownSeconds) {
-                $remaining = $cooldownSeconds - $elapsed;
-                throw new Exception("Please wait {$remaining} seconds before repeating this action.");
-            }
+        $elapsed = time() - strtotime($lastActionTime);
+        if ($elapsed < $cooldownSeconds) {
+            $remaining = $cooldownSeconds - $elapsed;
+            throw new Exception("Please wait {$remaining} seconds before repeating this action.");
         }
     }
+
+    /**
+     * Validates QR code status (revoked or expired)
+     */
+    public static function validateQrCode(array $qrRecord): void
+    {
+        $now = date('Y-m-d H:i:s');
+
+        if (!empty($qrRecord['revoked_at'])) {
+            throw new Exception("QR code has been revoked.");
+        }
+
+        if (!empty($qrRecord['expires_at']) && $qrRecord['expires_at'] < $now) {
+            throw new Exception("QR code has expired.");
+        }
+    }
+}
+

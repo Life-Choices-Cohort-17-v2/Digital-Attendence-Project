@@ -23,7 +23,14 @@ class Attendance
 
     private function saveState(array $state): void 
     {
-        file_put_contents($this->storageFile, json_encode($state));
+        $fp = fopen($this->storageFile, 'c+');
+        if (flock($fp, LOCK_EX)) {
+            ftruncate($fp, 0);
+            fwrite($fp, json_encode($state, JSON_PRETTY_PRINT));
+            fflush($fp);
+            flock($fp, LOCK_UN);
+        }
+        fclose($fp);
     }
 
     public function isClockedIn(string $employeeId): bool 
