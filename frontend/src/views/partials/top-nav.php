@@ -1,11 +1,12 @@
 <div class="top-nav">
-    <button class="menu-btn" @click="sidebarOpen = !sidebarOpen">
+    <button class="menu-btn" @click="sidebarOpen = !sidebarOpen" type="button">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
         </svg>
     </button>
-    <div style="flex: 1;"></div>
-    <button class="theme-toggle" x-data="{ dark: window.themeManager.isDark() }" @click="dark = window.themeManager.toggleTheme()">
+    <div style="flex:1;"></div>
+
+    <button class="theme-toggle" x-data="{ dark: window.themeManager ? window.themeManager.isDark() : false }" @click="dark = window.themeManager ? window.themeManager.toggleTheme() : false" type="button">
         <svg class="sun-icon" :style="{ display: dark ? 'block' : 'none' }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#9CB07A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="5"></circle>
             <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -21,6 +22,7 @@
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
         </svg>
     </button>
+
     <div class="admin-badge"><?= ucfirst($_SESSION['user_role'] ?? 'Staff') ?></div>
     <div id="toast-container" class="toast-container"></div>
 </div>
