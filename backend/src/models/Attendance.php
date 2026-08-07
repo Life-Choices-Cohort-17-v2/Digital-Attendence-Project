@@ -1,65 +1,85 @@
 <?php
 namespace Models;
 
+use PDO;
+
 class Attendance 
 {
-    private ?\PDO $pdo;
-    private string $storageFile;
+    private PDO $pdo;
 
-    public function __construct(?\PDO $pdo = null) 
+    public function __construct(PDO $pdo) 
     {
         $this->pdo = $pdo;
-        // Temporary JSON file to persist state across HTTP requests
-        $this->storageFile = sys_get_temp_dir() . '/attendance_mock_state.json';
     }
 
-    private function loadState(): array 
+    /**
+     * Fetch the most recent attendance record for a user.
+     * Uses 'id DESC' for sequential safety over timestamp collision.
+     */
+    public function getLatestRecord(int $userId): ?array 
     {
-        if (!file_exists($this->storageFile)) {
-            return ['clockedIn' => [], 'lastScanTime' => []];
+        $query = "
+            SELECT * 
+            FROM attendance_records 
+            WHERE user_id = :user_id 
+            ORDER BY id DESC 
+            LIMIT 1
+        ";
+
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([':user_id' => $userId]);
+
+        $record = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $record ?: null;
+    }
+
+    /**
+     * Check if user is currently clocked in.
+     */
+    public function isClockedIn(int $userId): bool 
+    {
+        $latest = $this->getLatestRecord($userId);
+        if (!$latest) {
+            return false;
         }
-        return json_decode(file_get_contents($this->storageFile), true) ?? ['clockedIn' => [], 'lastScanTime' => []];
+
+        return $latest['type'] === 'sign_in';
     }
 
-    private function saveState(array $state): void 
+    /**
+     * Get the timestamp of the last recorded clock action.
+     */
+    public function getLastClockTime(int $userId): ?string 
     {
-        $fp = fopen($this->storageFile, 'c+');
-        if (flock($fp, LOCK_EX)) {
-            ftruncate($fp, 0);
-            fwrite($fp, json_encode($state, JSON_PRETTY_PRINT));
-            fflush($fp);
-            flock($fp, LOCK_UN);
-        }
-        fclose($fp);
+        $latest = $this->getLatestRecord($userId);
+        return $latest['timestamp'] ?? null;
     }
 
-    public function isClockedIn(string $employeeId): bool 
-    {
-        $state = $this->loadState();
-        return $state['clockedIn'][$employeeId] ?? false;
-    }
+    /**
+     * Insert a new record into attendance_records.
+     * Lets MySQL handle auto-generating timestamp and created_at defaults.
+     */
+    public function createRecord(
+        int $userId, 
+        string $type, 
+        ?string $location = null, 
+        string $device = 'Mobile', 
+        ?string $qrCode = null
+    ): bool {
+        $query = "
+            INSERT INTO attendance_records 
+            (user_id, type, location, device, qr_code, sync_status) 
+            VALUES 
+            (:user_id, :type, :location, :device, :qr_code, 'pending')
+        ";
 
-    public function getLastClockTime(string $employeeId): ?string 
-    {
-        $state = $this->loadState();
-        return $state['lastScanTime'][$employeeId] ?? null;
-    }
-
-    public function recordClockIn(string $employeeId, string $timestamp): bool 
-    {
-        $state = $this->loadState();
-        $state['clockedIn'][$employeeId] = true;
-        $state['lastScanTime'][$employeeId] = $timestamp;
-        $this->saveState($state);
-        return true;
-    }
-
-    public function recordClockOut(string $employeeId, string $timestamp): bool 
-    {
-        $state = $this->loadState();
-        $state['clockedIn'][$employeeId] = false;
-        $state['lastScanTime'][$employeeId] = $timestamp;
-        $this->saveState($state);
-        return true;
+        $stmt = $this->pdo->prepare($query);
+        return $stmt->execute([
+            ':user_id'  => $userId,
+            ':type'     => $type, // 'sign_in' or 'sign_out'
+            ':location' => $location,
+            ':device'   => $device,
+            ':qr_code'  => $qrCode
+        ]);
     }
 }

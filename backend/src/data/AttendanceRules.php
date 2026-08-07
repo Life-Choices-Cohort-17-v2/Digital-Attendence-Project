@@ -6,6 +6,31 @@ use Exception;
 class AttendanceRules 
 {
     /**
+     * Validates QR token structure and extracts the targeted employee ID.
+     * Supports formats like 'QR-USER001-A1B2' or 'QR-EMP001-A1B2'.
+     */
+    public static function validateQrToken(string $qrCode): string 
+    {
+        if (empty($qrCode) || !str_starts_with($qrCode, 'QR-')) {
+            throw new Exception("Invalid QR token format.");
+        }
+
+        $parts = explode('-', $qrCode);
+        if (count($parts) < 3) {
+            throw new Exception("Malformed QR token structure.");
+        }
+
+        $employeeTag = $parts[1]; 
+        $numericId = preg_replace('/[^0-9]/', '', $employeeTag);
+
+        if (empty($numericId)) {
+            throw new Exception("Invalid employee identifier in QR token.");
+        }
+
+        return 'EMP' . str_pad($numericId, 3, '0', STR_PAD_LEFT);
+    }
+
+    /**
      * Checks if the employee is known and active
      */
     public static function validateEmployee(?array $employee): void 
@@ -46,9 +71,6 @@ class AttendanceRules
         if (!$isClockedIn) {
             throw new Exception("Employee is not currently clocked in.");
         }
-
-        // Set cooldown to 0 seconds so clocking out right after clocking in passes during tests
-        self::enforceCooldown($lastClockTime, 0); 
     }
 
     /**
@@ -66,21 +88,4 @@ class AttendanceRules
             throw new Exception("Please wait {$remaining} seconds before repeating this action.");
         }
     }
-
-    /**
-     * Validates QR code status (revoked or expired)
-     */
-    public static function validateQrCode(array $qrRecord): void
-    {
-        $now = date('Y-m-d H:i:s');
-
-        if (!empty($qrRecord['revoked_at'])) {
-            throw new Exception("QR code has been revoked.");
-        }
-
-        if (!empty($qrRecord['expires_at']) && $qrRecord['expires_at'] < $now) {
-            throw new Exception("QR code has expired.");
-        }
-    }
 }
-
