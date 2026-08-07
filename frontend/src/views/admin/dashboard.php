@@ -18,7 +18,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
 </head>
 <body>
 
-<script>window.themeManager.initTheme();</script>
 <div x-data="dashboardApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
     <div class="app-layout">
         <?php $activePage = 'dashboard'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
@@ -283,7 +282,6 @@ function dashboardApp() {
         refreshInterval: null,
         
         async init() {
-            window.themeManager.initTheme();
             this.weekday = getWeekday();
             await this.loadDashboard();
             this.refreshInterval = setInterval(() => this.loadDashboard(), 30000);

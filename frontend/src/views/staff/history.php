@@ -100,7 +100,6 @@ function historyApp() {
         },
         
         async init() {
-            window.themeManager.initTheme();
             const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff']); ?>;
             this.user = userData;
             await this.loadHistory();

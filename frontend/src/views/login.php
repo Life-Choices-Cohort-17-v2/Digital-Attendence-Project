@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $title ?? 'SpySee - Login' ?></title>
     <style>
+        /* ================================================================
+           LOGIN PAGE – dark only (no toggle)
+           Left panel gradient untouched.
+           ================================================================ */
+
         * {
             margin: 0;
             padding: 0;
@@ -12,14 +17,13 @@
         }
 
         :root {
-            --sidebar-blue: #093C5D;
-            --olive-green: #9CB07A;
-            --background: #FFFFFF;
-            --card-bg: #FFFFFF;
-            --border-color: #E8EDF2;
-            --heading: #093C5D;
-            --text: #5C6B7A;
-            --muted: #94A3B8;
+            --background: #202020;
+            --card-bg: #2a2a2a;
+            --border-color: #444444;
+            --heading: #F8F8F8;
+            --text: #999999;
+            --muted: #666666;
+            --accent: #5DD62C;
         }
 
         body {
@@ -35,9 +39,10 @@
             height: 100vh;
         }
 
+        /* ---------- LEFT PANEL (gradient) – UNTOUCHED ---------- */
         .login-left {
             flex: 1;
-            background: var(--sidebar-blue);
+            background: linear-gradient(145deg, #0A0A0A 0%, #008400 40%, #00B000 70%, #8CDB8C 100%);
             padding: 60px;
             color: white;
             display: flex;
@@ -45,22 +50,22 @@
             justify-content: center;
             height: 100vh;
             overflow-y: auto;
+            position: relative;
         }
 
         .login-brand h1 {
             font-size: 32px;
             font-weight: 700;
-            margin-bottom: 12px; /* reduced to bring eye closer */
+            margin-bottom: 12px;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        /* ============================================
-           👁️  EYE WATCHER (added)
-        ============================================ */
         .eye-watcher {
-            width: 56px;
-            height: 56px;
+            width: 64px;
+            height: 64px;
             background: #FFFFFF;
-            border: 5px solid #FFFFFF;
+            border: 4px solid #131313;
             border-radius: 75% 0;
             transform: scaleY(1) rotate(45deg);
             position: relative;
@@ -69,45 +74,42 @@
             justify-content: center;
             overflow: hidden;
             cursor: pointer;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+            box-shadow: none;
             user-select: none;
             margin-top: 4px;
-            transition: transform 0.2s ease;
+            transition: box-shadow 0.3s ease;
+        }
+        .eye-watcher:hover {
+            box-shadow: none;
         }
 
         .eye-watcher .pupil {
-            width: 22px;
-            height: 22px;
-            background-color: #000000;
+            width: 24px;
+            height: 24px;
+            background-color: #131313;
             border-radius: 50%;
             position: absolute;
             transform: rotate(-45deg) translate(0px, 0px);
             transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-
-        /* Catchlight */
         .eye-watcher .pupil::after {
             content: '';
             position: absolute;
             top: 3px;
             right: 3px;
-            width: 6px;
-            height: 6px;
-            background: var(--olive-green, #9CB07A);
+            width: 8px;
+            height: 8px;
+            background: #8CDB8C;
             border-radius: 50%;
         }
 
-        /* Blink animation */
         .eye-watcher.blinking {
             animation: eyeBlink 0.2s ease-in-out;
         }
-
         @keyframes eyeBlink {
             0%, 100% { transform: scaleY(1) rotate(45deg); }
             50%      { transform: scaleY(0.05) rotate(45deg); }
         }
-
-        /* Sleep mode: pupil moves down and eye slightly closes */
         .eye-watcher.sleeping .pupil {
             transform: rotate(-45deg) translate(0px, 8px) !important;
             transition: transform 0.8s ease-in;
@@ -129,34 +131,38 @@
             margin-bottom: 24px;
             max-width: 500px;
             margin-top: 20px;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         .login-left p {
-            opacity: 0.8;
+            opacity: 0.9;
             line-height: 1.6;
             margin-bottom: 48px;
             max-width: 450px;
             font-size: 16px;
+            color: #fff;
         }
 
         .feature-badges {
             display: flex;
             gap: 40px;
         }
-
         .badge-item {
             font-size: 28px;
             font-weight: 700;
+            color: #fff;
         }
-
         .badge-item span {
             display: block;
             font-size: 13px;
             font-weight: 400;
-            opacity: 0.7;
+            opacity: 0.8;
             margin-top: 4px;
+            color: #fff;
         }
 
+        /* ---------- RIGHT PANEL (login card) – DARK ONLY ---------- */
         .login-right {
             flex: 1;
             display: flex;
@@ -173,20 +179,18 @@
             padding: 48px;
             background: var(--card-bg);
             border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
         .login-header {
             margin-bottom: 32px;
         }
-
         .login-header h3 {
             font-size: 28px;
             font-weight: 700;
             color: var(--heading);
             margin-bottom: 8px;
         }
-
         .login-header p {
             color: var(--text);
             font-size: 14px;
@@ -195,7 +199,6 @@
         .input-group {
             margin-bottom: 20px;
         }
-
         .input-group label {
             display: block;
             font-size: 13px;
@@ -203,21 +206,19 @@
             color: var(--heading);
             margin-bottom: 6px;
         }
-
         .input-group input {
             width: 100%;
             padding: 14px 16px;
             border: 1px solid var(--border-color);
             border-radius: 12px;
             font-size: 14px;
-            background: var(--card-bg);
+            background: #333333;
             color: var(--heading);
             transition: 0.2s;
         }
-
         .input-group input:focus {
             outline: none;
-            border-color: var(--olive-green);
+            border-color: var(--accent);
         }
 
         .login-options {
@@ -226,7 +227,6 @@
             align-items: center;
             margin-bottom: 24px;
         }
-
         .checkbox {
             display: flex;
             align-items: center;
@@ -235,19 +235,16 @@
             color: var(--text);
             cursor: pointer;
         }
-
         .checkbox input {
             width: 16px;
             height: 16px;
             cursor: pointer;
         }
-
         .forgot-link {
             font-size: 13px;
-            color: var(--olive-green);
+            color: var(--accent);
             text-decoration: none;
         }
-
         .forgot-link:hover {
             text-decoration: underline;
         }
@@ -255,8 +252,8 @@
         .login-btn {
             width: 100%;
             padding: 14px;
-            background: var(--sidebar-blue);
-            color: white;
+            background: var(--accent);
+            color: #202020;
             border: none;
             border-radius: 12px;
             font-weight: 600;
@@ -264,9 +261,9 @@
             cursor: pointer;
             transition: 0.2s;
         }
-
         .login-btn:hover {
-            background: #1a5270;
+            background: #337418;
+            color: #f8f8f8;
         }
 
         .demo-accounts {
@@ -274,29 +271,24 @@
             padding-top: 24px;
             border-top: 1px solid var(--border-color);
         }
-
         .demo-accounts p {
             font-size: 12px;
             color: var(--muted);
             margin-bottom: 12px;
             font-weight: 500;
         }
-
         .demo-items {
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
-
         .demo-items div {
             font-size: 12px;
             color: var(--text);
         }
-
         .demo-items strong {
             color: var(--heading);
         }
-
         .role-badge {
             display: inline-block;
             padding: 2px 8px;
@@ -305,29 +297,26 @@
             margin-left: 8px;
             font-weight: 500;
         }
-
         .role-badge.admin {
-            background: rgba(9, 60, 93, 0.1);
-            color: var(--sidebar-blue);
+            background: rgba(93, 214, 44, 0.2);
+            color: var(--accent);
         }
-
         .role-badge.staff {
-            background: rgba(156, 176, 122, 0.12);
-            color: var(--olive-green);
+            background: rgba(156, 176, 122, 0.2);
+            color: #9CB07A;
         }
 
         .login-footer {
             margin-top: 32px;
             text-align: center;
         }
-
         .login-footer p {
             font-size: 11px;
             color: var(--muted);
         }
 
         .error-message {
-            background: rgba(220, 38, 38, 0.1);
+            background: rgba(220,38,38,0.1);
             color: #DC2626;
             padding: 12px;
             border-radius: 12px;
@@ -335,41 +324,9 @@
             font-size: 13px;
         }
 
-        body.dark-mode {
-            --background: #0f172a;
-            --card-bg: #1e293b;
-            --border-color: #334155;
-            --heading: #f1f5f9;
-            --text: #94a3b8;
-            --muted: #64748b;
-            --sidebar-blue: #1e3a5f;
-        }
-
         [x-cloak] { display: none !important; }
 
-        .login-theme-toggle {
-            position: absolute;
-            top: 24px;
-            right: 24px;
-            z-index: 1000;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s ease;
-        }
-
-        .login-theme-toggle:hover {
-            border-color: var(--olive-green);
-            transform: translateY(-2px);
-        }
-
+        /* ---------- RESPONSIVE ---------- */
         @media (max-width: 900px) {
             body {
                 overflow: auto;
@@ -380,35 +337,31 @@
                 justify-content: center;
                 background: var(--background);
             }
-
             .login-container {
                 flex-direction: column;
                 height: auto;
                 min-height: 100vh;
                 background: var(--card-bg);
             }
-
             .login-left {
                 display: none;
             }
-
             .login-right {
                 height: auto;
                 min-height: 100vh;
-                background: var(--card-bg);
+                background: var(--background);
                 padding: 40px 20px;
             }
-
             .login-card {
                 padding: 0;
                 max-width: 400px;
                 margin: 0 auto;
+                background: transparent;
+                box-shadow: none;
             }
-
             .login-header h3 {
                 font-size: 24px;
             }
-
             .login-header p {
                 font-size: 13px;
             }
@@ -418,15 +371,12 @@
             .login-right {
                 padding: 30px 16px;
             }
-
             .login-card {
                 padding: 0;
             }
-
             .input-group input {
                 padding: 12px 14px;
             }
-
             .login-btn {
                 padding: 12px;
             }
@@ -438,33 +388,11 @@
 </head>
 <body>
 
-<script>window.themeManager.initTheme();</script>
-
 <main class="login-page" x-data="{ loading: false }">
-    <!-- Theme Toggle -->
-    <button class="login-theme-toggle" x-data="{ dark: window.themeManager.isDark() }" @click="dark = window.themeManager.toggleTheme()" type="button" title="Toggle Theme">
-        <svg x-show="!dark" class="moon-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#093C5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        </svg>
-        <svg x-show="dark" class="sun-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#9CB07A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;" x-cloak>
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
-    </button>
-
     <div class="login-container">
-        <!-- Left Side - Full height blue section (DESKTOP ONLY - hidden on mobile/tablet) -->
         <div class="login-left">
             <div class="login-brand">
                 <h1>SpySee</h1>
-                <!-- 👁️ Interactive Eye (added here) -->
                 <div class="eye-watcher" id="spyEye" title="SpySee is watching">
                     <div class="pupil" id="eyePupil"></div>
                 </div>
@@ -478,7 +406,6 @@
             </div>
         </div>
 
-        <!-- Right Side - Login Form (Full width on mobile) -->
         <div class="login-right">
             <div class="login-card">
                 <div class="login-header">
@@ -527,16 +454,13 @@
     </div>
 </main>
 
-<!-- ============================================
-     👁️  JAVASCRIPT FOR EYE TRACKING, BLINK & SLEEP
-     ============================================ -->
+<!-- EYE JAVASCRIPT (unchanged) -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const eye = document.getElementById('spyEye');
         const pupil = document.getElementById('eyePupil');
         if (!eye || !pupil) return;
 
-        // ---- Cursor tracking ----
         let lastMoveTime = Date.now();
         let isSleeping = false;
         let sleepTimeout = null;
@@ -546,7 +470,6 @@
                 isSleeping = false;
                 eye.classList.remove('sleeping');
                 eye.classList.add('awake');
-                // Return pupil to center smoothly
                 pupil.style.transform = 'rotate(-45deg) translate(0px, 0px)';
                 clearTimeout(sleepTimeout);
             }
@@ -558,12 +481,10 @@
                 isSleeping = true;
                 eye.classList.remove('awake');
                 eye.classList.add('sleeping');
-                // Pupil moves down (as if closing)
                 pupil.style.transform = 'rotate(-45deg) translate(0px, 8px)';
             }
         }
 
-        // Track mouse movement on the whole document
         document.addEventListener('mousemove', function(e) {
             const rect = eye.getBoundingClientRect();
             const eyeCenterX = rect.left + rect.width / 2;
@@ -572,33 +493,26 @@
             const deltaX = e.clientX - eyeCenterX;
             const deltaY = e.clientY - eyeCenterY;
             const angle = Math.atan2(deltaY, deltaX);
-
-            // Limit pupil movement (max 8px)
             const maxDistance = 8;
             const distance = Math.min(Math.hypot(deltaX, deltaY) / 15, maxDistance);
 
             const moveX = Math.cos(angle) * distance;
             const moveY = Math.sin(angle) * distance;
 
-            // Only move if awake
             if (!isSleeping) {
                 pupil.style.transform = `rotate(-45deg) translate(${moveX}px, ${moveY}px)`;
             }
 
-            // Reset inactivity timer
             wakeUp();
             clearTimeout(sleepTimeout);
-            sleepTimeout = setTimeout(goToSleep, 20000); // 20 seconds
+            sleepTimeout = setTimeout(goToSleep, 20000);
         });
 
-        // ---- Click to blink ----
         eye.addEventListener('click', function() {
             if (this.classList.contains('blinking')) return;
 
-            // Wake up if sleeping
             if (isSleeping) {
                 wakeUp();
-                // Reset the sleep timer
                 clearTimeout(sleepTimeout);
                 sleepTimeout = setTimeout(goToSleep, 20000);
             }
@@ -611,10 +525,8 @@
             }, { once: true });
         });
 
-        // ---- Initial timer: start sleep after 20s of no mouse movement ----
         sleepTimeout = setTimeout(goToSleep, 20000);
 
-        // Also wake on keypress (user is active)
         document.addEventListener('keydown', function() {
             wakeUp();
             clearTimeout(sleepTimeout);

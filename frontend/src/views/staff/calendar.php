@@ -132,7 +132,7 @@ function calendarApp() {
         },
         
         init() {
-            window.themeManager.initTheme();
+            // Initialization logic can go here
         },
         
         prevMonth() { this.currentDate = new Date(this.year, this.month - 1); this.selectedDay = null; },

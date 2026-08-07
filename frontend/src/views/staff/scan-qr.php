@@ -39,8 +39,8 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             max-width: 200px; /* Limit width of the card */
             margin: 0 auto; /* Center the card */
             text-align: center;
-            padding: 20px;
-            background: white;
+            padding: 20px; /* Ensure padding is applied */
+            background: var(--card-bg); /* Use CSS variable for consistency */
             border-radius: 16px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             aspect-ratio: 1 / 1; /* Make the card square */
@@ -99,21 +99,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             height: 120px !important;
             margin: 0 auto; /* Center the QR code */
         }
-        .manual-submit-btn {
-            width: 100%;
-            margin-top: 12px;
-            padding: 12px 24px;
-            background: var(--olive-green);
-            color: var(--sidebar-blue);
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background 0.2s ease;
-        }
-        .manual-submit-btn:hover {
-            background: var(--olive-green-bright);
-        }
         [x-cloak] { display: none !important; }
     </style>
 </head>
@@ -167,7 +152,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                         <div class="manual-row">
                             <input type="text" x-model="manualCode" placeholder="SIGN_IN or SIGN_OUT">
                         </div>
-                        <button class="manual-submit-btn" @click="manualSubmit()">Submit</button>
+                        <button class="qr-button-styled" style="width: 100%; margin-top: 12px;" @click="manualSubmit()">Submit</button>
                     </div>
 
                     <div class="result-message" x-show="resultMessage" :class="resultType">
@@ -195,7 +180,6 @@ function scanApp() {
         async init() {
             const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff', 'email' => 'staff@spysee.app']); ?>;
             this.user = userData;
-            window.themeManager.initTheme();
             
             // Initial fetch of the active QR code from admin side
             await this.fetchActiveQR();

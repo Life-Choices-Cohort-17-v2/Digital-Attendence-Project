@@ -20,16 +20,24 @@ if (!isset($_SESSION['user_id'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <style>
+        /* ================================================================
+           BLACK & GREEN DARK THEME – matches the rest of the app
+           Background: #202020 (Onyx-like)
+           Eye: same as login page (white, black border, green catchlight)
+           ================================================================ */
         :root {
-            --deep-navy: #093C5D;
-            --mid-blue: #3B7597;
-            --olive-green: #9CB07A;
-            --light-gray: #F5F5F5;
-            --black: #000000;
+            --bg: #202020;              /* dark background */
+            --text-light: #F8F8F8;      /* headings */
+            --text-muted: #999999;      /* sub-text */
+            --eye-white: #FFFFFF;
+            --eye-border: #131313;      /* Onyx */
+            --eye-pupil: #131313;
+            --eye-catchlight: #8CDB8C;  /* light green from gradient */
+            --shadow-color: rgba(0, 0, 0, 0.5);
         }
 
         body {
-            background-color: var(--light-gray);
+            background-color: var(--bg);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             min-height: 100vh;
             display: flex;
@@ -48,12 +56,12 @@ if (!isset($_SESSION['user_id'])) {
             text-align: center;
         }
 
-        /* Scaled-up Centered Eye Watcher Loader */
+        /* ---------- EYE LOADER (matches login page) ---------- */
         .eye-loader {
             width: 72px;
             height: 72px;
-            background: #FFFFFF;
-            border: 7px solid var(--black);
+            background: var(--eye-white);
+            border: 4px solid var(--eye-border);  /* black outline */
             border-radius: 75% 0;
             transform: scaleY(1) rotate(45deg);
             position: relative;
@@ -61,21 +69,21 @@ if (!isset($_SESSION['user_id'])) {
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            box-shadow: 0 12px 30px rgba(9, 60, 93, 0.12);
+            box-shadow: 0 12px 30px var(--shadow-color);
             user-select: none;
         }
 
         .eye-loader .pupil {
             width: 28px;
             height: 28px;
-            background-color: var(--black);
+            background-color: var(--eye-pupil);
             border-radius: 50%;
             position: absolute;
             transform: rotate(-45deg) translate(0px, 0px);
             transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* Catchlight Accent */
+        /* Catchlight – green accent */
         .eye-loader .pupil::after {
             content: '';
             position: absolute;
@@ -83,11 +91,11 @@ if (!isset($_SESSION['user_id'])) {
             right: 4px;
             width: 8px;
             height: 8px;
-            background: var(--olive-green);
+            background: var(--eye-catchlight);
             border-radius: 50%;
         }
 
-        /* True Vertical Blink Animation */
+        /* Blink animation */
         .eye-loader.blinking {
             animation: eyeBlink 0.2s ease-in-out;
         }
@@ -101,9 +109,9 @@ if (!isset($_SESSION['user_id'])) {
             }
         }
 
-        /* Status Messaging */
+        /* ---------- Status Messaging ---------- */
         .status-text {
-            color: var(--deep-navy);
+            color: var(--text-light);
             font-weight: 600;
             font-size: 1rem;
             margin-top: 24px;
@@ -111,7 +119,7 @@ if (!isset($_SESSION['user_id'])) {
         }
 
         .sub-text {
-            color: #707070;
+            color: var(--text-muted);
             font-size: 0.85rem;
             margin-top: 4px;
         }

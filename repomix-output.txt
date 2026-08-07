@@ -239,6 +239,7 @@ File: frontend/src/views/admin/loading-dashboard.php
             overflow: hidden;
             box-shadow: 0 12px 30px rgba(9, 60, 93, 0.12);
             user-select: none;
+            background-color: rgba(93, 214, 44, 0.15);
         }
         .eye-loader .pupil {
             width: 28px;

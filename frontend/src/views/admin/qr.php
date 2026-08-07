@@ -83,11 +83,8 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
             justify-content: center;
             width: 150px;
             height: 150px;
-            margin: 0 auto;
-        }
-        body.dark-mode .qr-code-wrapper {
-            background: #0f172a;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            margin: 0 auto; /* Center the card */
+            background: var(--card-bg); /* Use CSS variable for consistency */
         }
         .qr-code-display {
             display: flex;

@@ -33,7 +33,7 @@ $user = require_auth('staff'); // ensures we have id, name, email, employeeId, r
         .offsite-badge {
             display: inline-block;
             background: rgba(168, 201, 122, 0.12);
-            color: #A8C97A;
+            color: #00B000; 
             padding: 4px 12px;
             border-radius: 16px;
             font-size: 12px;
@@ -73,10 +73,8 @@ $user = require_auth('staff'); // ensures we have id, name, email, employeeId, r
             text-align: center;
             transition: all 0.2s ease;
         }
-        .menu-item:hover { border-color: var(--olive-green); transform: translateY(-2px); background: var(--olive-green-soft); }
         .menu-item h3 { font-size: 16px; font-weight: 600; color: var(--heading); margin-bottom: 4px; }
         .menu-item p { font-size: 13px; color: var(--text); }
-        /* Modal styles (keep your existing) */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; }
         .modal-container { background: var(--card-bg); border-radius: 24px; width: 420px; max-width: 95%; max-height: none; overflow-y: visible; }
         .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
@@ -84,9 +82,7 @@ $user = require_auth('staff'); // ensures we have id, name, email, employeeId, r
         .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text); }
         .modal-body { padding: 12px 20px; }
         .modal-footer { padding: 12px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px; }
-        .btn-cancel { padding: 10px 20px; background: #F0F2F5; border: none; border-radius: 12px; cursor: pointer; font-weight: 500; }
         .btn-submit { padding: 10px 20px; background: var(--sidebar-blue); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 500; }
-        body.dark-mode .btn-cancel { background: #334155; color: white; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 12px; }
         .calendar-day-header { text-align: center; font-weight: 600; font-size: 12px; padding: 8px; color: var(--text); }
         .calendar-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; background: var(--card-bg); border: 1px solid var(--border-color); font-size: 14px; transition: 0.2s; }
@@ -105,7 +101,6 @@ $user = require_auth('staff'); // ensures we have id, name, email, employeeId, r
 </head>
 <body>
 
-<script>window.themeManager.initTheme();</script>
 <div x-data="dashboardApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
     <div class="app-layout">
         <?php $activePage = 'dashboard'; include __DIR__ . '/staff-sidebar.php'; ?>
@@ -123,7 +118,9 @@ $user = require_auth('staff'); // ensures we have id, name, email, employeeId, r
                     <div class="offsite-badge" x-text="isClockedIn ? 'ONSITE' : 'OFFSITE'" :style="isClockedIn ? 'color: #9CB07A; background: rgba(156, 176, 122, 0.12);' : ''">OFFSITE</div>
                     <p>You are currently</p>
                     <h2 x-text="isClockedIn ? 'Signed in' : 'Sign Out'">Sign Out</h2>
-                    <a href="<?= route_url('/scan-qr') ?>" class="scan-btn">Scan QR</a>
+                    <div class="scan-button-container">
+                        <a href="<?= route_url('/scan-qr') ?>" class="scan-btn qr-button-styled" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;background-color: rgba(93, 214, 44, 0.15);">Scan QR</a>
+                    </div>
                 </div>
 
                 <!-- Menu Items -->
@@ -251,7 +248,6 @@ function dashboardApp() {
         },
 
         async init() {
-            window.themeManager.initTheme();
             const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'User', 'email' => 'user@spysee.app']); ?>;
             this.user = userData;
             await this.updateStatus();

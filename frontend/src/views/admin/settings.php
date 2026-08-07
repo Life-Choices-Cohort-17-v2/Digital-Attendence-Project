@@ -18,7 +18,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
 </head>
 <body>
 
-<script>window.themeManager.initTheme();</script>
 <div x-data="settingsApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
     <div class="app-layout">
         <?php $activePage = 'settings'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
@@ -110,7 +109,6 @@ function settingsApp() {
         },
         
         init() {
-            window.themeManager.initTheme();
             this.loadSettings();
         },
         
