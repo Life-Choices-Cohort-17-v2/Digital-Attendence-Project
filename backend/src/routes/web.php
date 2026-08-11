@@ -43,7 +43,7 @@ switch ($route) {
         echo json_encode(['success' => true, 'message' => 'Digital Attendance System API running']);
         break;
 
-    // --- ATTENDANCE CLOCK ENGINE ---
+    // --- ATTENDANCE CLOCK ENGINE (Dev 3) ---
     case '/attendance/scan':
         if ($method === 'POST') {
             (new Controllers\AttendanceController($pdo ?? null))->scan();
@@ -65,6 +65,34 @@ switch ($route) {
     case '/attendance/clock-out':
         if ($method === 'POST') {
             (new Controllers\AttendanceController($pdo ?? null))->clockOut();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    // --- DASHBOARD ENDPOINTS (Dev 5) ---
+    case '/dashboard/stats':
+        if ($method === 'GET') {
+            (new Controllers\DashboardController($pdo ?? null))->stats();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    case '/dashboard/onsite':
+        if ($method === 'GET') {
+            (new Controllers\DashboardController($pdo ?? null))->onsite();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    case '/dashboard/recent':
+        if ($method === 'GET') {
+            (new Controllers\DashboardController($pdo ?? null))->recent();
         } else {
             http_response_code(405);
             echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);

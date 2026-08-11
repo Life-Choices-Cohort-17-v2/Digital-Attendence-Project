@@ -82,4 +82,29 @@ class Attendance
             ':qr_code'  => $qrCode
         ]);
     }
+
+
+// DASHBOARD AGGREGATIONS (Dev 5)
+
+    public function countTodayPresent(): int
+    {
+        $query = "SELECT COUNT(DISTINCT user_id) FROM attendance_records WHERE DATE(timestamp) = CURDATE() AND type = 'sign_in'";
+        return (int) $this->pdo->query($query)->fetchColumn();
+    }
+
+    public function getCurrentlyOnsite(): array
+    {
+        $query = "
+            SELECT a1.* 
+            FROM attendance_records a1
+            INNER JOIN (
+                SELECT user_id, MAX(id) as max_id 
+                FROM attendance_records 
+                GROUP BY user_id
+            ) a2 ON a1.id = a2.max_id
+            WHERE a1.type = 'sign_in'
+        ";
+        return $this->pdo->query($query)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
 }
