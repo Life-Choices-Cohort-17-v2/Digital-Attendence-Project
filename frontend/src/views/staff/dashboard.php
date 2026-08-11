@@ -15,13 +15,10 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="<?= asset_url('js/app.js') ?>"></script>
     <style>
-        /* STAFF DASHBOARD - EXACT MATCH TO SCREENSHOT */
         .staff-dashboard-container {
             max-width: 100%;
             padding: 28px 32px;
         }
-
-        /* Hi Sarah header */
         .greeting {
             margin-bottom: 32px;
         }
@@ -35,8 +32,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             font-size: 14px;
             color: var(--text);
         }
-
-        /* Status block - matching screenshot exactly */
         .status-block {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -83,8 +78,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
         .scan-btn:hover {
             background: var(--sidebar-hover);
         }
-
-        /* Menu items - NO EMOJIS, just text like screenshot */
         .menu-items {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -121,8 +114,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             font-size: 13px;
             color: var(--text);
         }
-
-        /* Modal Styles */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -193,8 +184,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             background: #334155;
             color: white;
         }
-
-        /* Calendar Grid */
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -259,8 +248,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             border-radius: 12px;
             text-align: center;
         }
-
-        /* Form Styles */
         .input-group {
             margin-bottom: 10px;
         }
@@ -284,7 +271,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
         .input-group textarea {
             resize: vertical;
         }
-
         [x-cloak] { display: none !important; }
     </style>
 </head>
@@ -298,13 +284,11 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             <?php if (file_exists(__DIR__ . '/../partials/top-nav.php')) include __DIR__ . '/../partials/top-nav.php'; ?>
             
             <div class="staff-dashboard-container">
-                <!-- Greeting - EXACT as screenshot -->
                 <div class="greeting">
                     <h1>Hi, <?= htmlspecialchars($user['name'] ?? 'User') ?></h1>
                     <p x-text="currentDateFormatted"></p>
                 </div>
 
-                <!-- Status Block - EXACT as screenshot (no extra elements) -->
                 <div class="status-block">
                     <div class="offsite-badge" x-text="isClockedIn ? 'ONSITE' : 'OFFSITE'" :style="isClockedIn ? 'color: #9CB07A; background: rgba(156, 176, 122, 0.12);' : ''">OFFSITE</div>
                     <p>You are currently</p>
@@ -312,7 +296,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                     <a href="<?= route_url('/scan-qr') ?>" class="scan-btn">Scan QR</a>
                 </div>
 
-                <!-- Menu Items - NO EMOJIS, just text like screenshot -->
                 <div class="menu-items">
                     <div class="menu-item" @click="openCalendarModal()">
                         <h3>Calendar</h3>
@@ -412,7 +395,7 @@ function dashboardApp() {
         isClockedIn: false,
         calendarModalOpen: false,
         currentDateObj: new Date(),
-        user: { id: '', name: '', email: '' }, // Initialize user object
+        user: { id: '', name: '', email: '', employeeId: '' },
         selectedDay: null,
         leaveModalOpen: false,
         leaveRequest: {
@@ -451,23 +434,64 @@ function dashboardApp() {
         
         async init() {
             window.themeManager.initTheme();
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'User', 'email' => 'user@spysee.app']); ?>;
+            
+            const userData = <?php echo json_encode([
+                'id' => $_SESSION['staff_id'] ?? $_SESSION['user_id'] ?? 'STF-001',
+                'name' => $_SESSION['staff_name'] ?? $_SESSION['user_name'] ?? 'User',
+                'email' => $_SESSION['user_email'] ?? '',
+                'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'STF-001'
+            ]); ?>;
             this.user = userData;
+            
+            console.log('🔍 User Data:', this.user);
+            
             await this.updateStatus();
             
-            // Poll for status updates every 10 seconds for real-time sync
-            setInterval(() => this.updateStatus(), 10000);
+            // Poll every 2 seconds for real-time updates (faster!)
+            setInterval(() => this.updateStatus(), 2000);
         },
-        
+
         async updateStatus() {
             try {
-                // Use absolute path for consistency with other API calls
-                const response = await fetch('api/onsite-staff.php');
+                // Add cache-busting parameter to force fresh data
+                const response = await fetch('api/onsite-staff.php?_=' + Date.now());
                 const data = await response.json();
                 const onsiteStaff = data.data || [];
-                this.isClockedIn = onsiteStaff.some(s => s.name === this.user.name);
+                
+                console.log('📊 Onsite Staff:', onsiteStaff);
+                console.log('👤 Current User:', this.user);
+                
+                // Match by ID
+                this.isClockedIn = onsiteStaff.some(s => {
+                    const staffId = (s.id || s.staff_id || s.employee_id || '').toUpperCase();
+                    const userId = (this.user.id || this.user.employeeId || '').toUpperCase();
+                    return staffId === userId;
+                });
+                
+                console.log('✅ isClockedIn:', this.isClockedIn);
+                
+                // Update UI immediately
+                const badge = document.querySelector('.offsite-badge');
+                const statusText = document.querySelector('.status-block h2');
+                
+                if (badge) {
+                    if (this.isClockedIn) {
+                        badge.textContent = 'ONSITE';
+                        badge.style.color = '#9CB07A';
+                        badge.style.background = 'rgba(156, 176, 122, 0.12)';
+                    } else {
+                        badge.textContent = 'OFFSITE';
+                        badge.style.color = '#A8C97A';
+                        badge.style.background = 'rgba(168, 201, 122, 0.12)';
+                    }
+                }
+                
+                if (statusText) {
+                    statusText.textContent = this.isClockedIn ? 'Signed in' : 'Sign Out';
+                }
+                
             } catch (err) {
-                console.error('Error checking status:', err);
+                console.error('❌ Error checking status:', err);
             }
         },
         
@@ -511,7 +535,7 @@ function dashboardApp() {
                 window.appUtils.showToast('Please select both From and To dates', 'error');
                 return;
             }
-            window.appUtils.showToast(`Leave request submitted successfully!`, 'success');
+            window.appUtils.showToast('Leave request submitted successfully!', 'success');
             this.leaveModalOpen = false;
         }
     }

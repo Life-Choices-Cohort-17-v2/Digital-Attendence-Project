@@ -143,6 +143,7 @@ frontend/
   QUICKSTART.md
 .gitignore
 README.md
+start-spysee.bat
 
 ================================================================
 Files
@@ -473,11 +474,6 @@ class AttendanceValidator
         return $qrCode;
     }
 }
-
-================
-File: backend/storage/cache/sheets_cache.json
-================
-{"data":{"success":true,"rows":[["2026-08-06 15:58:00","STF-001","Big Boy","Check-Check-out","QR","STF-001_20260727","Test"],["2026-07-27T09:55:42.567Z","STF-001","Big Boy","Check-out","QR","STF-001_20260727","Test"],["2026-07-27T09:57:26.023Z","STF-002","Small Man","Check-in","QR","STF-002_20260727","Test"],["2026-07-27T10:08:40.400Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-27T10:08:44.004Z","STF-003","Small Man","Check-out","QR","STF-003_20260727","Test"],["2026-07-27T10:08:55.682Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-29T06:29:52.013Z","STF-002","Small Man","Check-out","QR","STF-002_20260729","Test"],["2026-07-29T06:38:57.548Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:40:06.491Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T06:40:45.160Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:49:35.113Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T06:49:58.671Z","STF-003","Test User","Check-in","QR","STF-003_20260729","Test"],["2026-07-29T06:52:01.932Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T07:21:50.462Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T07:24:05.023Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T08:22:35.865Z","STF-001","Big Boy","Check-out","web","STF-001_20260729","Test"],["2026-07-29T13:41:20.780Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260729","Test"],["2026-07-29T13:41:33.380Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:41:42.777Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:42:21.956Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:43:25.180Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:43:37.180Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-30T12:57:54.863Z","STF-001","Big Boy","Check-in","QR","STF-001_20260730","Test"],["2026-07-30T12:58:10.055Z","STF-001","Big Boy","Check-out","QR","STF-001_20260730","Test"],["2026-07-30T12:58:14.620Z","STF-001","Big Boy","Check-in","web","STF-001_20260730","Test"],["2026-07-30T12:58:34.589Z","STF-001","Big Boy","Check-out","web","STF-001_20260730","Test"],["2026-07-31T06:35:36.175Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T06:36:09.550Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:50:41.769Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:59:01.269Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:01:39.482Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:32.564Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:44.604Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:03:10.498Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:37:49.569Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:50:47.619Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T09:51:30.162Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T09:56:02.831Z","TEST-001","Test User","Check-in","test","TEST-001_20260731","Test"],["2026-07-31T10:07:42.550Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:08:11.385Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:11:14.753Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:13:21.655Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:27:08.452Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:30:33.256Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:15:17.731Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:15:58.241Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:17:09.402Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:17:48.989Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:02:56.074Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:09:12.041Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:09:43.409Z","STF-003","Test User","Check-out","QR","STF-003_20260731","Test"],["2026-07-31T13:13:07.696Z","STF-002","Small Man","Check-in","web","STF-002_20260731","Test"],["2026-07-31T13:13:15.824Z","STF-002","Small Man","Check-out","web","STF-002_20260731","Test"],["2026-07-31T13:14:06.525Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:14:25.910Z","STF-003","Test User","Check-out","web","STF-003_20260731","Test"],["2026-07-31T13:15:41.363Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:16:35.467Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T13:30:21.363Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:32:25.578Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260731","Test"],["2026-07-31T13:34:00.112Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:34:31.345Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:53:43.736Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:53:59.639Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:55:02.288Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:55:16.043Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:57:24.001Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:57:43.727Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T14:01:03.370Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T14:01:16.018Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"]]},"fetched_at":1786024680}
 
 ================
 File: backend/tests/attendance/AttendanceControllerTest.php
@@ -1591,6 +1587,36 @@ File: frontend/src/views/404.php
 <?php $content = ob_get_clean(); require __DIR__ . '/layouts/app.php'; ?>
 
 ================
+File: start-spysee.bat
+================
+@echo off
+echo Starting SpySee...
+
+:: Start PHP server
+start "PHP Server" cmd /c "C:/xampp/php/php.exe -S localhost:8000 -t frontend/public"
+
+:: Wait 2 seconds
+timeout /t 2 /nobreak >nul
+
+:: Start ngrok
+start "ngrok" cmd /c "ngrok http 8000"
+
+:: Open browser
+start http://localhost:8000/
+
+echo.
+echo ✅ SpySee is running!
+echo 📱 PC: http://localhost:8000/
+echo 📱 Phone: Check ngrok window
+echo.
+echo Press any key to stop all servers...
+pause >nul
+
+:: Kill everything on exit
+taskkill /f /im php.exe 2>nul
+taskkill /f /im ngrok.exe 2>nul
+
+================
 File: .github/TECH_STACK.md
 ================
 # 🛠️ Tech Stack & Getting Started Guide
@@ -1690,272 +1716,6 @@ File: backend/src/config/DataBase.php
 <?php
 
 echo "Database loaded\n";
-
-================
-File: backend/src/config/GoogleSheets.php
-================
-<?php
-// ============================================================
-// FILE: backend/src/config/GoogleSheets.php
-// PERSON 6: Google Sheets Integration Lead
-// ============================================================
-
-// Google Apps Script Web App URL
-define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbz5r1-cfdlPAK7eFOdf4OcDi764oVx_Uh54Uo32x-UPQHD7IMJrnwcpp3mAZ7ycVIpB/exec');
-
-// Cache File Location
-define('CACHE_FILE', __DIR__ . '/../../storage/cache/sheets_cache.json');
-
-// ============================================================
-// SESSION HELPERS
-// ============================================================
-
-function isLoggedIn() {
-    return isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true;
-}
-
-function isAdmin() {
-    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin';
-}
-
-function isStaff() {
-    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'staff';
-}
-
-function getUserRole() {
-    return $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
-}
-
-// ============================================================
-// HTTP HELPER - USING CURL (MORE RELIABLE)
-// ============================================================
-
-function httpGet($url) {
-    // Try cURL first
-    if (function_exists('curl_init')) {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
-        
-        if ($response !== false && $httpCode === 200) {
-            return $response;
-        }
-        error_log("cURL Error: " . $error . " (HTTP: " . $httpCode . ")");
-    }
-    
-    // Fallback to file_get_contents
-    $context = stream_context_create([
-        'http' => [
-            'timeout' => 15,
-            'header' => "User-Agent: Mozilla/5.0\r\n"
-        ]
-    ]);
-    return @file_get_contents($url, false, $context);
-}
-
-function httpPost($url, $payload) {
-    $options = [
-        'http' => [
-            'header'  => "Content-Type: text/plain;charset=utf-8\r\n",
-            'method'  => 'POST',
-            'content' => $payload,
-            'timeout' => 3
-        ]
-    ];
-    $context = stream_context_create($options);
-    return @file_get_contents($url, false, $context);
-}
-
-// ============================================================
-// GOOGLE SHEETS API COMMUNICATION
-// ============================================================
-
-function getCredentialsFromSheets() {
-    $response = httpGet(APP_SCRIPT_URL . '?action=getCredentials');
-    if ($response === false) {
-        // Try without action parameter as fallback
-        $response = httpGet(APP_SCRIPT_URL);
-        if ($response === false) {
-            return ['success' => false, 'error' => 'Failed to fetch credentials'];
-        }
-    }
-    $data = json_decode($response, true);
-    if (!$data) {
-        return ['success' => false, 'error' => 'Invalid JSON response'];
-    }
-    return $data;
-}
-
-function fetchSheetsData() {
-    $response = httpGet(APP_SCRIPT_URL);
-    if ($response === false) return ['success' => false, 'error' => 'Failed to fetch'];
-    $data = json_decode($response, true);
-    if (!$data) {
-        return ['success' => false, 'error' => 'Invalid JSON response'];
-    }
-    return $data;
-}
-
-function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
-    $payload = ['staff_id' => $staffId, 'name' => $name, 'method' => $method];
-    if ($token) $payload['token'] = $token;
-    if ($expires) $payload['expires'] = $expires;
-
-    $response = httpPost(APP_SCRIPT_URL, json_encode($payload));
-    if ($response === false) return ['success' => false, 'error' => 'Failed to connect'];
-    return json_decode($response, true);
-}
-
-function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
-    $url = APP_SCRIPT_URL;
-    $payload = json_encode([
-        'staff_id' => $staffId,
-        'name' => $name,
-        'method' => $method,
-        'token' => $token,
-        'expires' => $expires
-    ]);
-    
-    if (PHP_OS_FAMILY === 'Windows') {
-        $cmd = 'start /B C:\xampp\php\php.exe -r "' . 
-               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 3]];' .
-               '$context = stream_context_create($options);' .
-               '@file_get_contents(\'' . $url . '\', false, $context);"';
-        pclose(popen($cmd, 'r'));
-    } else {
-        $cmd = 'php -r "' .
-               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 3]];' .
-               '$context = stream_context_create($options);' .
-               '@file_get_contents(\'' . $url . '\', false, $context);" > /dev/null 2>&1 &';
-        exec($cmd);
-    }
-}
-
-// ============================================================
-// CACHE FUNCTIONS
-// ============================================================
-
-function getCachedData() {
-    if (file_exists(CACHE_FILE)) {
-        $cached = json_decode(file_get_contents(CACHE_FILE), true);
-        if ($cached && isset($cached['data'])) return $cached['data'];
-    }
-    return null;
-}
-
-function updateCache() {
-    $data = fetchSheetsData();
-    if ($data && isset($data['success']) && $data['success']) {
-        $dir = dirname(CACHE_FILE);
-        if (!is_dir($dir)) mkdir($dir, 0777, true);
-        file_put_contents(CACHE_FILE, json_encode([
-            'data' => $data,
-            'fetched_at' => time()
-        ]));
-        return true;
-    }
-    return false;
-}
-
-function getStatusFromCache($staffId) {
-    $data = getCachedData();
-    if (!$data) return 'out';
-    
-    $rows = $data['rows'] ?? [];
-    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
-        array_shift($rows);
-    }
-    
-    $latestStatus = 'out';
-    $latestTimestamp = '';
-    
-    foreach ($rows as $row) {
-        if (isset($row[1]) && $row[1] === $staffId) {
-            if (empty($latestTimestamp) || $row[0] > $latestTimestamp) {
-                $latestTimestamp = $row[0];
-                $status = str_replace('Check-', '', $row[3] ?? '');
-                $latestStatus = strtolower($status);
-            }
-        }
-    }
-    return $latestStatus;
-}
-
-function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
-    $data = getCachedData();
-    if (!$data) {
-        $data = fetchSheetsData();
-        if (!$data || !isset($data['success']) || !$data['success']) return;
-    }
-    
-    $rows = $data['rows'] ?? [];
-    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
-        array_shift($rows);
-    }
-    
-    $found = false;
-    
-    foreach ($rows as $index => $row) {
-        if (isset($row[1]) && $row[1] === $staffId) {
-            $row[3] = 'Check-' . $newStatus;
-            $row[0] = date('Y-m-d H:i:s');
-            $rows[$index] = $row;
-            $found = true;
-            break;
-        }
-    }
-    
-    if (!$found) {
-        $rows[] = [
-            date('Y-m-d H:i:s'),
-            $staffId,
-            $staffName,
-            'Check-' . $newStatus,
-            'QR'
-        ];
-    }
-    
-    $data['rows'] = $rows;
-    file_put_contents(CACHE_FILE, json_encode([
-        'data' => $data,
-        'fetched_at' => time()
-    ]));
-}
-
-function getStaffListFromCache() {
-    $data = getCachedData();
-    if (!$data) return [];
-    
-    $rows = $data['rows'] ?? [];
-    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
-        array_shift($rows);
-    }
-    
-    $staffList = [];
-    $seen = [];
-    
-    foreach ($rows as $row) {
-        if (isset($row[1]) && !isset($seen[$row[1]])) {
-            $seen[$row[1]] = true;
-            $staffList[] = [
-                'staff_id' => $row[1],
-                'name' => $row[2] ?? 'Unknown',
-                'status' => strtolower(str_replace('Check-', '', $row[3] ?? ''))
-            ];
-        }
-    }
-    return $staffList;
-}
-?>
 
 ================
 File: backend/src/data/AttendanceRules.php
@@ -2278,6 +2038,11 @@ class Employee
         return null;
     }
 }
+
+================
+File: backend/storage/cache/sheets_cache.json
+================
+{"data":{"success":true,"rows":[["Timestamp ","Staff_ID","Name","Status","Method","Session_ID","Row_Source"],["2026-07-27T09:55:04.959Z","STF-001","Big Boy","Check-in","QR","STF-001_20260727","Test"],["2026-07-27T09:55:42.567Z","STF-001","Big Boy","Check-out","QR","STF-001_20260727","Test"],["2026-07-27T09:57:26.023Z","STF-002","Small Man","Check-in","QR","STF-002_20260727","Test"],["2026-07-27T10:08:40.400Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-27T10:08:44.004Z","STF-003","Small Man","Check-out","QR","STF-003_20260727","Test"],["2026-07-27T10:08:55.682Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-29T06:29:52.013Z","STF-002","Small Man","Check-out","QR","STF-002_20260729","Test"],["2026-07-29T06:38:57.548Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:40:06.491Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T06:40:45.160Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:49:35.113Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T06:49:58.671Z","STF-003","Test User","Check-in","QR","STF-003_20260729","Test"],["2026-07-29T06:52:01.932Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T07:21:50.462Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T07:24:05.023Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T08:22:35.865Z","STF-001","Big Boy","Check-out","web","STF-001_20260729","Test"],["2026-07-29T13:41:20.780Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260729","Test"],["2026-07-29T13:41:33.380Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:41:42.777Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:42:21.956Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:43:25.180Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:43:37.180Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-30T12:57:54.863Z","STF-001","Big Boy","Check-in","QR","STF-001_20260730","Test"],["2026-07-30T12:58:10.055Z","STF-001","Big Boy","Check-out","QR","STF-001_20260730","Test"],["2026-07-30T12:58:14.620Z","STF-001","Big Boy","Check-in","web","STF-001_20260730","Test"],["2026-07-30T12:58:34.589Z","STF-001","Big Boy","Check-out","web","STF-001_20260730","Test"],["2026-07-31T06:35:36.175Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T06:36:09.550Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:50:41.769Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:59:01.269Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:01:39.482Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:32.564Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:44.604Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:03:10.498Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:37:49.569Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:50:47.619Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T09:51:30.162Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T09:56:02.831Z","TEST-001","Test User","Check-in","test","TEST-001_20260731","Test"],["2026-07-31T10:07:42.550Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:08:11.385Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:11:14.753Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:13:21.655Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:27:08.452Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:30:33.256Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:15:17.731Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:15:58.241Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:17:09.402Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:17:48.989Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:02:56.074Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:09:12.041Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:09:43.409Z","STF-003","Test User","Check-out","QR","STF-003_20260731","Test"],["2026-07-31T13:13:07.696Z","STF-002","Small Man","Check-in","web","STF-002_20260731","Test"],["2026-07-31T13:13:15.824Z","STF-002","Small Man","Check-out","web","STF-002_20260731","Test"],["2026-07-31T13:14:06.525Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:14:25.910Z","STF-003","Test User","Check-out","web","STF-003_20260731","Test"],["2026-07-31T13:15:41.363Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:16:35.467Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T13:30:21.363Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:32:25.578Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260731","Test"],["2026-07-31T13:34:00.112Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:34:31.345Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:53:43.736Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:53:59.639Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:55:02.288Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:55:16.043Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:57:24.001Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:57:43.727Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T14:01:03.370Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T14:01:16.018Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-08-05T13:55:45.172Z","STF-001","Big Boy","Check-in","web","STF-001_20260805","Test"],["2026-08-05T13:55:56.094Z","STF-001","Big Boy","Check-out","web","STF-001_20260805","Test"],["2026-08-06T10:16:26.866Z","STF-001","Big Boy","Check-in","web","STF-001_20260806","Test"],["2026-08-06T12:44:13.606Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:06:38.289Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:07:49.099Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:08:37.666Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:25:27.703Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:42:03.545Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:43:28.620Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:58:04.229Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-11T07:23:55.927Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:24:31.612Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:33:14.807Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:34:04.768Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:40:34.909Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T10:27:57.193Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"]]},"fetched_at":1786444142}
 
 ================
 File: backend/index.php
@@ -6930,6 +6695,266 @@ To get a local copy up and running, follow these simple steps.
 Lutfeeya Cupido 💚
 
 ================
+File: backend/src/config/GoogleSheets.php
+================
+<?php
+// ============================================================
+// FILE: backend/src/config/GoogleSheets.php
+// OPTIMIZED - Faster timeouts & better error handling
+// ============================================================
+
+define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbz5r1-cfdlPAK7eFOdf4OcDi764oVx_Uh54Uo32x-UPQHD7IMJrnwcpp3mAZ7ycVIpB/exec');
+define('CACHE_FILE', __DIR__ . '/../../storage/cache/sheets_cache.json');
+
+// ============================================================
+// SESSION HELPERS
+// ============================================================
+
+function isLoggedIn() {
+    return isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true;
+}
+
+function isAdmin() {
+    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin';
+}
+
+function isStaff() {
+    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'staff';
+}
+
+function getUserRole() {
+    return $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
+}
+
+// ============================================================
+// HTTP HELPER - OPTIMIZED WITH SHORT TIMEOUTS
+// ============================================================
+
+function httpGet($url) {
+    // Try cURL first (faster)
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);        // 5 second max
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3); // 3 second connect
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0');
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($response !== false && $httpCode === 200) {
+            return $response;
+        }
+    }
+    
+    // Fallback to file_get_contents
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 5,
+            'header' => "User-Agent: Mozilla/5.0\r\n"
+        ]
+    ]);
+    return @file_get_contents($url, false, $context);
+}
+
+function httpPost($url, $payload) {
+    $options = [
+        'http' => [
+            'header'  => "Content-Type: text/plain;charset=utf-8\r\n",
+            'method'  => 'POST',
+            'content' => $payload,
+            'timeout' => 2
+        ]
+    ];
+    $context = stream_context_create($options);
+    return @file_get_contents($url, false, $context);
+}
+
+// ============================================================
+// GOOGLE SHEETS API
+// ============================================================
+
+function getCredentialsFromSheets() {
+    $response = httpGet(APP_SCRIPT_URL . '?action=getCredentials');
+    if ($response === false) {
+        $response = httpGet(APP_SCRIPT_URL);
+        if ($response === false) {
+            return ['success' => false, 'error' => 'Failed to fetch credentials'];
+        }
+    }
+    $data = json_decode($response, true);
+    if (!$data) {
+        return ['success' => false, 'error' => 'Invalid JSON response'];
+    }
+    return $data;
+}
+
+function fetchSheetsData() {
+    $response = httpGet(APP_SCRIPT_URL);
+    if ($response === false) return ['success' => false, 'error' => 'Failed to fetch'];
+    $data = json_decode($response, true);
+    if (!$data) {
+        return ['success' => false, 'error' => 'Invalid JSON response'];
+    }
+    return $data;
+}
+
+function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
+    $payload = ['staff_id' => $staffId, 'name' => $name, 'method' => $method];
+    if ($token) $payload['token'] = $token;
+    if ($expires) $payload['expires'] = $expires;
+
+    $response = httpPost(APP_SCRIPT_URL, json_encode($payload));
+    if ($response === false) return ['success' => false, 'error' => 'Failed to connect'];
+    return json_decode($response, true);
+}
+
+function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
+    $url = APP_SCRIPT_URL;
+    $payload = json_encode([
+        'staff_id' => $staffId,
+        'name' => $name,
+        'method' => $method,
+        'token' => $token,
+        'expires' => $expires
+    ]);
+    
+    if (PHP_OS_FAMILY === 'Windows') {
+        $cmd = 'start /B C:\xampp\php\php.exe -r "' . 
+               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
+               '$context = stream_context_create($options);' .
+               '@file_get_contents(\'' . $url . '\', false, $context);"';
+        pclose(popen($cmd, 'r'));
+    } else {
+        $cmd = 'php -r "' .
+               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
+               '$context = stream_context_create($options);' .
+               '@file_get_contents(\'' . $url . '\', false, $context);" > /dev/null 2>&1 &';
+        exec($cmd);
+    }
+}
+
+// ============================================================
+// CACHE FUNCTIONS
+// ============================================================
+
+function getCachedData() {
+    if (file_exists(CACHE_FILE)) {
+        $cached = json_decode(file_get_contents(CACHE_FILE), true);
+        if ($cached && isset($cached['data'])) return $cached['data'];
+    }
+    return null;
+}
+
+function updateCache() {
+    $data = fetchSheetsData();
+    if ($data && isset($data['success']) && $data['success']) {
+        $dir = dirname(CACHE_FILE);
+        if (!is_dir($dir)) mkdir($dir, 0777, true);
+        file_put_contents(CACHE_FILE, json_encode([
+            'data' => $data,
+            'fetched_at' => time()
+        ]));
+        return true;
+    }
+    return false;
+}
+
+function getStatusFromCache($staffId) {
+    $data = getCachedData();
+    if (!$data) return 'out';
+    
+    $rows = $data['rows'] ?? [];
+    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
+        array_shift($rows);
+    }
+    
+    $latestStatus = 'out';
+    $latestTimestamp = '';
+    
+    foreach ($rows as $row) {
+        if (isset($row[1]) && $row[1] === $staffId) {
+            if (empty($latestTimestamp) || $row[0] > $latestTimestamp) {
+                $latestTimestamp = $row[0];
+                $status = str_replace('Check-', '', $row[3] ?? '');
+                $latestStatus = strtolower($status);
+            }
+        }
+    }
+    return $latestStatus;
+}
+
+function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
+    $data = getCachedData();
+    if (!$data) {
+        $data = fetchSheetsData();
+        if (!$data || !isset($data['success']) || !$data['success']) return;
+    }
+    
+    $rows = $data['rows'] ?? [];
+    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
+        array_shift($rows);
+    }
+    
+    $found = false;
+    
+    foreach ($rows as $index => $row) {
+        if (isset($row[1]) && $row[1] === $staffId) {
+            $row[3] = 'Check-' . $newStatus;
+            $row[0] = date('Y-m-d H:i:s');
+            $rows[$index] = $row;
+            $found = true;
+            break;
+        }
+    }
+    
+    if (!$found) {
+        $rows[] = [
+            date('Y-m-d H:i:s'),
+            $staffId,
+            $staffName,
+            'Check-' . $newStatus,
+            'QR'
+        ];
+    }
+    
+    $data['rows'] = $rows;
+    file_put_contents(CACHE_FILE, json_encode([
+        'data' => $data,
+        'fetched_at' => time()
+    ]));
+}
+
+function getStaffListFromCache() {
+    $data = getCachedData();
+    if (!$data) return [];
+    
+    $rows = $data['rows'] ?? [];
+    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
+        array_shift($rows);
+    }
+    
+    $staffList = [];
+    $seen = [];
+    
+    foreach ($rows as $row) {
+        if (isset($row[1]) && !isset($seen[$row[1]])) {
+            $seen[$row[1]] = true;
+            $staffList[] = [
+                'staff_id' => $row[1],
+                'name' => $row[2] ?? 'Unknown',
+                'status' => strtolower(str_replace('Check-', '', $row[3] ?? ''))
+            ];
+        }
+    }
+    return $staffList;
+}
+
+================
 File: backend/src/controllers/AttendanceController.php
 ================
 <?php
@@ -10183,34 +10208,64 @@ File: frontend/data/functions.php
 <?php
 // ============================================================
 // FILE: frontend/data/functions.php
-// DATA MANAGEMENT - Google Sheets Integration (LIVE MODE)
+// OPTIMIZED - Google Sheets Integration WITH CACHE
 // ============================================================
 
-// Load Google Sheets config
 require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
 
 // ============================================================
-// DASHBOARD DATA (DIRECT FROM SHEETS - NO CACHE)
+// CACHE FUNCTIONS
+// ============================================================
+
+function getCachedDataWithTTL($ttl = 60) {
+    if (file_exists(CACHE_FILE)) {
+        $cached = json_decode(file_get_contents(CACHE_FILE), true);
+        if ($cached && isset($cached['data'])) {
+            $age = time() - ($cached['fetched_at'] ?? 0);
+            if ($age < $ttl) {
+                return $cached['data'];
+            }
+        }
+    }
+    return null;
+}
+
+function getFreshOrCachedData() {
+    // TRY CACHE FIRST (FAST!)
+    $data = getCachedDataWithTTL(60);
+    if ($data) return $data;
+    
+    // Cache expired - fetch fresh (SLOW, but only once per minute)
+    $data = fetchSheetsData();
+    if ($data && isset($data['success']) && $data['success']) {
+        updateCache();
+        return $data;
+    }
+    
+    // If fetch fails, use stale cache (better than nothing)
+    $staleData = getCachedData();
+    if ($staleData) return $staleData;
+    
+    return null;
+}
+
+// ============================================================
+// DASHBOARD FUNCTIONS (NOW INSTANT!)
 // ============================================================
 
 function getDashboardStats() {
-    // ALWAYS fetch fresh data
-    $data = fetchSheetsData(); 
+    $data = getFreshOrCachedData();
     
-    if (!$data || !isset($data['success']) || !$data['success']) {
-        // If fetch fails, try cache as fallback
-        $data = getCachedData();
-        if (!$data || !isset($data['rows'])) {
-            return [
-                'success' => true,
-                'data' => [
-                    'currentlyOnsite' => 0,
-                    'totalClockedInToday' => 0,
-                    'pendingSync' => 0,
-                    'totalEventsToday' => 0
-                ]
-            ];
-        }
+    if (!$data || !isset($data['rows'])) {
+        return [
+            'success' => true,
+            'data' => [
+                'currentlyOnsite' => 0,
+                'totalClockedInToday' => 0,
+                'pendingSync' => 0,
+                'totalEventsToday' => 0
+            ]
+        ];
     }
     
     $rows = $data['rows'] ?? [];
@@ -10224,7 +10279,6 @@ function getDashboardStats() {
         }
     }
     
-    // Process rows - get latest status for each staff
     $staffStatus = [];
     $today = date('Y-m-d');
     $todayCheckins = 0;
@@ -10236,7 +10290,6 @@ function getDashboardStats() {
             $statusLower = strtolower(trim($status));
             $timestamp = $row[0] ?? date('Y-m-d H:i:s');
             
-            // Store latest status (last occurrence wins)
             $staffStatus[$staffId] = [
                 'name' => $row[2] ?? 'Unknown',
                 'status' => $statusLower,
@@ -10250,7 +10303,6 @@ function getDashboardStats() {
         if ($staff['status'] === 'in') {
             $onsiteCount++;
         }
-        // Check if today's check-in
         $datePart = substr($staff['timestamp'], 0, 10);
         if ($datePart === $today && $staff['status'] === 'in') {
             $todayCheckins++;
@@ -10269,20 +10321,13 @@ function getDashboardStats() {
 }
 
 function getOnsiteStaff() {
-    // ALWAYS fetch fresh data directly - ignore cache
-    $data = fetchSheetsData(); 
-    
-    if (!$data || !isset($data['success']) || !$data['success']) {
-        // If fetch fails, try cache as fallback
-        $data = getCachedData();
-        if (!$data || !isset($data['rows'])) {
-            return ['success' => true, 'data' => []];
-        }
+    $data = getFreshOrCachedData();
+    if (!$data || !isset($data['rows'])) {
+        return ['success' => true, 'data' => []];
     }
     
     $rows = $data['rows'] ?? [];
     
-    // Remove header row
     if (!empty($rows) && is_array($rows[0])) {
         $firstRow = array_values($rows[0]);
         $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
@@ -10291,17 +10336,14 @@ function getOnsiteStaff() {
         }
     }
     
-    // Process rows - get latest status for each staff
     $staffStatus = [];
     
-    // Process ALL rows to get latest status
     foreach ($rows as $row) {
         if (isset($row[1]) && !empty($row[1])) {
             $staffId = trim($row[1]);
             $status = str_replace('Check-', '', $row[3] ?? '');
             $statusLower = strtolower(trim($status));
             
-            // Store latest status (last occurrence wins)
             $staffStatus[$staffId] = [
                 'name' => $row[2] ?? 'Unknown',
                 'status' => $statusLower,
@@ -10310,7 +10352,6 @@ function getOnsiteStaff() {
         }
     }
     
-    // Build onsite list - only those currently "in"
     $onsite = [];
     foreach ($staffStatus as $sid => $staff) {
         if ($staff['status'] === 'in') {
@@ -10329,9 +10370,9 @@ function getOnsiteStaff() {
 }
 
 function getRecentActivity() {
-    $data = fetchSheetsData(); 
+    $data = getFreshOrCachedData();
     
-    if (!$data || !isset($data['success']) || !$data['success']) {
+    if (!$data || !isset($data['rows'])) {
         return ['success' => true, 'data' => []];
     }
     
@@ -10365,7 +10406,7 @@ function getRecentActivity() {
 }
 
 // ============================================================
-// CLOCK IN/OUT (UPDATES GOOGLE SHEETS)
+// CLOCK IN/OUT
 // ============================================================
 
 function handleClockIn($data) {
@@ -10376,18 +10417,15 @@ function handleClockIn($data) {
         return ['success' => false, 'message' => 'User not identified'];
     }
     
-    // Get current status from cache
     $currentStatus = getStatusFromCache($userId);
     
     if ($currentStatus === 'in') {
         return ['success' => false, 'message' => 'Already Signed in'];
     }
     
-    // Update local cache
     updateLocalStatus($userId, 'in', $staffName);
-    
-    // Send to Google Sheets (async - non-blocking)
     sendAsyncToGoogleSheets($userId, $staffName, 'web');
+    updateCache();
     
     return ['success' => true, 'message' => 'Signed in successfully', 'timestamp' => date('Y-m-d H:i:s')];
 }
@@ -10400,30 +10438,27 @@ function handleClockOut($data) {
         return ['success' => false, 'message' => 'User not identified'];
     }
     
-    // Get current status from cache
     $currentStatus = getStatusFromCache($userId);
     
     if ($currentStatus === 'out') {
         return ['success' => false, 'message' => 'Not currently Signed in'];
     }
     
-    // Update local cache
     updateLocalStatus($userId, 'out', $staffName);
-    
-    // Send to Google Sheets (async - non-blocking)
     sendAsyncToGoogleSheets($userId, $staffName, 'web');
+    updateCache();
     
     return ['success' => true, 'message' => 'Signed out successfully', 'timestamp' => date('Y-m-d H:i:s')];
 }
 
 // ============================================================
-// USER HISTORY (FROM GOOGLE SHEETS)
+// USER HISTORY
 // ============================================================
 
 function getUserHistory($userId) {
-    $data = fetchSheetsData(); 
+    $data = getFreshOrCachedData();
     
-    if (!$data || !isset($data['success']) || !$data['success']) {
+    if (!$data || !isset($data['rows'])) {
         return ['success' => true, 'data' => []];
     }
     
@@ -10455,9 +10490,9 @@ function getUserHistory($userId) {
 }
 
 function getAllAttendanceLogs() {
-    $data = fetchSheetsData(); 
+    $data = getFreshOrCachedData();
     
-    if (!$data || !isset($data['success']) || !$data['success']) {
+    if (!$data || !isset($data['rows'])) {
         return ['success' => true, 'data' => []];
     }
     
@@ -10490,7 +10525,7 @@ function getAllAttendanceLogs() {
 }
 
 // ============================================================
-// USER MANAGEMENT (FROM GOOGLE SHEETS - READ ONLY)
+// USER MANAGEMENT
 // ============================================================
 
 function getAllUsers() {
@@ -10629,7 +10664,7 @@ function getSessionRole(): ?string {
 }
 
 // ============================================================
-// HANDLE LOGIN - USING GOOGLE SHEETS
+// HANDLE LOGIN
 // ============================================================
 if ($path === '/login' && $method === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -10640,7 +10675,6 @@ if ($path === '/login' && $method === 'POST') {
     if ($creds && $creds['success']) {
         $loggedIn = false;
         
-        // Check Staff - matches your Apps Script Staff sheet
         foreach ($creds['staff'] as $staff) {
             if ($staff['staff_id'] === $username && $staff['pin'] === $password && $staff['active'] === 'YES') {
                 $_SESSION['logged_in'] = true;
@@ -10664,7 +10698,6 @@ if ($path === '/login' && $method === 'POST') {
             }
         }
         
-        // Check Admin - matches your Apps Script Admin sheet
         foreach ($creds['admins'] as $admin) {
             if ($admin['admin_id'] === $username && $admin['password'] === $password) {
                 $_SESSION['logged_in'] = true;
@@ -10709,66 +10742,75 @@ if ($path === '/logout') {
 }
 
 // ============================================================
-// API ROUTES
+// API ROUTES - CLEAN SWITCH
 // ============================================================
 if (str_starts_with($path, '/api/')) {
     header('Content-Type: application/json');
     
-    if ($path === '/api/dashboard-stats.php' || $path === '/api/dashboard-stats') {
-        echo json_encode(getDashboardStats());
-        exit;
+    $apiPath = str_replace('.php', '', $path);
+    
+    switch ($apiPath) {
+        case '/api/dashboard-stats':
+            echo json_encode(getDashboardStats());
+            break;
+            
+        case '/api/onsite-staff':
+            echo json_encode(getOnsiteStaff());
+            break;
+            
+        case '/api/recent-activity':
+            echo json_encode(getRecentActivity());
+            break;
+            
+        case '/api/sign-in':
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            echo json_encode(handleClockIn($data));
+            break;
+            
+        case '/api/sign-out':
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            echo json_encode(handleClockOut($data));
+            break;
+            
+        case '/api/user-history':
+            $userId = $_GET['user_id'] ?? $_SESSION['user_id'] ?? '';
+            echo json_encode(getUserHistory($userId));
+            break;
+            
+        case '/api/attendance-logs':
+            echo json_encode(getAllAttendanceLogs());
+            break;
+            
+        case '/api/users':
+            echo json_encode(getAllUsers());
+            break;
+            
+        case '/api/check-scan-result':
+            if (isset($_SESSION['qr_result'])) {
+                $result = $_SESSION['qr_result'];
+                unset($_SESSION['qr_result']);
+                echo json_encode([
+                    'success' => true,
+                    'name' => $result['name'] ?? '',
+                    'action' => $result['action'] ?? '',
+                    'location' => $result['location'] ?? 'HQ',
+                    'timestamp' => $result['timestamp'] ?? date('Y-m-d H:i:s')
+                ]);
+            } else {
+                echo json_encode(['success' => false]);
+            }
+            break;
+            
+        default:
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'API endpoint not found']);
+            break;
     }
-    if ($path === '/api/onsite-staff.php' || $path === '/api/onsite-staff') {
-        echo json_encode(getOnsiteStaff());
-        exit;
-    }
-    if ($path === '/api/recent-activity.php' || $path === '/api/recent-activity') {
-        echo json_encode(getRecentActivity());
-        exit;
-    }
-    if ($path === '/api/sign-in.php' || $path === '/api/sign-in') {
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        echo json_encode(handleClockIn($data));
-        exit;
-    }
-    if ($path === '/api/sign-out.php' || $path === '/api/sign-out') {
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        echo json_encode(handleClockOut($data));
-        exit;
-    }
-    if ($path === '/api/user-history.php' || $path === '/api/user-history') {
-        $userId = $_GET['user_id'] ?? $_SESSION['user_id'] ?? '';
-        echo json_encode(getUserHistory($userId));
-        exit;
-    }
-    if ($path === '/api/attendance-logs.php' || $path === '/api/attendance-logs') {
-        echo json_encode(getAllAttendanceLogs());
-        exit;
-    }
-    if ($path === '/api/users.php' || $path === '/api/users') {
-        echo json_encode(getAllUsers());
-        exit;
-    }
-    if ($path === '/api/check-scan-result.php' || $path === '/api/check-scan-result') {
-        if (isset($_SESSION['qr_result'])) {
-            $result = $_SESSION['qr_result'];
-            unset($_SESSION['qr_result']);
-            echo json_encode([
-                'success' => true,
-                'name' => $result['name'] ?? '',
-                'action' => $result['action'] ?? '',
-                'location' => $result['location'] ?? 'HQ',
-                'timestamp' => $result['timestamp'] ?? date('Y-m-d H:i:s')
-            ]);
-        } else {
-            echo json_encode(['success' => false]);
-        }
-        exit;
-    }
+    exit;
 }
 
 // ============================================================
-// PAGE ROUTES
+// PAGE ROUTES - CLEAN SWITCH
 // ============================================================
 switch ($path) {
     case '/':
@@ -10786,11 +10828,11 @@ switch ($path) {
         }
         
         $role = getSessionRole();
+        if ($role === 'admin') {
+            redirect_to('/admin-dashboard');
+            break;
+        }
         if ($role !== 'staff') {
-            if ($role === 'admin') {
-                redirect_to('/admin-dashboard');
-                break;
-            }
             redirect_to('/login');
             break;
         }
@@ -10881,31 +10923,14 @@ switch ($path) {
         break;
 
     case '/admin-dashboard/qr':
-        // Fullscreen QR page for wall-mounted tablets
+    case '/admin-dashboard/qr-generator':
+    case '/admin-dashboard/qr-display':
         if (!isLoggedIn() || getSessionRole() !== 'admin') {
             redirect_to('/login');
             break;
         }
         $title = 'QR Terminal | SpySee';
         view('admin/qr', compact('title'));
-        break;
-
-    case '/admin-dashboard/qr-generator':
-        // Redirect old QR generator route to the QR page
-        if (!isLoggedIn() || getSessionRole() !== 'admin') {
-            redirect_to('/login');
-            break;
-        }
-        redirect_to('/admin-dashboard/qr');
-        break;
-
-    case '/admin-dashboard/qr-display':
-        // Redirect old QR display route to the QR page
-        if (!isLoggedIn() || getSessionRole() !== 'admin') {
-            redirect_to('/login');
-            break;
-        }
-        redirect_to('/admin-dashboard/qr');
         break;
 
     case '/admin-dashboard/settings':

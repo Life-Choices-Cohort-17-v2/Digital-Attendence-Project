@@ -72,7 +72,7 @@ function getSessionRole(): ?string {
 }
 
 // ============================================================
-// HANDLE LOGIN
+// HANDLE LOGIN - SUPPORTS ALL STAFF AND ADMINS
 // ============================================================
 if ($path === '/login' && $method === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -83,16 +83,21 @@ if ($path === '/login' && $method === 'POST') {
     if ($creds && $creds['success']) {
         $loggedIn = false;
         
+        // Check ALL Staff - STF-001 to STF-005
         foreach ($creds['staff'] as $staff) {
-            if ($staff['staff_id'] === $username && $staff['pin'] === $password && $staff['active'] === 'YES') {
+            $staffId = $staff['staff_id'] ?? '';
+            $staffPin = $staff['pin'] ?? $staff['PIN'] ?? '';
+            $staffActive = $staff['active'] ?? $staff['Active'] ?? 'NO';
+            
+            if ($staffId === $username && $staffPin === $password && strtoupper($staffActive) === 'YES') {
                 $_SESSION['logged_in'] = true;
                 $_SESSION['user_type'] = 'staff';
                 $_SESSION['user_role'] = 'staff';
-                $_SESSION['staff_id'] = $staff['staff_id'];
-                $_SESSION['staff_name'] = $staff['name'];
-                $_SESSION['user_id'] = $staff['staff_id'];
-                $_SESSION['user_name'] = $staff['name'];
-                $_SESSION['employee_id'] = $staff['staff_id'];
+                $_SESSION['staff_id'] = $staffId;
+                $_SESSION['staff_name'] = $staff['name'] ?? 'Staff';
+                $_SESSION['user_id'] = $staffId;
+                $_SESSION['user_name'] = $staff['name'] ?? 'Staff';
+                $_SESSION['employee_id'] = $staffId;
                 $loggedIn = true;
                 
                 if (!empty($_SESSION['redirect_after_login'])) {
@@ -106,16 +111,20 @@ if ($path === '/login' && $method === 'POST') {
             }
         }
         
+        // Check ALL Admins - ADMIN_001, ADMIN_002
         foreach ($creds['admins'] as $admin) {
-            if ($admin['admin_id'] === $username && $admin['password'] === $password) {
+            $adminId = $admin['admin_id'] ?? '';
+            $adminPass = $admin['password'] ?? $admin['Password'] ?? '';
+            
+            if ($adminId === $username && $adminPass === $password) {
                 $_SESSION['logged_in'] = true;
                 $_SESSION['user_type'] = 'admin';
                 $_SESSION['user_role'] = 'admin';
-                $_SESSION['staff_id'] = $admin['admin_id'];
-                $_SESSION['staff_name'] = $admin['name'];
-                $_SESSION['user_id'] = $admin['admin_id'];
-                $_SESSION['user_name'] = $admin['name'];
-                $_SESSION['employee_id'] = $admin['admin_id'];
+                $_SESSION['staff_id'] = $adminId;
+                $_SESSION['staff_name'] = $admin['name'] ?? 'Admin';
+                $_SESSION['user_id'] = $adminId;
+                $_SESSION['user_name'] = $admin['name'] ?? 'Admin';
+                $_SESSION['employee_id'] = $adminId;
                 $loggedIn = true;
                 
                 if (!empty($_SESSION['redirect_after_login'])) {
@@ -164,6 +173,10 @@ if (str_starts_with($path, '/api/')) {
             
         case '/api/onsite-staff':
             echo json_encode(getOnsiteStaff());
+            break;
+            
+        case '/api/all-staff':
+            echo json_encode(getAllStaffWithStatus());
             break;
             
         case '/api/recent-activity':
@@ -247,9 +260,10 @@ switch ($path) {
         
         $title = 'Staff Dashboard | SpySee';
         $user = [
-            'name' => $_SESSION['user_name'] ?? 'Staff',
+            'id' => $_SESSION['staff_id'] ?? $_SESSION['user_id'] ?? 'STF-001',
+            'name' => $_SESSION['staff_name'] ?? $_SESSION['user_name'] ?? 'Staff',
             'email' => $_SESSION['user_email'] ?? '',
-            'employeeId' => $_SESSION['employee_id'] ?? '',
+            'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'STF-001',
             'role' => 'staff'
         ];
         view('staff/dashboard', compact('title', 'user'));
@@ -261,7 +275,11 @@ switch ($path) {
             break;
         }
         $title = 'Scan QR Code | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Staff', 'email' => $_SESSION['user_email'] ?? ''];
+        $user = [
+            'id' => $_SESSION['staff_id'] ?? 'STF-001',
+            'name' => $_SESSION['staff_name'] ?? 'Staff',
+            'email' => $_SESSION['user_email'] ?? ''
+        ];
         view('staff/scan-qr', compact('title', 'user'));
         break;
 
@@ -271,7 +289,11 @@ switch ($path) {
             break;
         }
         $title = 'Attendance History | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Staff', 'email' => $_SESSION['user_email'] ?? ''];
+        $user = [
+            'id' => $_SESSION['staff_id'] ?? 'STF-001',
+            'name' => $_SESSION['staff_name'] ?? 'Staff',
+            'email' => $_SESSION['user_email'] ?? ''
+        ];
         view('staff/history', compact('title', 'user'));
         break;
 
@@ -281,7 +303,11 @@ switch ($path) {
             break;
         }
         $title = 'Calendar | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Staff', 'email' => $_SESSION['user_email'] ?? ''];
+        $user = [
+            'id' => $_SESSION['staff_id'] ?? 'STF-001',
+            'name' => $_SESSION['staff_name'] ?? 'Staff',
+            'email' => $_SESSION['user_email'] ?? ''
+        ];
         view('staff/calendar', compact('title', 'user'));
         break;
 
@@ -292,9 +318,10 @@ switch ($path) {
         }
         $title = 'Profile | SpySee';
         $user = [
-            'name' => $_SESSION['user_name'] ?? 'Staff',
+            'id' => $_SESSION['staff_id'] ?? 'STF-001',
+            'name' => $_SESSION['staff_name'] ?? 'Staff',
             'email' => $_SESSION['user_email'] ?? '',
-            'employeeId' => $_SESSION['employee_id'] ?? '',
+            'employeeId' => $_SESSION['staff_id'] ?? 'STF-001',
             'role' => 'staff'
         ];
         view('staff/profile', compact('title', 'user'));
@@ -306,7 +333,11 @@ switch ($path) {
             break;
         }
         $title = 'Admin Dashboard | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
+        $user = [
+            'id' => $_SESSION['staff_id'] ?? 'ADMIN-001',
+            'name' => $_SESSION['staff_name'] ?? 'Admin',
+            'email' => $_SESSION['user_email'] ?? ''
+        ];
         view('admin/dashboard', compact('title', 'user'));
         break;
 
@@ -316,7 +347,11 @@ switch ($path) {
             break;
         }
         $title = 'User Management | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
+        $user = [
+            'id' => $_SESSION['staff_id'] ?? 'ADMIN-001',
+            'name' => $_SESSION['staff_name'] ?? 'Admin',
+            'email' => $_SESSION['user_email'] ?? ''
+        ];
         view('admin/users', compact('title', 'user'));
         break;
 
@@ -326,7 +361,11 @@ switch ($path) {
             break;
         }
         $title = 'Attendance Logs | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
+        $user = [
+            'id' => $_SESSION['staff_id'] ?? 'ADMIN-001',
+            'name' => $_SESSION['staff_name'] ?? 'Admin',
+            'email' => $_SESSION['user_email'] ?? ''
+        ];
         view('admin/attendance', compact('title', 'user'));
         break;
 
@@ -347,7 +386,11 @@ switch ($path) {
             break;
         }
         $title = 'Settings | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
+        $user = [
+            'id' => $_SESSION['staff_id'] ?? 'ADMIN-001',
+            'name' => $_SESSION['staff_name'] ?? 'Admin',
+            'email' => $_SESSION['user_email'] ?? ''
+        ];
         view('admin/settings', compact('title', 'user'));
         break;
 

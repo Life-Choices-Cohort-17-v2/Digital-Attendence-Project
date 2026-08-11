@@ -1,7 +1,7 @@
 <?php
 // ============================================================
 // FILE: backend/src/config/GoogleSheets.php
-// OPTIMIZED - Faster timeouts & better error handling
+// OPTIMIZED - Faster timeouts & immediate cache updates
 // ============================================================
 
 define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbz5r1-cfdlPAK7eFOdf4OcDi764oVx_Uh54Uo32x-UPQHD7IMJrnwcpp3mAZ7ycVIpB/exec');
@@ -37,8 +37,8 @@ function httpGet($url) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);        // 5 second max
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3); // 3 second connect
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
@@ -124,11 +124,13 @@ function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null,
         'expires' => $expires
     ]);
     
+    // Use a more reliable async method
     if (PHP_OS_FAMILY === 'Windows') {
+        // Use start /B to run in background without a window
         $cmd = 'start /B C:\xampp\php\php.exe -r "' . 
                '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
                '$context = stream_context_create($options);' .
-               '@file_get_contents(\'' . $url . '\', false, $context);"';
+               '@file_get_contents(\'' . $url . '\', false, $context);" 2>nul';
         pclose(popen($cmd, 'r'));
     } else {
         $cmd = 'php -r "' .
@@ -140,7 +142,7 @@ function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null,
 }
 
 // ============================================================
-// CACHE FUNCTIONS
+// CACHE FUNCTIONS - WITH IMMEDIATE UPDATE
 // ============================================================
 
 function getCachedData() {
@@ -164,6 +166,10 @@ function updateCache() {
     }
     return false;
 }
+
+// ============================================================
+// STATUS FUNCTIONS - WITH INSTANT LOCAL UPDATE
+// ============================================================
 
 function getStatusFromCache($staffId) {
     $data = getCachedData();
@@ -189,40 +195,58 @@ function getStatusFromCache($staffId) {
     return $latestStatus;
 }
 
+// ============================================================
+// INSTANT STATUS UPDATE - NO WAITING FOR GOOGLE SHEETS
+// ============================================================
+
 function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
     $data = getCachedData();
+    
+    // If no cache exists, create one
     if (!$data) {
         $data = fetchSheetsData();
-        if (!$data || !isset($data['success']) || !$data['success']) return;
+        if (!$data || !isset($data['success']) || !$data['success']) {
+            // Create minimal cache structure
+            $data = ['rows' => []];
+        }
     }
     
     $rows = $data['rows'] ?? [];
-    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
-        array_shift($rows);
+    
+    // Remove header row if present
+    if (!empty($rows) && is_array($rows[0])) {
+        $firstRow = array_values($rows[0]);
+        $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
+        if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
+            array_shift($rows);
+        }
     }
     
+    // Check if staff already exists in cache
     $found = false;
-    
     foreach ($rows as $index => $row) {
         if (isset($row[1]) && $row[1] === $staffId) {
-            $row[3] = 'Check-' . $newStatus;
+            // Update existing entry with new status
             $row[0] = date('Y-m-d H:i:s');
+            $row[3] = 'Check-' . $newStatus;
             $rows[$index] = $row;
             $found = true;
             break;
         }
     }
     
+    // If staff not found, add new entry
     if (!$found) {
         $rows[] = [
             date('Y-m-d H:i:s'),
             $staffId,
             $staffName,
             'Check-' . $newStatus,
-            'QR'
+            'web'
         ];
     }
     
+    // Update cache with new data
     $data['rows'] = $rows;
     file_put_contents(CACHE_FILE, json_encode([
         'data' => $data,
