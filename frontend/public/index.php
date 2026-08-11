@@ -72,7 +72,7 @@ function getSessionRole(): ?string {
 }
 
 // ============================================================
-// HANDLE LOGIN - USING GOOGLE SHEETS
+// HANDLE LOGIN
 // ============================================================
 if ($path === '/login' && $method === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -83,7 +83,6 @@ if ($path === '/login' && $method === 'POST') {
     if ($creds && $creds['success']) {
         $loggedIn = false;
         
-        // Check Staff - matches your Apps Script Staff sheet
         foreach ($creds['staff'] as $staff) {
             if ($staff['staff_id'] === $username && $staff['pin'] === $password && $staff['active'] === 'YES') {
                 $_SESSION['logged_in'] = true;
@@ -107,7 +106,6 @@ if ($path === '/login' && $method === 'POST') {
             }
         }
         
-        // Check Admin - matches your Apps Script Admin sheet
         foreach ($creds['admins'] as $admin) {
             if ($admin['admin_id'] === $username && $admin['password'] === $password) {
                 $_SESSION['logged_in'] = true;
@@ -152,66 +150,75 @@ if ($path === '/logout') {
 }
 
 // ============================================================
-// API ROUTES
+// API ROUTES - CLEAN SWITCH
 // ============================================================
 if (str_starts_with($path, '/api/')) {
     header('Content-Type: application/json');
     
-    if ($path === '/api/dashboard-stats.php' || $path === '/api/dashboard-stats') {
-        echo json_encode(getDashboardStats());
-        exit;
+    $apiPath = str_replace('.php', '', $path);
+    
+    switch ($apiPath) {
+        case '/api/dashboard-stats':
+            echo json_encode(getDashboardStats());
+            break;
+            
+        case '/api/onsite-staff':
+            echo json_encode(getOnsiteStaff());
+            break;
+            
+        case '/api/recent-activity':
+            echo json_encode(getRecentActivity());
+            break;
+            
+        case '/api/sign-in':
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            echo json_encode(handleClockIn($data));
+            break;
+            
+        case '/api/sign-out':
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            echo json_encode(handleClockOut($data));
+            break;
+            
+        case '/api/user-history':
+            $userId = $_GET['user_id'] ?? $_SESSION['user_id'] ?? '';
+            echo json_encode(getUserHistory($userId));
+            break;
+            
+        case '/api/attendance-logs':
+            echo json_encode(getAllAttendanceLogs());
+            break;
+            
+        case '/api/users':
+            echo json_encode(getAllUsers());
+            break;
+            
+        case '/api/check-scan-result':
+            if (isset($_SESSION['qr_result'])) {
+                $result = $_SESSION['qr_result'];
+                unset($_SESSION['qr_result']);
+                echo json_encode([
+                    'success' => true,
+                    'name' => $result['name'] ?? '',
+                    'action' => $result['action'] ?? '',
+                    'location' => $result['location'] ?? 'HQ',
+                    'timestamp' => $result['timestamp'] ?? date('Y-m-d H:i:s')
+                ]);
+            } else {
+                echo json_encode(['success' => false]);
+            }
+            break;
+            
+        default:
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'API endpoint not found']);
+            break;
     }
-    if ($path === '/api/onsite-staff.php' || $path === '/api/onsite-staff') {
-        echo json_encode(getOnsiteStaff());
-        exit;
-    }
-    if ($path === '/api/recent-activity.php' || $path === '/api/recent-activity') {
-        echo json_encode(getRecentActivity());
-        exit;
-    }
-    if ($path === '/api/sign-in.php' || $path === '/api/sign-in') {
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        echo json_encode(handleClockIn($data));
-        exit;
-    }
-    if ($path === '/api/sign-out.php' || $path === '/api/sign-out') {
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        echo json_encode(handleClockOut($data));
-        exit;
-    }
-    if ($path === '/api/user-history.php' || $path === '/api/user-history') {
-        $userId = $_GET['user_id'] ?? $_SESSION['user_id'] ?? '';
-        echo json_encode(getUserHistory($userId));
-        exit;
-    }
-    if ($path === '/api/attendance-logs.php' || $path === '/api/attendance-logs') {
-        echo json_encode(getAllAttendanceLogs());
-        exit;
-    }
-    if ($path === '/api/users.php' || $path === '/api/users') {
-        echo json_encode(getAllUsers());
-        exit;
-    }
-    if ($path === '/api/check-scan-result.php' || $path === '/api/check-scan-result') {
-        if (isset($_SESSION['qr_result'])) {
-            $result = $_SESSION['qr_result'];
-            unset($_SESSION['qr_result']);
-            echo json_encode([
-                'success' => true,
-                'name' => $result['name'] ?? '',
-                'action' => $result['action'] ?? '',
-                'location' => $result['location'] ?? 'HQ',
-                'timestamp' => $result['timestamp'] ?? date('Y-m-d H:i:s')
-            ]);
-        } else {
-            echo json_encode(['success' => false]);
-        }
-        exit;
-    }
+    exit;
 }
 
 // ============================================================
-// PAGE ROUTES
+// PAGE ROUTES - CLEAN SWITCH
 // ============================================================
 switch ($path) {
     case '/':
@@ -229,11 +236,11 @@ switch ($path) {
         }
         
         $role = getSessionRole();
+        if ($role === 'admin') {
+            redirect_to('/admin-dashboard');
+            break;
+        }
         if ($role !== 'staff') {
-            if ($role === 'admin') {
-                redirect_to('/admin-dashboard');
-                break;
-            }
             redirect_to('/login');
             break;
         }
@@ -324,31 +331,14 @@ switch ($path) {
         break;
 
     case '/admin-dashboard/qr':
-        // Fullscreen QR page for wall-mounted tablets
+    case '/admin-dashboard/qr-generator':
+    case '/admin-dashboard/qr-display':
         if (!isLoggedIn() || getSessionRole() !== 'admin') {
             redirect_to('/login');
             break;
         }
         $title = 'QR Terminal | SpySee';
         view('admin/qr', compact('title'));
-        break;
-
-    case '/admin-dashboard/qr-generator':
-        // Redirect old QR generator route to the QR page
-        if (!isLoggedIn() || getSessionRole() !== 'admin') {
-            redirect_to('/login');
-            break;
-        }
-        redirect_to('/admin-dashboard/qr');
-        break;
-
-    case '/admin-dashboard/qr-display':
-        // Redirect old QR display route to the QR page
-        if (!isLoggedIn() || getSessionRole() !== 'admin') {
-            redirect_to('/login');
-            break;
-        }
-        redirect_to('/admin-dashboard/qr');
         break;
 
     case '/admin-dashboard/settings':

@@ -1,13 +1,10 @@
 <?php
 // ============================================================
 // FILE: backend/src/config/GoogleSheets.php
-// PERSON 6: Google Sheets Integration Lead
+// OPTIMIZED - Faster timeouts & better error handling
 // ============================================================
 
-// Google Apps Script Web App URL
 define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbz5r1-cfdlPAK7eFOdf4OcDi764oVx_Uh54Uo32x-UPQHD7IMJrnwcpp3mAZ7ycVIpB/exec');
-
-// Cache File Location
 define('CACHE_FILE', __DIR__ . '/../../storage/cache/sheets_cache.json');
 
 // ============================================================
@@ -31,35 +28,34 @@ function getUserRole() {
 }
 
 // ============================================================
-// HTTP HELPER - USING CURL (MORE RELIABLE)
+// HTTP HELPER - OPTIMIZED WITH SHORT TIMEOUTS
 // ============================================================
 
 function httpGet($url) {
-    // Try cURL first
+    // Try cURL first (faster)
     if (function_exists('curl_init')) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);        // 5 second max
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3); // 3 second connect
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0');
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
         curl_close($ch);
         
         if ($response !== false && $httpCode === 200) {
             return $response;
         }
-        error_log("cURL Error: " . $error . " (HTTP: " . $httpCode . ")");
     }
     
     // Fallback to file_get_contents
     $context = stream_context_create([
         'http' => [
-            'timeout' => 15,
+            'timeout' => 5,
             'header' => "User-Agent: Mozilla/5.0\r\n"
         ]
     ]);
@@ -72,7 +68,7 @@ function httpPost($url, $payload) {
             'header'  => "Content-Type: text/plain;charset=utf-8\r\n",
             'method'  => 'POST',
             'content' => $payload,
-            'timeout' => 3
+            'timeout' => 2
         ]
     ];
     $context = stream_context_create($options);
@@ -80,13 +76,12 @@ function httpPost($url, $payload) {
 }
 
 // ============================================================
-// GOOGLE SHEETS API COMMUNICATION
+// GOOGLE SHEETS API
 // ============================================================
 
 function getCredentialsFromSheets() {
     $response = httpGet(APP_SCRIPT_URL . '?action=getCredentials');
     if ($response === false) {
-        // Try without action parameter as fallback
         $response = httpGet(APP_SCRIPT_URL);
         if ($response === false) {
             return ['success' => false, 'error' => 'Failed to fetch credentials'];
@@ -131,13 +126,13 @@ function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null,
     
     if (PHP_OS_FAMILY === 'Windows') {
         $cmd = 'start /B C:\xampp\php\php.exe -r "' . 
-               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 3]];' .
+               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
                '$context = stream_context_create($options);' .
                '@file_get_contents(\'' . $url . '\', false, $context);"';
         pclose(popen($cmd, 'r'));
     } else {
         $cmd = 'php -r "' .
-               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 3]];' .
+               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
                '$context = stream_context_create($options);' .
                '@file_get_contents(\'' . $url . '\', false, $context);" > /dev/null 2>&1 &';
         exec($cmd);
@@ -259,4 +254,3 @@ function getStaffListFromCache() {
     }
     return $staffList;
 }
-?>

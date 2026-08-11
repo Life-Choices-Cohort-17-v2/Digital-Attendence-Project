@@ -1,34 +1,64 @@
 <?php
 // ============================================================
 // FILE: frontend/data/functions.php
-// DATA MANAGEMENT - Google Sheets Integration (LIVE MODE)
+// OPTIMIZED - Google Sheets Integration WITH CACHE
 // ============================================================
 
-// Load Google Sheets config
 require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
 
 // ============================================================
-// DASHBOARD DATA (DIRECT FROM SHEETS - NO CACHE)
+// CACHE FUNCTIONS
+// ============================================================
+
+function getCachedDataWithTTL($ttl = 60) {
+    if (file_exists(CACHE_FILE)) {
+        $cached = json_decode(file_get_contents(CACHE_FILE), true);
+        if ($cached && isset($cached['data'])) {
+            $age = time() - ($cached['fetched_at'] ?? 0);
+            if ($age < $ttl) {
+                return $cached['data'];
+            }
+        }
+    }
+    return null;
+}
+
+function getFreshOrCachedData() {
+    // TRY CACHE FIRST (FAST!)
+    $data = getCachedDataWithTTL(60);
+    if ($data) return $data;
+    
+    // Cache expired - fetch fresh (SLOW, but only once per minute)
+    $data = fetchSheetsData();
+    if ($data && isset($data['success']) && $data['success']) {
+        updateCache();
+        return $data;
+    }
+    
+    // If fetch fails, use stale cache (better than nothing)
+    $staleData = getCachedData();
+    if ($staleData) return $staleData;
+    
+    return null;
+}
+
+// ============================================================
+// DASHBOARD FUNCTIONS (NOW INSTANT!)
 // ============================================================
 
 function getDashboardStats() {
-    // ALWAYS fetch fresh data
-    $data = fetchSheetsData(); 
+    $data = getFreshOrCachedData();
     
-    if (!$data || !isset($data['success']) || !$data['success']) {
-        // If fetch fails, try cache as fallback
-        $data = getCachedData();
-        if (!$data || !isset($data['rows'])) {
-            return [
-                'success' => true,
-                'data' => [
-                    'currentlyOnsite' => 0,
-                    'totalClockedInToday' => 0,
-                    'pendingSync' => 0,
-                    'totalEventsToday' => 0
-                ]
-            ];
-        }
+    if (!$data || !isset($data['rows'])) {
+        return [
+            'success' => true,
+            'data' => [
+                'currentlyOnsite' => 0,
+                'totalClockedInToday' => 0,
+                'pendingSync' => 0,
+                'totalEventsToday' => 0
+            ]
+        ];
     }
     
     $rows = $data['rows'] ?? [];
@@ -42,7 +72,6 @@ function getDashboardStats() {
         }
     }
     
-    // Process rows - get latest status for each staff
     $staffStatus = [];
     $today = date('Y-m-d');
     $todayCheckins = 0;
@@ -54,7 +83,6 @@ function getDashboardStats() {
             $statusLower = strtolower(trim($status));
             $timestamp = $row[0] ?? date('Y-m-d H:i:s');
             
-            // Store latest status (last occurrence wins)
             $staffStatus[$staffId] = [
                 'name' => $row[2] ?? 'Unknown',
                 'status' => $statusLower,
@@ -68,7 +96,6 @@ function getDashboardStats() {
         if ($staff['status'] === 'in') {
             $onsiteCount++;
         }
-        // Check if today's check-in
         $datePart = substr($staff['timestamp'], 0, 10);
         if ($datePart === $today && $staff['status'] === 'in') {
             $todayCheckins++;
@@ -87,20 +114,13 @@ function getDashboardStats() {
 }
 
 function getOnsiteStaff() {
-    // ALWAYS fetch fresh data directly - ignore cache
-    $data = fetchSheetsData(); 
-    
-    if (!$data || !isset($data['success']) || !$data['success']) {
-        // If fetch fails, try cache as fallback
-        $data = getCachedData();
-        if (!$data || !isset($data['rows'])) {
-            return ['success' => true, 'data' => []];
-        }
+    $data = getFreshOrCachedData();
+    if (!$data || !isset($data['rows'])) {
+        return ['success' => true, 'data' => []];
     }
     
     $rows = $data['rows'] ?? [];
     
-    // Remove header row
     if (!empty($rows) && is_array($rows[0])) {
         $firstRow = array_values($rows[0]);
         $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
@@ -109,17 +129,14 @@ function getOnsiteStaff() {
         }
     }
     
-    // Process rows - get latest status for each staff
     $staffStatus = [];
     
-    // Process ALL rows to get latest status
     foreach ($rows as $row) {
         if (isset($row[1]) && !empty($row[1])) {
             $staffId = trim($row[1]);
             $status = str_replace('Check-', '', $row[3] ?? '');
             $statusLower = strtolower(trim($status));
             
-            // Store latest status (last occurrence wins)
             $staffStatus[$staffId] = [
                 'name' => $row[2] ?? 'Unknown',
                 'status' => $statusLower,
@@ -128,7 +145,6 @@ function getOnsiteStaff() {
         }
     }
     
-    // Build onsite list - only those currently "in"
     $onsite = [];
     foreach ($staffStatus as $sid => $staff) {
         if ($staff['status'] === 'in') {
@@ -147,9 +163,9 @@ function getOnsiteStaff() {
 }
 
 function getRecentActivity() {
-    $data = fetchSheetsData(); 
+    $data = getFreshOrCachedData();
     
-    if (!$data || !isset($data['success']) || !$data['success']) {
+    if (!$data || !isset($data['rows'])) {
         return ['success' => true, 'data' => []];
     }
     
@@ -183,7 +199,7 @@ function getRecentActivity() {
 }
 
 // ============================================================
-// CLOCK IN/OUT (UPDATES GOOGLE SHEETS)
+// CLOCK IN/OUT
 // ============================================================
 
 function handleClockIn($data) {
@@ -194,18 +210,15 @@ function handleClockIn($data) {
         return ['success' => false, 'message' => 'User not identified'];
     }
     
-    // Get current status from cache
     $currentStatus = getStatusFromCache($userId);
     
     if ($currentStatus === 'in') {
         return ['success' => false, 'message' => 'Already Signed in'];
     }
     
-    // Update local cache
     updateLocalStatus($userId, 'in', $staffName);
-    
-    // Send to Google Sheets (async - non-blocking)
     sendAsyncToGoogleSheets($userId, $staffName, 'web');
+    updateCache();
     
     return ['success' => true, 'message' => 'Signed in successfully', 'timestamp' => date('Y-m-d H:i:s')];
 }
@@ -218,30 +231,27 @@ function handleClockOut($data) {
         return ['success' => false, 'message' => 'User not identified'];
     }
     
-    // Get current status from cache
     $currentStatus = getStatusFromCache($userId);
     
     if ($currentStatus === 'out') {
         return ['success' => false, 'message' => 'Not currently Signed in'];
     }
     
-    // Update local cache
     updateLocalStatus($userId, 'out', $staffName);
-    
-    // Send to Google Sheets (async - non-blocking)
     sendAsyncToGoogleSheets($userId, $staffName, 'web');
+    updateCache();
     
     return ['success' => true, 'message' => 'Signed out successfully', 'timestamp' => date('Y-m-d H:i:s')];
 }
 
 // ============================================================
-// USER HISTORY (FROM GOOGLE SHEETS)
+// USER HISTORY
 // ============================================================
 
 function getUserHistory($userId) {
-    $data = fetchSheetsData(); 
+    $data = getFreshOrCachedData();
     
-    if (!$data || !isset($data['success']) || !$data['success']) {
+    if (!$data || !isset($data['rows'])) {
         return ['success' => true, 'data' => []];
     }
     
@@ -273,9 +283,9 @@ function getUserHistory($userId) {
 }
 
 function getAllAttendanceLogs() {
-    $data = fetchSheetsData(); 
+    $data = getFreshOrCachedData();
     
-    if (!$data || !isset($data['success']) || !$data['success']) {
+    if (!$data || !isset($data['rows'])) {
         return ['success' => true, 'data' => []];
     }
     
@@ -308,7 +318,7 @@ function getAllAttendanceLogs() {
 }
 
 // ============================================================
-// USER MANAGEMENT (FROM GOOGLE SHEETS - READ ONLY)
+// USER MANAGEMENT
 // ============================================================
 
 function getAllUsers() {
