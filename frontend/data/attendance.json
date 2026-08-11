@@ -50,8 +50,20 @@
         },
         {
             "user_id": "staff-001",
+            "status": "signed_out",
+            "sign_in_time": "2026-07-27 15:30:57",
+            "sign_out_time": "2026-08-04 10:15:42"
+        },
+        {
+            "user_id": "staff-001",
+            "status": "signed_out",
+            "sign_in_time": "2026-08-04 10:15:44",
+            "sign_out_time": "2026-08-04 10:15:46"
+        },
+        {
+            "user_id": "staff-001",
             "status": "signed_in",
-            "sign_in_time": "2026-07-27 15:30:57"
+            "sign_in_time": "2026-08-04 10:17:28"
         }
     ],
     "attendance_records": [
@@ -189,6 +201,38 @@
             "type": "sign-in",
             "timestamp": "2026-07-27 15:30:57",
             "date": "2026-07-27",
+            "location": "Office"
+        },
+        {
+            "id": "6a719faeafa2b",
+            "user_id": "staff-001",
+            "type": "sign-out",
+            "timestamp": "2026-08-04 10:15:42",
+            "date": "2026-08-04",
+            "location": "Office"
+        },
+        {
+            "id": "6a719fb07c068",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-08-04 10:15:44",
+            "date": "2026-08-04",
+            "location": "Office"
+        },
+        {
+            "id": "6a719fb22089c",
+            "user_id": "staff-001",
+            "type": "sign-out",
+            "timestamp": "2026-08-04 10:15:46",
+            "date": "2026-08-04",
+            "location": "Office"
+        },
+        {
+            "id": "6a71a0182273d",
+            "user_id": "staff-001",
+            "type": "sign-in",
+            "timestamp": "2026-08-04 10:17:28",
+            "date": "2026-08-04",
             "location": "Office"
         }
     ]

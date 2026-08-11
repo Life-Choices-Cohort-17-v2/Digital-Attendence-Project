@@ -15,6 +15,17 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="<?= asset_url('js/app.js') ?>"></script>
     <style>
+        .profile-container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 28px 20px;
+        }
+
+        .profile-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
         .profile-initials {
             width: 80px;
             height: 80px;
@@ -28,23 +39,85 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             font-weight: 600;
             margin: 0 auto 16px;
         }
+
         .profile-detail-row {
             display: flex;
             align-items: baseline;
-            margin-bottom: 16px;
-            padding: 8px 0;
+            margin-bottom: 12px;
+            padding: 10px 0;
             border-bottom: 1px solid var(--border-color);
         }
+
         .profile-detail-label {
-            width: 100px;
+            width: 120px;
             font-weight: 500;
             color: var(--text);
         }
+
         .profile-detail-value {
             flex: 1;
             font-weight: 600;
             color: var(--heading);
         }
+
+        .password-section {
+            margin-top: 36px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .password-section h3 {
+            margin-bottom: 4px;
+            color: var(--heading);
+        }
+
+        .password-section p {
+            font-size: 13px;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 14px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--heading);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--card-bg);
+            color: var(--heading);
+            font-size: 14px;
+        }
+
+        .update-btn {
+            width: 100%;
+            margin-top: 8px;
+            padding: 12px;
+            background: var(--sidebar-blue);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .update-btn:hover {
+            background: var(--sidebar-hover);
+        }
+
         [x-cloak] { display: none !important; }
     </style>
 </head>
@@ -53,26 +126,38 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
 <div x-data="profileApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
     <div class="app-layout">
         <?php $activePage = 'profile'; include __DIR__ . '/staff-sidebar.php'; ?>
-        
+
         <main class="main-content">
             <?php if (file_exists(__DIR__ . '/../partials/top-nav.php')) include __DIR__ . '/../partials/top-nav.php'; ?>
-            
+
             <div class="profile-container">
                 <div class="profile-header">
-                    <div class="profile-initials" x-text="getInitials(user.name)"></div>
-                    <h2 x-text="user.name"></h2>
-                    <p x-text="user.email"></p>
+                    <div class="profile-initials" x-text="getInitials(displayName)"></div>
+                    <h2 x-text="displayName"></h2>
+                    <p x-text="user.email || ''"></p>
                 </div>
 
                 <div class="profile-info">
                     <div class="profile-detail-row">
                         <span class="profile-detail-label">Email</span>
-                        <span class="profile-detail-value" x-text="user.email"></span>
+                        <span class="profile-detail-value" x-text="user.email || '—'"></span>
                     </div>
+
                     <div class="profile-detail-row">
                         <span class="profile-detail-label">Employee ID</span>
-                        <span class="profile-detail-value" x-text="user.employeeId || 'S-101'"></span>
+                        <span class="profile-detail-value" x-text="user.employeeId || user.employee_id || '—'"></span>
                     </div>
+
+                    <div class="profile-detail-row">
+                        <span class="profile-detail-label">Department</span>
+                        <span class="profile-detail-value" x-text="user.department || '—'"></span>
+                    </div>
+
+                    <div class="profile-detail-row">
+                        <span class="profile-detail-label">Position</span>
+                        <span class="profile-detail-value" x-text="user.position || '—'"></span>
+                    </div>
+
                     <div class="profile-detail-row">
                         <span class="profile-detail-label">Role</span>
                         <span class="profile-detail-value">Staff</span>
@@ -82,18 +167,22 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                 <div class="password-section">
                     <h3>Change password</h3>
                     <p>Update your password securely.</p>
+
                     <div class="input-group">
                         <label>Current password</label>
                         <input type="password" x-model="passwordForm.current" placeholder="Enter current password">
                     </div>
+
                     <div class="input-group">
                         <label>New password</label>
                         <input type="password" x-model="passwordForm.new" placeholder="Enter new password">
                     </div>
+
                     <div class="input-group">
                         <label>Confirm new password</label>
                         <input type="password" x-model="passwordForm.confirm" placeholder="Confirm new password">
                     </div>
+
                     <button class="update-btn" @click="updatePassword()">Update password</button>
                 </div>
             </div>
@@ -105,37 +194,78 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
 function profileApp() {
     return {
         sidebarOpen: false,
-        user: { name: '', email: '', employeeId: '' },
-        passwordForm: { current: '', new: '', confirm: '' },
-        
+        user: {
+            name: '',
+            first_name: '',
+            last_name: '',
+            email: '',
+            employeeId: '',
+            employee_id: '',
+            department: '',
+            position: ''
+        },
+        passwordForm: {
+            current: '',
+            new: '',
+            confirm: ''
+        },
+
+        get displayName() {
+            if (this.user.name) return this.user.name;
+            const full = [this.user.first_name, this.user.last_name].filter(Boolean).join(' ');
+            return full || 'Staff';
+        },
+
         init() {
-            window.themeManager.initTheme();
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Sarah Mthembu', 'email' => 'sarah@spysee.app', 'employeeId' => 'S-101']); ?>;
+            window.themeManager?.initTheme();
+
+            // Real data from PHP session / $user (populated from MySQL by AuthService)
+            const userData = <?= json_encode($user ?? [
+                'id'          => $_SESSION['user_id'] ?? '',
+                'name'        => $_SESSION['user_name'] ?? '',
+                'first_name'  => $_SESSION['first_name'] ?? '',
+                'last_name'   => $_SESSION['last_name'] ?? '',
+                'email'       => $_SESSION['user_email'] ?? '',
+                'employeeId'  => $_SESSION['employee_id'] ?? '',
+                'employee_id' => $_SESSION['employee_id'] ?? '',
+                'department'  => $_SESSION['department'] ?? '',
+                'position'    => $_SESSION['position'] ?? ''
+            ]) ?>;
+
             this.user = userData;
         },
-        
+
         getInitials(name) {
             if (!name) return '?';
-            return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            return name
+                .split(' ')
+                .map(n => n[0])
+                .join('')
+                .toUpperCase()
+                .substring(0, 2);
         },
-        
-        updatePassword() {
+
+        async updatePassword() {
             if (!this.passwordForm.current) {
-                window.appUtils.showToast('Please enter your current password', 'error');
+                window.appUtils?.showToast('Please enter your current password', 'error');
                 return;
             }
+
             if (this.passwordForm.new !== this.passwordForm.confirm) {
-                window.appUtils.showToast('New passwords do not match!', 'error');
+                window.appUtils?.showToast('New passwords do not match!', 'error');
                 return;
             }
+
             if (this.passwordForm.new.length < 6) {
-                window.appUtils.showToast('Password must be at least 6 characters', 'error');
+                window.appUtils?.showToast('Password must be at least 6 characters', 'error');
                 return;
             }
-            window.appUtils.showToast('Password changed successfully!', 'success');
+
+            // TODO: Call real change-password API when Person 2 exposes it
+            window.appUtils?.showToast('Password changed successfully!', 'success');
             this.passwordForm = { current: '', new: '', confirm: '' };
         }
-    }
+    };
 }
 </script>
 </body>

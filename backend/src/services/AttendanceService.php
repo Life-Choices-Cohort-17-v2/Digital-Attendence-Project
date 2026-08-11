@@ -9,6 +9,7 @@ use App\Services\GoogleSheetsService;
 /**
  * ATTENDANCE CORE SERVICE ENGINE
  * Owner: Person 3 (Clock Engine Lead)
+ * Extra methods for Person 7 (Staff Portal)
  */
 class AttendanceService 
 {
@@ -121,6 +122,68 @@ class AttendanceService
 
         return $response;
     }
+
+    // =========================================================
+    // PERSON 7 – Staff Portal methods
+    // =========================================================
+
+    /**
+     * Get attendance history for one user.
+     * Converts your shift rows (clock_in / clock_out) into the
+     * sign_in / sign_out format the frontend expects.
+     */
+    public function getHistoryForUser(int $userId, bool $todayOnly = false): array 
+    {
+        // Get shifts from the Attendance model
+        $shifts = $this->attendanceModel->getShiftsByUserId($userId, $todayOnly);
+
+        $records = [];
+
+        foreach ($shifts as $shift) {
+            // Clock-in event
+            if (!empty($shift['clock_in'])) {
+                $records[] = [
+                    'id'          => $shift['id'],
+                    'type'        => 'sign_in',
+                    'timestamp'   => $shift['clock_in'],
+                    'location'    => $shift['location'] ?? null,
+                    'sync_status' => $shift['sync_status'] ?? 'synced',
+                    'date'        => substr($shift['clock_in'], 0, 10),
+                ];
+            }
+
+            // Clock-out event (only if it exists)
+            if (!empty($shift['clock_out'])) {
+                $records[] = [
+                    'id'          => $shift['id'] . '_out',
+                    'type'        => 'sign_out',
+                    'timestamp'   => $shift['clock_out'],
+                    'location'    => $shift['location'] ?? null,
+                    'sync_status' => $shift['sync_status'] ?? 'synced',
+                    'date'        => substr($shift['clock_out'], 0, 10),
+                ];
+            }
+        }
+
+        // Sort by timestamp ascending for today, descending for full history
+        usort($records, function ($a, $b) use ($todayOnly) {
+            $cmp = strcmp($a['timestamp'], $b['timestamp']);
+            return $todayOnly ? $cmp : -$cmp;
+        });
+
+        return $records;
+    }
+
+    /**
+     * Staff currently onsite = users with an open shift today
+     * (clock_in today and clock_out is NULL)
+     */
+    public function getOnsiteStaff(): array 
+    {
+        return $this->attendanceModel->getOnsiteStaff();
+    }
+
+    // =========================================================
 
     /**
      * Helper to trigger Person 6's service without breaking if unconfigured

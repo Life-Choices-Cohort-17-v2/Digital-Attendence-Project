@@ -15,34 +15,18 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="<?= asset_url('js/app.js') ?>"></script>
     <style>
-        /* STAFF DASHBOARD - EXACT MATCH TO SCREENSHOT */
-        .staff-dashboard-container {
-            max-width: 100%;
-            padding: 28px 32px;
-        }
+        .staff-dashboard-container { max-width: 100%; padding: 28px 32px; }
 
-        /* Hi Sarah header */
-        .greeting {
-            margin-bottom: 32px;
-        }
-        .greeting h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--heading);
-            margin-bottom: 6px;
-        }
-        .greeting p {
-            font-size: 14px;
-            color: var(--text);
-        }
+        .greeting { margin-bottom: 32px; }
+        .greeting h1 { font-size: 28px; font-weight: 700; color: var(--heading); margin-bottom: 6px; }
+        .greeting p { font-size: 14px; color: var(--text); }
 
-        /* Status block - matching screenshot exactly */
         .status-block {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 20px;
             padding: 28px 32px;
-            margin-bottom: 32px;
+            margin-bottom: 24px;
             width: 100%;
         }
         .offsite-badge {
@@ -56,17 +40,9 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             margin-bottom: 20px;
             letter-spacing: 0.3px;
         }
-        .status-block p {
-            font-size: 14px;
-            color: var(--text);
-            margin-bottom: 6px;
-        }
-        .status-block h2 {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--heading);
-            margin-bottom: 24px;
-        }
+        .status-block p { font-size: 14px; color: var(--text); margin-bottom: 6px; }
+        .status-block h2 { font-size: 28px; font-weight: 700; color: var(--heading); margin-bottom: 24px; }
+
         .scan-btn {
             display: inline-block;
             background: var(--sidebar-blue);
@@ -80,20 +56,40 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             cursor: pointer;
             transition: 0.2s;
         }
-        .scan-btn:hover {
-            background: var(--sidebar-hover);
-        }
+        .scan-btn:hover { background: var(--sidebar-hover); }
 
-        /* Menu items - NO EMOJIS, just text like screenshot */
+        /* Today's Attendance */
+        .attendance-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 32px;
+        }
+        .attendance-card h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--heading);
+            margin-bottom: 16px;
+        }
+        .attendance-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .attendance-row:last-child { border-bottom: none; }
+        .attendance-row span { color: var(--text); }
+        .attendance-row strong { color: var(--heading); font-weight: 600; }
+
         .menu-items {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 16px;
         }
         @media (max-width: 600px) {
-            .menu-items {
-                grid-template-columns: 1fr;
-            }
+            .menu-items { grid-template-columns: 1fr; }
         }
         .menu-item {
             display: block;
@@ -111,179 +107,88 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             transform: translateY(-2px);
             background: var(--olive-green-soft);
         }
-        .menu-item h3 {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--heading);
-            margin-bottom: 4px;
-        }
-        .menu-item p {
-            font-size: 13px;
-            color: var(--text);
-        }
+        .menu-item h3 { font-size: 16px; font-weight: 600; color: var(--heading); margin-bottom: 4px; }
+        .menu-item p { font-size: 13px; color: var(--text); }
 
-        /* Modal Styles */
+        /* Modals */
         .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
             z-index: 2000;
         }
         .modal-container {
             background: var(--card-bg);
             border-radius: 24px;
-            width: 420px;
-            max-width: 95%;
-            max-height: none;
+            width: 420px; max-width: 95%;
             overflow-y: visible;
         }
         .modal-header {
             padding: 16px 20px;
             border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: flex; justify-content: space-between; align-items: center;
         }
-        .modal-header h2 {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--heading);
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: var(--text);
-        }
-        .modal-body {
-            padding: 12px 20px;
-        }
+        .modal-header h2 { font-size: 20px; font-weight: 700; color: var(--heading); }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text); }
+        .modal-body { padding: 12px 20px; }
         .modal-footer {
             padding: 12px 20px;
             border-top: 1px solid var(--border-color);
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
+            display: flex; justify-content: flex-end; gap: 12px;
         }
         .btn-cancel {
-            padding: 10px 20px;
-            background: #F0F2F5;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 500;
+            padding: 10px 20px; background: #F0F2F5; border: none;
+            border-radius: 12px; cursor: pointer; font-weight: 500;
         }
         .btn-submit {
-            padding: 10px 20px;
-            background: var(--sidebar-blue);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 500;
+            padding: 10px 20px; background: var(--sidebar-blue); color: white;
+            border: none; border-radius: 12px; cursor: pointer; font-weight: 500;
         }
-        body.dark-mode .btn-cancel {
-            background: #334155;
-            color: white;
-        }
+        body.dark-mode .btn-cancel { background: #334155; color: white; }
 
-        /* Calendar Grid */
         .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 8px;
-            margin-top: 12px;
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 12px;
         }
         @media (max-width: 480px) {
-            .calendar-grid {
-                gap: 4px;
-            }
-            .calendar-day {
-                font-size: 12px;
-            }
+            .calendar-grid { gap: 4px; }
+            .calendar-day { font-size: 12px; }
         }
         .calendar-day-header {
-            text-align: center;
-            font-weight: 600;
-            font-size: 12px;
-            padding: 8px;
-            color: var(--text);
+            text-align: center; font-weight: 600; font-size: 12px; padding: 8px; color: var(--text);
         }
         .calendar-day {
-            aspect-ratio: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 12px;
-            cursor: pointer;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            font-size: 14px;
-            transition: 0.2s;
+            aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+            border-radius: 12px; cursor: pointer;
+            background: var(--card-bg); border: 1px solid var(--border-color);
+            font-size: 14px; transition: 0.2s;
         }
-        .calendar-day:hover {
-            background: var(--olive-green-soft);
-        }
+        .calendar-day:hover { background: var(--olive-green-soft); }
         .calendar-day.selected {
-            background: var(--olive-green);
-            color: var(--sidebar-blue);
-            border-color: var(--olive-green);
+            background: var(--olive-green); color: var(--sidebar-blue); border-color: var(--olive-green);
         }
-        .calendar-day.other-month {
-            opacity: 0.3;
-        }
+        .calendar-day.other-month { opacity: 0.3; }
         .calendar-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
         }
         .calendar-nav button {
-            padding: 8px 16px;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            cursor: pointer;
+            padding: 8px 16px; background: var(--card-bg);
+            border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer;
         }
         .selected-date-info {
-            margin-top: 20px;
-            padding: 16px;
-            background: var(--olive-green-soft);
-            border-radius: 12px;
-            text-align: center;
+            margin-top: 20px; padding: 16px;
+            background: var(--olive-green-soft); border-radius: 12px; text-align: center;
         }
 
-        /* Form Styles */
-        .input-group {
-            margin-bottom: 10px;
-        }
+        .input-group { margin-bottom: 10px; }
         .input-group label {
-            display: block;
-            font-size: 13px;
-            font-weight: 500;
-            margin-bottom: 6px;
-            color: var(--heading);
+            display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--heading);
         }
         .input-group input, .input-group select, .input-group textarea {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            background: var(--card-bg);
-            color: var(--heading);
-            font-family: inherit;
-            font-size: 13px;
+            width: 100%; padding: 10px 14px;
+            border: 1px solid var(--border-color); border-radius: 12px;
+            background: var(--card-bg); color: var(--heading); font-family: inherit; font-size: 13px;
         }
-        .input-group textarea {
-            resize: vertical;
-        }
+        .input-group textarea { resize: vertical; }
 
         [x-cloak] { display: none !important; }
     </style>
@@ -293,26 +198,49 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
 <div x-data="dashboardApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
     <div class="app-layout">
         <?php $activePage = 'dashboard'; include __DIR__ . '/staff-sidebar.php'; ?>
-        
+
         <main class="main-content">
             <?php if (file_exists(__DIR__ . '/../partials/top-nav.php')) include __DIR__ . '/../partials/top-nav.php'; ?>
-            
+
             <div class="staff-dashboard-container">
-                <!-- Greeting - EXACT as screenshot -->
+                <!-- Greeting -->
                 <div class="greeting">
-                    <h1>Hi, <?= htmlspecialchars($user['name'] ?? 'User') ?></h1>
+                    <h1>Hi, <?= htmlspecialchars($user['name'] ?? $_SESSION['user_name'] ?? 'User') ?></h1>
                     <p x-text="currentDateFormatted"></p>
                 </div>
 
-                <!-- Status Block - EXACT as screenshot (no extra elements) -->
+                <!-- Status Block -->
                 <div class="status-block">
-                    <div class="offsite-badge" x-text="isClockedIn ? 'ONSITE' : 'OFFSITE'" :style="isClockedIn ? 'color: #9CB07A; background: rgba(156, 176, 122, 0.12);' : ''">OFFSITE</div>
+                    <div class="offsite-badge"
+                         x-text="isClockedIn ? 'ONSITE' : 'OFFSITE'"
+                         :style="isClockedIn
+                            ? 'color: #9CB07A; background: rgba(156, 176, 122, 0.12);'
+                            : ''">
+                        OFFSITE
+                    </div>
                     <p>You are currently</p>
-                    <h2 x-text="isClockedIn ? 'Signed in' : 'Sign Out'">Sign Out</h2>
+                    <h2 x-text="isClockedIn ? 'Signed in' : 'Signed out'">Signed out</h2>
                     <a href="<?= route_url('/scan-qr') ?>" class="scan-btn">Scan QR</a>
                 </div>
 
-                <!-- Menu Items - NO EMOJIS, just text like screenshot -->
+                <!-- Today's Attendance -->
+                <div class="attendance-card">
+                    <h3>Today's Attendance</h3>
+                    <div class="attendance-row">
+                        <span>Clock In</span>
+                        <strong x-text="todayAttendance.clockIn || '--:--'"></strong>
+                    </div>
+                    <div class="attendance-row">
+                        <span>Clock Out</span>
+                        <strong x-text="todayAttendance.clockOut || '--:--'"></strong>
+                    </div>
+                    <div class="attendance-row">
+                        <span>Hours Worked</span>
+                        <strong x-text="todayAttendance.hoursWorked || '--'"></strong>
+                    </div>
+                </div>
+
+                <!-- Menu Items -->
                 <div class="menu-items">
                     <div class="menu-item" @click="openCalendarModal()">
                         <h3>Calendar</h3>
@@ -331,7 +259,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
         </main>
     </div>
 
-    <!-- Calendar Modal Popup -->
+    <!-- Calendar Modal -->
     <div x-show="calendarModalOpen" x-cloak class="modal-overlay" @click.away="calendarModalOpen = false">
         <div class="modal-container">
             <div class="modal-header">
@@ -346,11 +274,13 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                     <button @click="nextMonth()">→</button>
                 </div>
                 <div class="calendar-grid">
-                    <template x-for="day in ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']">
+                    <template x-for="day in ['Su','Mo','Tu','We','Th','Fr','Sa']">
                         <div class="calendar-day-header" x-text="day"></div>
                     </template>
                     <template x-for="day in calendarDays" :key="day">
-                        <div class="calendar-day" :class="{ 'other-month': !day, 'selected': selectedDay === day && day }" @click="day && selectDay(day)">
+                        <div class="calendar-day"
+                             :class="{ 'other-month': !day, 'selected': selectedDay === day && day }"
+                             @click="day && selectDay(day)">
                             <span x-text="day || ''"></span>
                         </div>
                     </template>
@@ -366,7 +296,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
         </div>
     </div>
 
-    <!-- Leave Request Modal Popup -->
+    <!-- Leave Request Modal -->
     <div x-show="leaveModalOpen" x-cloak class="modal-overlay" @click.away="leaveModalOpen = false">
         <div class="modal-container">
             <div class="modal-header">
@@ -375,7 +305,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             </div>
             <div class="modal-body">
                 <p style="margin-bottom: 12px; color: var(--text);">Submit a request for time off.</p>
-                <div class="input-group" style="margin-bottom: 12px;">
+                <div class="input-group">
                     <label>Type</label>
                     <select x-model="leaveRequest.type">
                         <option value="OFFSITE">OFFSITE</option>
@@ -384,17 +314,18 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                         <option value="Personal leave">Personal leave</option>
                     </select>
                 </div>
-                <div class="input-group" style="margin-bottom: 12px;">
+                <div class="input-group">
                     <label>From</label>
                     <input type="date" x-model="leaveRequest.from">
                 </div>
-                <div class="input-group" style="margin-bottom: 12px;">
+                <div class="input-group">
                     <label>To</label>
                     <input type="date" x-model="leaveRequest.to">
                 </div>
-                <div class="input-group" style="margin-bottom: 12px;">
+                <div class="input-group">
                     <label>Reason (optional)</label>
-                    <textarea x-model="leaveRequest.reason" rows="3" placeholder="Add a short note for your manager"></textarea>
+                    <textarea x-model="leaveRequest.reason" rows="3"
+                              placeholder="Add a short note for your manager"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -411,21 +342,18 @@ function dashboardApp() {
         sidebarOpen: false,
         isClockedIn: false,
         calendarModalOpen: false,
-        currentDateObj: new Date(),
-        user: { id: '', name: '', email: '' }, // Initialize user object
-        selectedDay: null,
         leaveModalOpen: false,
-        leaveRequest: {
-            type: 'OFFSITE',
-            from: '',
-            to: '',
-            reason: '',
+        currentDateObj: new Date(),
+        selectedDay: null,
+        user: { id: '', name: '', email: '' },
+        todayAttendance: {
+            clockIn: null,
+            clockOut: null,
+            hoursWorked: null
         },
-        
+        leaveRequest: { type: 'OFFSITE', from: '', to: '', reason: '' },
+
         get year() { return this.currentDateObj.getFullYear(); },
-        get currentDateFormatted() {
-            return new Date().toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        },
         get month() { return this.currentDateObj.getMonth(); },
         get monthName() { return this.currentDateObj.toLocaleString('default', { month: 'long' }); },
         get firstDay() { return new Date(this.year, this.month, 1).getDay(); },
@@ -436,85 +364,154 @@ function dashboardApp() {
             for (let i = 1; i <= this.daysInMonth; i++) days.push(i);
             return days;
         },
+        get currentDateFormatted() {
+            return new Date().toLocaleDateString('en-ZA', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+            });
+        },
         get selectedDateFormatted() {
             if (!this.selectedDay) return '';
-            const date = new Date(this.year, this.month, this.selectedDay);
-            return date.toLocaleDateString('en-ZA', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
+            const d = new Date(this.year, this.month, this.selectedDay);
+            return d.toLocaleDateString('en-ZA', {
+                weekday: 'long', day: '2-digit', month: 'short', year: 'numeric'
+            });
         },
         get selectedStatus() {
             const status = this.getDayStatus(this.selectedDay);
             if (status === 'present') return 'You were present on this day';
-            if (status === 'absent') return 'No sign-in recorded on this day';
-            if (status === 'leave') return 'You were on leave this day';
+            if (status === 'absent')  return 'No sign-in recorded on this day';
+            if (status === 'leave')   return 'You were on leave this day';
             return 'No attendance data for this day';
         },
-        
+
         async init() {
-            window.themeManager.initTheme();
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'User', 'email' => 'user@spysee.app']); ?>;
+            window.themeManager?.initTheme();
+
+            // Real user from PHP session (populated from MySQL)
+            const userData = <?= json_encode($user ?? [
+                'id'         => $_SESSION['user_id'] ?? '',
+                'name'       => $_SESSION['user_name'] ?? 'User',
+                'email'      => $_SESSION['user_email'] ?? '',
+                'employeeId' => $_SESSION['employee_id'] ?? '',
+                'department' => $_SESSION['department'] ?? '',
+                'position'   => $_SESSION['position'] ?? ''
+            ]) ?>;
             this.user = userData;
-            await this.updateStatus();
-            
-            // Poll for status updates every 10 seconds for real-time sync
-            setInterval(() => this.updateStatus(), 10000);
+
+            await Promise.all([
+                this.updateStatus(),
+                this.loadTodayAttendance()
+            ]);
+
+            // Live poll every 10 seconds
+            setInterval(() => {
+                this.updateStatus();
+                this.loadTodayAttendance();
+            }, 10000);
         },
-        
+
+        // ===== LIVE STATUS =====
         async updateStatus() {
             try {
-                // Use absolute path for consistency with other API calls
-                const response = await fetch('api/onsite-staff.php');
-                const data = await response.json();
-                const onsiteStaff = data.data || [];
-                this.isClockedIn = onsiteStaff.some(s => s.name === this.user.name);
-            } catch (err) {
-                console.error('Error checking status:', err);
+                const res = await fetch(route_url('/attendance/onsite'));
+                const data = await res.json();
+                const onsite = data.data || [];
+                this.isClockedIn = onsite.some(s =>
+                    String(s.id) === String(this.user.id) || s.name === this.user.name
+                );
+            } catch (e) {
+                console.error('Status check failed', e);
             }
         },
-        
+
+        // ===== TODAY'S ATTENDANCE =====
+        async loadTodayAttendance() {
+            try {
+                const res = await fetch(route_url('/attendance/history?today=1'));
+                const data = await res.json();
+                const records = data.data || [];
+
+                let clockIn = null;
+                let clockOut = null;
+
+                records.forEach(r => {
+                    const isIn  = r.type === 'sign_in'  || r.type === 'sign-in';
+                    const isOut = r.type === 'sign_out' || r.type === 'sign-out';
+
+                    if (isIn) {
+                        if (!clockIn || new Date(r.timestamp) < new Date(clockIn.timestamp)) {
+                            clockIn = r;
+                        }
+                    }
+                    if (isOut) {
+                        if (!clockOut || new Date(r.timestamp) > new Date(clockOut.timestamp)) {
+                            clockOut = r;
+                        }
+                    }
+                });
+
+                this.todayAttendance.clockIn = clockIn
+                    ? new Date(clockIn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : null;
+
+                this.todayAttendance.clockOut = clockOut
+                    ? new Date(clockOut.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : null;
+
+                if (clockIn && clockOut) {
+                    const diffMs = new Date(clockOut.timestamp) - new Date(clockIn.timestamp);
+                    // Handle overnight (midnight crossing)
+                    const hours = (diffMs < 0 ? diffMs + 24 * 3600 * 1000 : diffMs) / 3600000;
+                    this.todayAttendance.hoursWorked = hours.toFixed(1) + ' h';
+                } else if (clockIn && !clockOut) {
+                    this.todayAttendance.hoursWorked = 'Still on site';
+                } else {
+                    this.todayAttendance.hoursWorked = null;
+                }
+            } catch (e) {
+                console.error('Today attendance load failed', e);
+            }
+        },
+
         openCalendarModal() {
             this.currentDateObj = new Date();
             this.selectedDay = new Date().getDate();
             this.calendarModalOpen = true;
         },
-        
         prevMonth() {
             this.currentDateObj = new Date(this.year, this.month - 1);
             this.selectedDay = null;
         },
-        
         nextMonth() {
             this.currentDateObj = new Date(this.year, this.month + 1);
             this.selectedDay = null;
         },
-        
-        selectDay(day) {
-            this.selectedDay = day;
-        },
-        
+        selectDay(day) { this.selectedDay = day; },
+
+        // Temporary calendar status (replace with real API later)
         getDayStatus(day) {
-            const presentDays = [1, 2, 3, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 27, 28, 29];
-            const absentDays = [5, 12, 19, 26];
-            const leaveDays = [11, 18, 25];
-            if (presentDays.includes(day)) return 'present';
-            if (absentDays.includes(day)) return 'absent';
-            if (leaveDays.includes(day)) return 'leave';
+            const present = [1,2,3,6,7,8,9,10,13,14,15,16,17,20,21,22,23,24,27,28,29];
+            const absent  = [5,12,19,26];
+            const leave   = [11,18,25];
+            if (present.includes(day)) return 'present';
+            if (absent.includes(day))  return 'absent';
+            if (leave.includes(day))   return 'leave';
             return null;
         },
-        
+
         openLeaveModal() {
             this.leaveRequest = { type: 'OFFSITE', from: '', to: '', reason: '' };
             this.leaveModalOpen = true;
         },
-        
         submitLeaveRequest() {
             if (!this.leaveRequest.from || !this.leaveRequest.to) {
-                window.appUtils.showToast('Please select both From and To dates', 'error');
+                window.appUtils?.showToast('Please select both From and To dates', 'error');
                 return;
             }
-            window.appUtils.showToast(`Leave request submitted successfully!`, 'success');
+            window.appUtils?.showToast('Leave request submitted successfully!', 'success');
             this.leaveModalOpen = false;
         }
-    }
+    };
 }
 </script>
 </body>

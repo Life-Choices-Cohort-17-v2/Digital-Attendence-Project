@@ -7,6 +7,7 @@ use App\Services\AttendanceService;
 /**
  * ATTENDANCE CONTROLLER
  * Owner: Person 3 (Clock Engine Lead)
+ * Extra methods for Person 7 (Staff Portal)
  */
 class AttendanceController 
 {
@@ -19,7 +20,6 @@ class AttendanceController
 
     /**
      * POST /attendance/scan
-     * Smart Endpoint for Person 4's QR Scanner
      */
     public function scan(): void 
     {
@@ -27,7 +27,6 @@ class AttendanceController
 
         $rawInput = json_decode(file_get_contents('php://input'), true) ?? $_POST;
 
-        // 1. Validate Input Payload
         $validation = AttendanceValidator::validateScanInput($rawInput);
         if (!$validation['is_valid']) {
             http_response_code(400);
@@ -35,19 +34,17 @@ class AttendanceController
             return;
         }
 
-        // 2. Process Scan via Engine Service
         $result = $this->attendanceService->processScan(
             $validation['employee_id'],
             $validation['location']
         );
 
-        // 3. Respond
         http_response_code($result['status_code'] ?? 200);
         echo json_encode($result);
     }
 
     /**
-     * POST /attendance/clock-in
+     * POST /attendance/clock-in  (or /attendance/Spy-in)
      */
     public function clockIn(): void 
     {
@@ -61,14 +58,13 @@ class AttendanceController
             return;
         }
 
-        // Direct Force Clock-In
         $result = $this->attendanceService->processScan($validation['employee_id'], $validation['location']);
         http_response_code($result['status_code'] ?? 200);
         echo json_encode($result);
     }
 
     /**
-     * POST /attendance/clock-out
+     * POST /attendance/clock-out  (or /attendance/Spy-out)
      */
     public function clockOut(): void 
     {
@@ -82,17 +78,88 @@ class AttendanceController
             return;
         }
 
-        // Direct Force Clock-Out
         $result = $this->attendanceService->processScan($validation['employee_id'], $validation['location']);
         http_response_code($result['status_code'] ?? 200);
         echo json_encode($result);
     }
 
+    // =========================================================
+    // PERSON 7 – Staff Portal endpoints
+    // =========================================================
+
+    /**
+     * GET /attendance/history
+     * Returns records for the currently logged-in user only.
+     * Optional: ?today=1
+     */
+    public function history(): void 
+    {
+        $this->setJsonHeaders();
+
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Not logged in']);
+            return;
+        }
+
+        $userId    = (int) $_SESSION['user_id'];   // never trust browser user_id
+        $todayOnly = isset($_GET['today']) && $_GET['today'] == '1';
+
+        try {
+            $records = $this->attendanceService->getHistoryForUser($userId, $todayOnly);
+
+            // Ensure each record has a convenient "date" field
+            foreach ($records as &$r) {
+                if (!isset($r['date']) && isset($r['timestamp'])) {
+                    $r['date'] = substr($r['timestamp'], 0, 10);
+                }
+            }
+
+            echo json_encode(['data' => $records]);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Server error']);
+        }
+    }
+
+    /**
+     * GET /attendance/onsite
+     * Returns staff currently signed in
+     */
+    public function onsite(): void 
+    {
+        $this->setJsonHeaders();
+
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Not logged in']);
+            return;
+        }
+
+        try {
+            $staff = $this->attendanceService->getOnsiteStaff();
+            echo json_encode(['data' => $staff]);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Server error']);
+        }
+    }
+
+    // =========================================================
+
     private function setJsonHeaders(): void 
     {
         header('Content-Type: application/json');
         header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: POST, OPTIONS');
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
         header('Access-Control-Allow-Headers: Content-Type');
 
         if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
