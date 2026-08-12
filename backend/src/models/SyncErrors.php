@@ -1,3 +1,6 @@
+<?php
+require_once __DIR__ . '/../config/Database.php';
+
 $db = Database::getConnection();
 $stmt = $db->query("
     SELECT se.id, se.error_message, se.attempts, se.resolved,
@@ -7,3 +10,4 @@ $stmt = $db->query("
     JOIN users u ON ar.user_id = u.id
 ");
 print_r($stmt->fetchAll());
+?>
