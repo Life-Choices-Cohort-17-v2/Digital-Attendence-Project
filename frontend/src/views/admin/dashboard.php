@@ -18,7 +18,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
 </head>
 <body>
 
-<script>window.themeManager.initTheme();</script>
 <div x-data="dashboardApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
     <div class="app-layout">
         <?php $activePage = 'dashboard'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
@@ -67,7 +66,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
                             <div class="stat-subtitle">Live count, updates within seconds</div>
                         </div>
                         
-                        <!-- Total Clocked In Today - Calendar Icon -->
+                        <!-- Total Signed in Today - Calendar Icon -->
                         <div class="metric-card">
                             <div class="metric-top">
                                 <div class="stat-icon icon-olive">
@@ -80,7 +79,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
                                 </div>
                             </div>
                             <div class="stat-value" x-text="stats.totalClockedInToday"></div>
-                            <div class="stat-label">Total clocked in today</div>
+                            <div class="stat-label">Total Signed in today</div>
                             <div class="stat-subtitle" x-text="weekday"></div>
                         </div>
                         
@@ -136,7 +135,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
                                 </div>
                             </div>
                             <h3>QR Generator</h3>
-                            <p>Create and manage clock-in QR codes</p>
+                            <p>Create and manage sign-in QR codes</p>
                         </div>
                         
                         <!-- Attendance Logs - List/Document Icon -->
@@ -159,7 +158,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
                                 </div>
                             </div>
                             <h3>Attendance Logs</h3>
-                            <p>All clock events with full audit trail</p>
+                            <p>All signed-in events with full audit trail</p>
                         </div>
                         
                         <!-- Settings - Settings/Gear Icon -->
@@ -283,7 +282,6 @@ function dashboardApp() {
         refreshInterval: null,
         
         async init() {
-            window.themeManager.initTheme();
             this.weekday = getWeekday();
             await this.loadDashboard();
             this.refreshInterval = setInterval(() => this.loadDashboard(), 30000);
@@ -317,7 +315,7 @@ function dashboardApp() {
                 window.appUtils.showToast('No data to export', 'info'); 
                 return; 
             }
-            let csv = "Name,Role,Clock In Time\n";
+            let csv = "Name,Role,Sign In Time\n";
             this.onsiteStaff.forEach(p => { 
                 csv += `"${p.name}","${p.role}","${formatTime(p.sign_in_time)}"\n`; 
             });

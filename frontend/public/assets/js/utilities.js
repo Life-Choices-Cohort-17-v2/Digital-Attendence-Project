@@ -1,2 +1,2 @@
 // Additional utilities
-console.log('Clock-It utilities loaded');
+console.log('SpySee utilities loaded');

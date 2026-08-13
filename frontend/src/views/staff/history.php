@@ -27,21 +27,21 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             
             <div class="page-content">
                 <h1>Attendance History</h1>
-                <p>Your past clock-in and clock-out activity.</p>
+                <p>Your past sign-in and sign-out activity.</p>
 
                 <div class="history-filters">
                     <input type="text" x-model="searchQuery" placeholder="Search by date...">
                     <select x-model="filterType">
                         <option value="all">All Types</option>
-                        <option value="clock-in">Clock In</option>
-                        <option value="clock-out">Clock Out</option>
+                        <option value="sign-in">Sign In</option>
+                        <option value="sign-out">Sign Out</option>
                     </select>
                 </div>
 
                 <div class="table-container">
                     <table class="history-table">
                         <thead>
-                            <tr><th>DATE</th><th>CLOCK IN</th><th>CLOCK OUT</th><th>TOTAL HOURS</th><th>SYNC</th></tr>
+                            <tr><th>DATE</th><th>Sign In</th><th>Sign Out</th><th>TOTAL HOURS</th><th>SYNC</th></tr>
                         </thead>
                         <tbody>
                             <template x-for="day in groupedRecords" :key="day.date">
@@ -84,7 +84,7 @@ function historyApp() {
             const grouped = {};
             this.filteredRecords.forEach(record => {
                 if (!grouped[record.date]) grouped[record.date] = { date: record.date, clockIn: null, clockOut: null };
-                if (record.type === 'clock-in') grouped[record.date].clockIn = record.time;
+                if (record.type === 'sign-in') grouped[record.date].clockIn = record.time;
                 else grouped[record.date].clockOut = record.time;
             });
             const result = Object.values(grouped);
@@ -100,7 +100,6 @@ function historyApp() {
         },
         
         async init() {
-            window.themeManager.initTheme();
             const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff']); ?>;
             this.user = userData;
             await this.loadHistory();

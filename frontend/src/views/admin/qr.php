@@ -83,11 +83,8 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
             justify-content: center;
             width: 150px;
             height: 150px;
-            margin: 0 auto;
-        }
-        body.dark-mode .qr-code-wrapper {
-            background: #0f172a;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            margin: 0 auto; /* Center the card */
+            background: var(--card-bg); /* Use CSS variable for consistency */
         }
         .qr-code-display {
             display: flex;
@@ -267,15 +264,15 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
             <div class="qr-generator-container">
                 <div style="margin-bottom: 10px;">
                     <h1 style="font-size: 24px; font-weight: 700; color: var(--heading); margin-bottom: 4px;">QR Code Generator</h1>
-                    <p style="color: var(--text); font-size: 13px;">Create unique QR codes for clock-in/clock-out points.</p>
+                    <p style="color: var(--text); font-size: 13px;">Create unique QR codes for sign-in/sign-out points.</p>
                 </div>
 
                 <div class="generator-grid">
-                    <!-- Clock In QR Card -->
+                    <!-- Sign In QR Card -->
                     <div class="qr-card">
                         <div class="qr-card-header">
-                            <h2>Clock In QR</h2>
-                            <span class="qr-badge in">Clock In</span>
+                            <h2>Sign In QR</h2>
+                            <span class="qr-badge in">Sign In</span>
                         </div>
                         
                         <div class="qr-preview">
@@ -317,11 +314,11 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
                         </div>
                     </div>
 
-                    <!-- Clock Out QR Card -->
+                    <!-- Sign Out QR Card -->
                     <div class="qr-card">
                         <div class="qr-card-header">
-                            <h2>Clock Out QR</h2>
-                            <span class="qr-badge out">Clock Out</span>
+                            <h2>Sign Out QR</h2>
+                            <span class="qr-badge out">Sign Out</span>
                         </div>
                         
                         <div class="qr-preview">
@@ -373,16 +370,16 @@ function qrGenerator() {
     return {
         sidebarOpen: false,
         clockIn: { 
-            code: 'CLK_IN_' + Math.random().toString(36).substring(2, 10).toUpperCase(), 
+            code: 'SGN_IN_' + Math.random().toString(36).substring(2, 10).toUpperCase(), 
             location: 'HQ Entrance',
-            type: 'CLOCK_IN',
+            type: 'sign_in',
             isActive: true,
             createdAt: new Date().toISOString()
         },
         clockOut: { 
-            code: 'CLK_OUT_' + Math.random().toString(36).substring(2, 10).toUpperCase(), 
+            code: 'SGN_OUT_' + Math.random().toString(36).substring(2, 10).toUpperCase(), 
             location: 'HQ Exit',
-            type: 'CLOCK_OUT',
+            type: 'sign_out',
             isActive: true,
             createdAt: new Date().toISOString()
         },
@@ -483,8 +480,8 @@ function qrGenerator() {
         
         generateNewCode(type) {
             const newCode = type === 'in' 
-                ? 'CLK_IN_' + Math.random().toString(36).substring(2, 10).toUpperCase()
-                : 'CLK_OUT_' + Math.random().toString(36).substring(2, 10).toUpperCase();
+                ? 'SGN_IN_' + Math.random().toString(36).substring(2, 10).toUpperCase()
+                : 'SGN_OUT_' + Math.random().toString(36).substring(2, 10).toUpperCase();
             
             if (type === 'in') {
                 this.clockIn.code = newCode;
@@ -516,7 +513,7 @@ function qrGenerator() {
                 if (result.success) {
                     data.isActive = true;
                     this.saveToLocalStorage();
-                    window.appUtils.showToast(`${type === 'in' ? 'Clock In' : 'Clock Out'} QR Code activated successfully!`, 'success');
+                    window.appUtils.showToast(`${type === 'in' ? 'Sign In' : 'Sign Out'} QR Code activated successfully!`, 'success');
                 } else {
                     window.appUtils.showToast('Error saving QR code. Please try again.', 'error');
                 }
@@ -524,19 +521,19 @@ function qrGenerator() {
                 // Fallback to local storage if API is not available
                 data.isActive = true;
                 this.saveToLocalStorage();
-                window.appUtils.showToast(`${type === 'in' ? 'Clock In' : 'Clock Out'} QR Code saved locally!`, 'success');
+                window.appUtils.showToast(`${type === 'in' ? 'Sign In' : 'Sign Out'} QR Code saved locally!`, 'success');
             }
         },
         
         revokeQR(type) {
-            if (confirm(`Are you sure you want to revoke this ${type === 'in' ? 'Clock In' : 'Clock Out'} QR code?`)) {
+            if (confirm(`Are you sure you want to revoke this ${type === 'in' ? 'Sign In' : 'Sign Out'} QR code?`)) {
                 if (type === 'in') {
                     this.clockIn.isActive = false;
                 } else {
                     this.clockOut.isActive = false;
                 }
                 this.saveToLocalStorage();
-                window.appUtils.showToast(`${type === 'in' ? 'Clock In' : 'Clock Out'} QR Code revoked!`, 'success');
+                window.appUtils.showToast(`${type === 'in' ? 'Sign In' : 'Sign Out'} QR Code revoked!`, 'success');
             }
         },
         
@@ -550,8 +547,8 @@ function qrGenerator() {
             const link = document.createElement('a');
             const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
             const filename = type === 'in' 
-                ? `clock_in_${this.clockIn.location.replace(/\s/g, '_')}_${timestamp}.png`
-                : `clock_out_${this.clockOut.location.replace(/\s/g, '_')}_${timestamp}.png`;
+                ? `sign_in_${this.clockIn.location.replace(/\s/g, '_')}_${timestamp}.png`
+                : `sign_out_${this.clockOut.location.replace(/\s/g, '_')}_${timestamp}.png`;
             
             link.download = filename;
             link.href = qrElement.toDataURL('image/png');

@@ -1,5 +1,5 @@
 <?php
-// Data management functions for Clock-It
+// Data management functions for SpySee
 
 $dataFile = __DIR__ . '/attendance.json';
 
@@ -8,17 +8,17 @@ function loadData() {
     if (!file_exists($dataFile)) {
         $defaultData = [
             'users' => [
-                ['id' => 'admin-001', 'name' => 'Admin User', 'email' => 'admin@clockit.app', 'employee_id' => 'ADM-001', 'role' => 'admin', 'status' => 'active'],
-                ['id' => 'staff-001', 'name' => 'Sarah Mthembu', 'email' => 'sarah@clockit.app', 'employee_id' => 'S-101', 'role' => 'staff', 'status' => 'active'],
-                ['id' => 'staff-002', 'name' => 'John Adams', 'email' => 'john@clockit.app', 'employee_id' => 'S-102', 'role' => 'staff', 'status' => 'active'],
-                ['id' => 'staff-003', 'name' => 'Mary Chen', 'email' => 'mary@clockit.app', 'employee_id' => 'S-103', 'role' => 'staff', 'status' => 'active'],
-                ['id' => 'staff-004', 'name' => 'David Okafor', 'email' => 'david@clockit.app', 'employee_id' => 'S-104', 'role' => 'staff', 'status' => 'active'],
+                ['id' => 'admin-001', 'name' => 'Admin User', 'email' => 'admin@spysee.app', 'employee_id' => 'ADM-001', 'role' => 'admin', 'status' => 'active'],
+                ['id' => 'staff-001', 'name' => 'Sarah Mthembu', 'email' => 'sarah@spysee.app', 'employee_id' => 'S-101', 'role' => 'staff', 'status' => 'active'],
+                ['id' => 'staff-002', 'name' => 'John Adams', 'email' => 'john@spysee.app', 'employee_id' => 'S-102', 'role' => 'staff', 'status' => 'active'],
+                ['id' => 'staff-003', 'name' => 'Mary Chen', 'email' => 'mary@spysee.app', 'employee_id' => 'S-103', 'role' => 'staff', 'status' => 'active'],
+                ['id' => 'staff-004', 'name' => 'David Okafor', 'email' => 'david@spysee.app', 'employee_id' => 'S-104', 'role' => 'staff', 'status' => 'active'],
             ],
             'active_sessions' => [],
             'attendance_records' => [],
             'qr_codes' => [
-                ['id' => 'qr1', 'label' => 'HQ Entrance', 'type' => 'clock-in', 'location' => 'Main Entrance', 'created' => date('Y-m-d'), 'status' => 'active'],
-                ['id' => 'qr2', 'label' => 'HQ Exit', 'type' => 'clock-out', 'location' => 'Side Entrance', 'created' => date('Y-m-d'), 'status' => 'active'],
+                ['id' => 'qr1', 'label' => 'HQ Entrance', 'type' => 'sign-in', 'location' => 'Main Entrance', 'created' => date('Y-m-d'), 'status' => 'active'],
+                ['id' => 'qr2', 'label' => 'HQ Exit', 'type' => 'sign-out', 'location' => 'Side Entrance', 'created' => date('Y-m-d'), 'status' => 'active'],
             ]
         ];
         file_put_contents($dataFile, json_encode($defaultData, JSON_PRETTY_PRINT));
@@ -39,7 +39,7 @@ function getDashboardStats() {
     $today = date('Y-m-d');
     
     foreach ($data['active_sessions'] as $session) {
-        if ($session['status'] === 'clocked_in') {
+        if ($session['status'] === 'signed_in') {
             $onsiteCount++;
         }
     }
@@ -66,7 +66,7 @@ function getOnsiteStaff() {
     $onsite = [];
     
     foreach ($data['active_sessions'] as $session) {
-        if ($session['status'] === 'clocked_in') {
+        if ($session['status'] === 'signed_in') {
             $user = findUserById($data, $session['user_id']);
             if ($user) {
                 $onsite[] = [
@@ -74,7 +74,7 @@ function getOnsiteStaff() {
                     'name' => $user['name'],
                     'role' => $user['role'],
                     'employee_id' => $user['employee_id'],
-                    'sign_in_time' => $session['clock_in_time']
+                    'sign_in_time' => $session['sign_in_time']
                 ];
             }
         }
@@ -120,10 +120,10 @@ function handleClockIn($data) {
         return ['success' => false, 'message' => 'User not identified'];
     }
     
-    // Check if already clocked in
+    // Check if already Signed in
     foreach ($userData['active_sessions'] as $session) {
-        if ($session['user_id'] === $userId && $session['status'] === 'clocked_in') {
-            return ['success' => false, 'message' => 'Already clocked in'];
+        if ($session['user_id'] === $userId && $session['status'] === 'signed_in') {
+            return ['success' => false, 'message' => 'Already Signed in'];
         }
     }
     
@@ -133,8 +133,8 @@ function handleClockIn($data) {
     // Add to active sessions
     $userData['active_sessions'][] = [
         'user_id' => $userId,
-        'status' => 'clocked_in',
-        'clock_in_time' => $now
+        'status' => 'signed_in',
+        'sign_in_time' => $now
     ];
     
     // Add attendance record
@@ -142,7 +142,7 @@ function handleClockIn($data) {
     $userData['attendance_records'][] = [
         'id' => $recordId,
         'user_id' => $userId,
-        'type' => 'clock-in',
+        'type' => 'sign-in',
         'timestamp' => $now,
         'date' => $today,
         'location' => $data['location'] ?? 'Office'
@@ -150,7 +150,7 @@ function handleClockIn($data) {
     
     saveData($userData);
     
-    return ['success' => true, 'message' => 'Clocked in successfully', 'timestamp' => $now];
+    return ['success' => true, 'message' => 'Signed in successfully', 'timestamp' => $now];
 }
 
 function handleClockOut($data) {
@@ -164,16 +164,16 @@ function handleClockOut($data) {
     // Find and update active session
     $sessionFound = false;
     foreach ($userData['active_sessions'] as $key => $session) {
-        if ($session['user_id'] === $userId && $session['status'] === 'clocked_in') {
-            $userData['active_sessions'][$key]['status'] = 'clocked_out';
-            $userData['active_sessions'][$key]['clock_out_time'] = date('Y-m-d H:i:s');
+        if ($session['user_id'] === $userId && $session['status'] === 'signed_in') {
+            $userData['active_sessions'][$key]['status'] = 'signed_out';
+            $userData['active_sessions'][$key]['sign_out_time'] = date('Y-m-d H:i:s');
             $sessionFound = true;
             break;
         }
     }
     
     if (!$sessionFound) {
-        return ['success' => false, 'message' => 'Not currently clocked in'];
+        return ['success' => false, 'message' => 'Not currently Signed in'];
     }
     
     $now = date('Y-m-d H:i:s');
@@ -183,7 +183,7 @@ function handleClockOut($data) {
     $userData['attendance_records'][] = [
         'id' => uniqid(),
         'user_id' => $userId,
-        'type' => 'clock-out',
+        'type' => 'sign-out',
         'timestamp' => $now,
         'date' => $today,
         'location' => $data['location'] ?? 'Office'
@@ -191,7 +191,7 @@ function handleClockOut($data) {
     
     saveData($userData);
     
-    return ['success' => true, 'message' => 'Clocked out successfully', 'timestamp' => $now];
+    return ['success' => true, 'message' => 'Sign Out successfully', 'timestamp' => $now];
 }
 
 function getUserHistory($userId) {
@@ -247,7 +247,7 @@ function generateQRCode($data) {
     $newQR = [
         'id' => 'qr_' . uniqid(),
         'label' => $data['label'] ?? 'New QR Code',
-        'type' => $data['type'] ?? 'clock-in',
+        'type' => $data['type'] ?? 'sign-in',
         'location' => $data['location'] ?? 'Office',
         'created' => date('Y-m-d'),
         'status' => 'active'

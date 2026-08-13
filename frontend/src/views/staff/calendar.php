@@ -126,13 +126,13 @@ function calendarApp() {
         get selectedStatus() {
             const status = this.getDayStatus(this.selectedDay);
             if (status === 'present') return '✅ You were present on this day';
-            if (status === 'absent') return '❌ No clock-in recorded on this day';
+            if (status === 'absent') return '❌ No sign-in recorded on this day';
             if (status === 'leave') return '📝 You were on leave this day';
             return '📅 No attendance data for this day';
         },
         
         init() {
-            window.themeManager.initTheme();
+            // Initialization logic can go here
         },
         
         prevMonth() { this.currentDate = new Date(this.year, this.month - 1); this.selectedDay = null; },

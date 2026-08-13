@@ -1,8 +1,8 @@
-# Clock-It Frontend Migration - PHP/Alpine.js/Bootstrap
+# SpySee Frontend Migration - PHP/Alpine.js/Bootstrap
 
 ## Overview
 
-This document outlines the complete migration of the Clock-It frontend from React/TypeScript with Tailwind CSS to PHP with Alpine.js and Bootstrap. The application maintains the same functionality and user experience while using a traditional PHP server-side approach.
+This document outlines the complete migration of the SpySee frontend from React/TypeScript with Tailwind CSS to PHP with Alpine.js and Bootstrap. The application maintains the same functionality and user experience while using a traditional PHP server-side approach.
 
 ## File Structure
 
@@ -54,7 +54,7 @@ phpfrontend/
 
 ## Color Scheme
 
-Maintains the original Clock-It branding:
+Maintains the original SpySee branding:
 
 ```css
 --primary-navy: #093C5D
@@ -84,7 +84,7 @@ Maintains the original Clock-It branding:
 
 #### Attendance Log (`admin/attendance.php`)
 - View all attendance records
-- Filter by type (clock-in/clock-out)
+- Filter by type (sign-in/sign-out)
 - Search by employee/location
 - Sort by date/time
 - Export to CSV (UI ready)
@@ -118,13 +118,13 @@ Maintains the original Clock-It branding:
 - Manual code entry fallback
 - Demo buttons for testing
 - Success/error messaging
-- Support for CLOCK_IN and CLOCK_OUT codes
+- Support for sign_in and sign_out codes
 - Offline capability with local storage sync
 
 #### Attendance History (`staff/history.php`)
 - Sortable table columns
 - Search and filter functionality
-- Type filter (clock-in/clock-out)
+- Type filter (sign-in/sign-out)
 - Pagination with dynamic page count
 - Badge indicators for scan type
 - Date and time formatting

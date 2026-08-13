@@ -58,7 +58,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
 </head>
 <body>
 
-<script>window.themeManager.initTheme();</script>
 <div x-data="usersApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
     <div class="app-layout">
         <?php $activePage = 'users'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
@@ -128,7 +127,6 @@ function usersApp() {
         newUser: { name: '', email: '', employee_id: '', role: 'staff' },
         
         async init() {
-            window.themeManager.initTheme();
             await this.loadUsers();
         },
         

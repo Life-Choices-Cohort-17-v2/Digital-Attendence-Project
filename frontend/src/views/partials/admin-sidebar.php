@@ -3,7 +3,7 @@ $activePage = $activePage ?? 'dashboard';
 ?>
 <aside id="sidebar" class="sidebar" :class="{ 'open': sidebarOpen }">
     <div class="sidebar-logo">
-        <h2>Clock It</h2>
+        <h2>SpySee</h2>
         <p>Admin</p>
     </div>
     <nav class="sidebar-nav">
@@ -33,7 +33,7 @@ $activePage = $activePage ?? 'dashboard';
             <div class="user-avatar"><?= strtoupper(substr($_SESSION['user_name'] ?? 'A', 0, 1)) ?></div>
             <div class="user-details">
                 <div class="user-name"><?= htmlspecialchars($_SESSION['user_name'] ?? 'Admin User') ?></div>
-                <div class="user-email"><?= htmlspecialchars($_SESSION['user_email'] ?? 'admin@clockit.app') ?></div>
+                <div class="user-email"><?= htmlspecialchars($_SESSION['user_email'] ?? 'admin@spysee.app') ?></div>
             </div>
         </div>
         <button class="logout-btn" onclick="if(confirm('Are you sure you want to logout?')) window.location.href='<?= route_url('/logout') ?>'">
