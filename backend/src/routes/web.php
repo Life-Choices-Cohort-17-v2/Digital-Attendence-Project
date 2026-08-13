@@ -40,14 +40,10 @@ if (file_exists(__DIR__ . '/../exceptions/AuthenticationException.php')) {
 }
 
 // --- DATABASE CONNECTION ---
+require_once __DIR__ . '/../config/DataBase.php';
+
 try {
-    if (class_exists('DataBase')) {
-        $pdo = DataBase::getConnection();
-    } elseif (class_exists('Config\Database')) {
-        $pdo = Config\Database::getConnection();
-    } else {
-        $pdo = null;
-    }
+    $pdo = Database::getConnection();
 } catch (\Throwable $e) {
     $pdo = null;
 }
@@ -99,6 +95,15 @@ switch ($route) {
             echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
         }
         break;
+
+        case '/test/auth':
+    Middleware\AuthMiddleware::handle();
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'You are authenticated'
+    ]);
+    break;
 
     // --- ATTENDANCE ENGINE ROUTES (Dev 3) ---
     case '/attendance/scan':

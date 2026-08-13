@@ -3,19 +3,19 @@ namespace Services;
 
 use PDO;
 use Exception;
-use Models\Employee;
+use Models\User;
 use Models\Attendance;
 use Data\AttendanceRules;
 use Helpers\TimeHelper;
 
 class AttendanceService 
 {
-    private Employee $employeeModel;
+    private User $userModel;
     private Attendance $attendanceModel;
 
     public function __construct(PDO $pdo) 
     {
-        $this->employeeModel = new Employee($pdo);
+        $this->userModel = new User($pdo);
         $this->attendanceModel = new Attendance($pdo);
     }
 
@@ -23,71 +23,97 @@ class AttendanceService
      * Process a raw QR code scan to identify the employee and current status.
      */
     public function processScan(string $qrCode): array
-    {
-        $employeeId = AttendanceRules::validateQrToken($qrCode);
-        $employee = $this->employeeModel->findByEmployeeId($employeeId);
+{
+    $employeeId = AttendanceRules::validateQrToken($qrCode);
 
-        AttendanceRules::validateEmployee($employee);
+    $user = $this->userModel->findByEmployeeId($employeeId);
 
-        $userId = (int) $employee['id'];
-        $isClockedIn = $this->attendanceModel->isClockedIn($userId);
+    AttendanceRules::validateEmployee($user);
 
-        return [
-            'employee_id' => $employee['employee_id'],
-            'user_id'     => $userId,
-            'name'        => $employee['name'],
-            'status'      => $isClockedIn ? 'CLOCKED_IN' : 'CLOCKED_OUT'
-        ];
-    }
+    $userId = (int) $user['id'];
+    $isClockedIn = $this->attendanceModel->isClockedIn($userId);
 
-    public function clockIn(string $employeeId, ?string $location = null, string $device = 'Mobile', ?string $qrCode = null): array 
-    {
-        $employee = $this->employeeModel->findByEmployeeId($employeeId);
-        AttendanceRules::validateEmployee($employee);
+    return [
+        'employee_id' => $user['employee_id'],
+        'user_id'     => $userId,
+        'name'        => $user['name'],
+        'status'      => $isClockedIn ? 'CLOCKED_IN' : 'CLOCKED_OUT'
+    ];
+}
 
-        $userId = (int) $employee['id'];
-        $isClockedIn = $this->attendanceModel->isClockedIn($userId);
-        $lastClockTime = $this->attendanceModel->getLastClockTime($userId);
+    public function clockIn(
+    string $employeeId,
+    ?string $location = null,
+    string $device = 'Mobile',
+    ?string $qrCode = null
+): array 
+{
+    $user = $this->userModel->findByEmployeeId($employeeId);
 
-        AttendanceRules::canClockIn($employee, $isClockedIn, $lastClockTime);
+    AttendanceRules::validateEmployee($user);
 
-        $this->attendanceModel->createRecord($userId, 'sign_in', $location, $device, $qrCode);
-        $now = TimeHelper::getCurrentTimestamp();
+    $userId = (int) $user['id'];
+    $isClockedIn = $this->attendanceModel->isClockedIn($userId);
+    $lastClockTime = $this->attendanceModel->getLastClockTime($userId);
 
-        // Temporary inline sync trigger (Dev 6 scope) — will be decoupled to event listener post-demo
-        if (class_exists('\Services\GoogleSheetsService')) {
-            try {
-                $sheetsService = new \Services\GoogleSheetsService();
-                $sheetsService->syncRecord($employeeId, 'CLOCKED_IN', $now);
-            } catch (\Throwable $e) {
-                error_log("Google Sheets sync non-blocking error: " . $e->getMessage());
-            }
+    AttendanceRules::canClockIn($user, $isClockedIn, $lastClockTime);
+
+    $this->attendanceModel->createRecord(
+        $userId,
+        'sign_in',
+        $location,
+        $device,
+        $qrCode
+    );
+
+    $now = TimeHelper::getCurrentTimestamp();
+
+    // Temporary inline sync trigger
+    if (class_exists('\Services\GoogleSheetsService')) {
+        try {
+            $sheetsService = new \Services\GoogleSheetsService();
+            $sheetsService->syncRecord($employeeId, 'CLOCKED_IN', $now);
+        } catch (\Throwable $e) {
+            error_log(
+                "Google Sheets sync non-blocking error: " . $e->getMessage()
+            );
         }
-
-        return [
-            'action'      => 'CLOCKED_IN',
-            'message'     => "Clock-in recorded successfully for {$employee['name']}.",
-            'employee_id' => $employeeId,
-            'timestamp'   => $now
-        ];
     }
 
-    public function clockInByQr(string $qrCode, ?string $location = null, string $device = 'Mobile'): array 
-    {
-        $employeeId = AttendanceRules::validateQrToken($qrCode);
-        return $this->clockIn($employeeId, $location, $device, $qrCode); 
-    }
+    return [
+        'action'      => 'CLOCKED_IN',
+        'message'     => "Clock-in recorded successfully for {$user['name']}.",
+        'employee_id' => $employeeId,
+        'timestamp'   => $now
+    ];
+}
+
+public function clockInByQr(
+    string $qrCode,
+    ?string $location = null,
+    string $device = 'Mobile'
+): array 
+{
+    $employeeId = AttendanceRules::validateQrToken($qrCode);
+
+    return $this->clockIn(
+        $employeeId,
+        $location,
+        $device,
+        $qrCode
+    );
+}
 
     public function clockOut(string $employeeId, ?string $location = null, string $device = 'Mobile', ?string $qrCode = null): array 
     {
-        $employee = $this->employeeModel->findByEmployeeId($employeeId);
-        AttendanceRules::validateEmployee($employee);
+        $user = $this->userModel->findByEmployeeId($employeeId);
+        AttendanceRules::validateEmployee($user);
 
-        $userId = (int) $employee['id'];
+        $userId = (int) $user['id'];
         $isClockedIn = $this->attendanceModel->isClockedIn($userId);
         $lastClockTime = $this->attendanceModel->getLastClockTime($userId);
 
-        AttendanceRules::canClockOut($employee, $isClockedIn, $lastClockTime);
+        AttendanceRules::canClockOut($user, $isClockedIn, $lastClockTime);
 
         $this->attendanceModel->createRecord($userId, 'sign_out', $location, $device, $qrCode);
         $now = TimeHelper::getCurrentTimestamp();
@@ -104,7 +130,7 @@ class AttendanceService
 
         return [
             'action'      => 'CLOCKED_OUT',
-            'message'     => "Clock-out recorded successfully for {$employee['name']}.",
+            'message'     => "Clock-out recorded successfully for {$user['name']}.",
             'employee_id' => $employeeId,
             'timestamp'   => $now
         ];

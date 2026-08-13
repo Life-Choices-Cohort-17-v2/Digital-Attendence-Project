@@ -26,9 +26,10 @@ class AuthController {
         }
 
         try {
-            $user = User::findByEmail($email);
+            $userModel = new User($this->pdo);
+            $user = $userModel->findByEmail($email);
 
-            if (!$user || !User::verifyPassword($password, $user['password_hash'])) {
+            if (!$user || !password_verify($password, $user['password_hash'])) {
                 throw new AuthenticationException('Invalid email or password');
             }
 
