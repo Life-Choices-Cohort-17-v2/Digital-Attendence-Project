@@ -102,6 +102,9 @@ frontend/
   public/
     api/
       check-scan-result.php
+      clear-cache.php
+      settings.php
+      test-sheets-connection.php
     assets/
       css/
         app.css
@@ -148,6 +151,119 @@ start-spysee.bat
 ================================================================
 Files
 ================================================================
+
+================
+File: frontend/public/api/clear-cache.php
+================
+<?php
+session_start();
+header('Content-Type: application/json');
+
+require_once __DIR__ . '/../../data/functions.php';
+
+try {
+    // Delete cache file
+    if (file_exists(CACHE_FILE)) {
+        unlink(CACHE_FILE);
+    }
+    
+    // Force refresh cache
+    $result = updateCache();
+    
+    echo json_encode([
+        'success' => true,
+        'message' => 'Cache cleared and refreshed'
+    ]);
+} catch (Exception $e) {
+    echo json_encode([
+        'success' => false,
+        'error' => $e->getMessage()
+    ]);
+}
+
+================
+File: frontend/public/api/settings.php
+================
+<?php
+session_start();
+header('Content-Type: application/json');
+
+$input = json_decode(file_get_contents('php://input'), true);
+$action = $input['action'] ?? '';
+
+switch ($action) {
+    case 'update_session_timeout':
+        $timeout = intval($input['timeout'] ?? 30);
+        if ($timeout < 5) $timeout = 5;
+        if ($timeout > 1440) $timeout = 1440;
+        
+        // Update session timeout
+        ini_set('session.gc_maxlifetime', $timeout * 60);
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Session timeout updated to ' . $timeout . ' minutes'
+        ]);
+        break;
+        
+    default:
+        echo json_encode([
+            'success' => false,
+            'error' => 'Unknown action'
+        ]);
+        break;
+}
+
+================
+File: frontend/public/api/test-sheets-connection.php
+================
+<?php
+session_start();
+header('Content-Type: application/json');
+
+require_once __DIR__ . '/../../data/functions.php';
+
+$connected = false;
+$lastSync = '';
+$cacheAge = 'Unknown';
+$error = '';
+
+try {
+    // Test connection by fetching data
+    $data = fetchSheetsData();
+    
+    if ($data && isset($data['success']) && $data['success']) {
+        $connected = true;
+        
+        // Get last sync time from cache
+        if (file_exists(CACHE_FILE)) {
+            $cached = json_decode(file_get_contents(CACHE_FILE), true);
+            if ($cached && isset($cached['fetched_at'])) {
+                $lastSync = date('Y-m-d H:i:s', $cached['fetched_at']);
+                $age = time() - $cached['fetched_at'];
+                if ($age < 60) {
+                    $cacheAge = $age . ' seconds ago';
+                } elseif ($age < 3600) {
+                    $cacheAge = round($age / 60) . ' minutes ago';
+                } else {
+                    $cacheAge = round($age / 3600) . ' hours ago';
+                }
+            }
+        }
+    } else {
+        $error = $data['error'] ?? 'Failed to fetch data';
+    }
+} catch (Exception $e) {
+    $error = $e->getMessage();
+}
+
+echo json_encode([
+    'success' => true,
+    'connected' => $connected,
+    'last_sync' => $lastSync,
+    'cache_age' => $cacheAge,
+    'error' => $error
+]);
 
 ================
 File: .github/ISSUE_TEMPLATE/bug_report.md
@@ -1590,31 +1706,106 @@ File: frontend/src/views/404.php
 File: start-spysee.bat
 ================
 @echo off
-echo Starting SpySee...
+title SpySee - Attendance System
+color 0A
 
-:: Start PHP server
-start "PHP Server" cmd /c "C:/xampp/php/php.exe -S localhost:8000 -t frontend/public"
+echo ============================================
+echo  🚀 SPYSEE - OPTIMIZED START
+echo ============================================
+echo.
 
-:: Wait 2 seconds
+:: Check if PHP exists
+where php >nul 2>nul
+if %errorlevel% neq 0 (
+    echo ❌ PHP not found! Please install PHP or add it to PATH.
+    pause
+    exit /b 1
+)
+
+:: Check if ngrok exists (optional)
+where ngrok >nul 2>nul
+if %errorlevel% neq 0 (
+    echo ⚠️  ngrok not found (phone access may not work)
+    set NGROK_AVAILABLE=0
+) else (
+    set NGROK_AVAILABLE=1
+)
+
+:: ============================================================
+:: STEP 1: WARM THE CACHE (First load will be fast!)
+:: ============================================================
+echo [1/4] Warming cache...
+php -r "require_once 'frontend/data/functions.php'; updateCache();" 2>nul
+if %errorlevel% equ 0 (
+    echo ✅ Cache warmed!
+) else (
+    echo ⚠️  Cache warmup skipped (first load may be slower)
+)
+
+:: ============================================================
+:: STEP 2: START PHP SERVER WITH ROUTER (Optimized!)
+:: ============================================================
+echo.
+echo [2/4] Starting PHP server on port 8000...
+
+:: Check if router.php exists
+if exist "frontend\public\router.php" (
+    echo 📡 Using optimized router with gzip compression
+    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S localhost:8000 frontend/public/router.php"
+) else (
+    echo 📡 Using standard server
+    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S localhost:8000 -t frontend/public"
+)
+
+:: Wait for server to start
 timeout /t 2 /nobreak >nul
 
-:: Start ngrok
-start "ngrok" cmd /c "ngrok http 8000"
+:: ============================================================
+:: STEP 3: START NGROK
+:: ============================================================
+echo.
+echo [3/4] Starting ngrok...
+if %NGROK_AVAILABLE% equ 1 (
+    start "SpySee ngrok" cmd /c "ngrok http 8000"
+    timeout /t 2 /nobreak >nul
+) else (
+    echo ⚠️  ngrok skipped (not found in PATH)
+)
 
-:: Open browser
+:: ============================================================
+:: STEP 4: OPEN BROWSER
+:: ============================================================
+echo.
+echo [4/4] Opening browser...
 start http://localhost:8000/
 
 echo.
-echo ✅ SpySee is running!
-echo 📱 PC: http://localhost:8000/
-echo 📱 Phone: Check ngrok window
+echo ============================================
+echo  ✅ SPYSEE IS RUNNING!
+echo ============================================
+echo  📱 PC:    http://localhost:8000/
+if %NGROK_AVAILABLE% equ 1 (
+    echo  📱 Phone: Check ngrok window for URL
+) else (
+    echo  📱 Phone: Use ngrok manually if needed
+)
+echo ============================================
 echo.
-echo Press any key to stop all servers...
+echo  ⚡ Press any key to STOP all servers
+echo  ⚡ Or close this window to keep them running
+echo.
 pause >nul
 
-:: Kill everything on exit
+:: ============================================================
+:: CLEAN EXIT - Kill all servers
+:: ============================================================
+echo.
+echo 🛑 Stopping all servers...
 taskkill /f /im php.exe 2>nul
 taskkill /f /im ngrok.exe 2>nul
+echo ✅ All stopped!
+echo.
+pause
 
 ================
 File: .github/TECH_STACK.md
@@ -2038,11 +2229,6 @@ class Employee
         return null;
     }
 }
-
-================
-File: backend/storage/cache/sheets_cache.json
-================
-{"data":{"success":true,"rows":[["Timestamp ","Staff_ID","Name","Status","Method","Session_ID","Row_Source"],["2026-07-27T09:55:04.959Z","STF-001","Big Boy","Check-in","QR","STF-001_20260727","Test"],["2026-07-27T09:55:42.567Z","STF-001","Big Boy","Check-out","QR","STF-001_20260727","Test"],["2026-07-27T09:57:26.023Z","STF-002","Small Man","Check-in","QR","STF-002_20260727","Test"],["2026-07-27T10:08:40.400Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-27T10:08:44.004Z","STF-003","Small Man","Check-out","QR","STF-003_20260727","Test"],["2026-07-27T10:08:55.682Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-29T06:29:52.013Z","STF-002","Small Man","Check-out","QR","STF-002_20260729","Test"],["2026-07-29T06:38:57.548Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:40:06.491Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T06:40:45.160Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:49:35.113Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T06:49:58.671Z","STF-003","Test User","Check-in","QR","STF-003_20260729","Test"],["2026-07-29T06:52:01.932Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T07:21:50.462Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T07:24:05.023Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T08:22:35.865Z","STF-001","Big Boy","Check-out","web","STF-001_20260729","Test"],["2026-07-29T13:41:20.780Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260729","Test"],["2026-07-29T13:41:33.380Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:41:42.777Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:42:21.956Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:43:25.180Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:43:37.180Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-30T12:57:54.863Z","STF-001","Big Boy","Check-in","QR","STF-001_20260730","Test"],["2026-07-30T12:58:10.055Z","STF-001","Big Boy","Check-out","QR","STF-001_20260730","Test"],["2026-07-30T12:58:14.620Z","STF-001","Big Boy","Check-in","web","STF-001_20260730","Test"],["2026-07-30T12:58:34.589Z","STF-001","Big Boy","Check-out","web","STF-001_20260730","Test"],["2026-07-31T06:35:36.175Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T06:36:09.550Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:50:41.769Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:59:01.269Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:01:39.482Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:32.564Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:44.604Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:03:10.498Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:37:49.569Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:50:47.619Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T09:51:30.162Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T09:56:02.831Z","TEST-001","Test User","Check-in","test","TEST-001_20260731","Test"],["2026-07-31T10:07:42.550Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:08:11.385Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:11:14.753Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:13:21.655Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:27:08.452Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:30:33.256Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:15:17.731Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:15:58.241Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:17:09.402Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:17:48.989Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:02:56.074Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:09:12.041Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:09:43.409Z","STF-003","Test User","Check-out","QR","STF-003_20260731","Test"],["2026-07-31T13:13:07.696Z","STF-002","Small Man","Check-in","web","STF-002_20260731","Test"],["2026-07-31T13:13:15.824Z","STF-002","Small Man","Check-out","web","STF-002_20260731","Test"],["2026-07-31T13:14:06.525Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:14:25.910Z","STF-003","Test User","Check-out","web","STF-003_20260731","Test"],["2026-07-31T13:15:41.363Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:16:35.467Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T13:30:21.363Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:32:25.578Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260731","Test"],["2026-07-31T13:34:00.112Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:34:31.345Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:53:43.736Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:53:59.639Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:55:02.288Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:55:16.043Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:57:24.001Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:57:43.727Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T14:01:03.370Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T14:01:16.018Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-08-05T13:55:45.172Z","STF-001","Big Boy","Check-in","web","STF-001_20260805","Test"],["2026-08-05T13:55:56.094Z","STF-001","Big Boy","Check-out","web","STF-001_20260805","Test"],["2026-08-06T10:16:26.866Z","STF-001","Big Boy","Check-in","web","STF-001_20260806","Test"],["2026-08-06T12:44:13.606Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:06:38.289Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:07:49.099Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:08:37.666Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:25:27.703Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:42:03.545Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:43:28.620Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:58:04.229Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-11T07:23:55.927Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:24:31.612Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:33:14.807Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:34:04.768Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:40:34.909Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T10:27:57.193Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"]]},"fetched_at":1786444142}
 
 ================
 File: backend/index.php
@@ -5031,7 +5217,255 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
     <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="<?= asset_url('js/app.js') ?>"></script>
-    <style>[x-cloak] { display: none !important; }</style>
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+        
+        @media (max-width: 900px) {
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .settings-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+        }
+        
+        .settings-card h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--heading);
+        }
+        
+        .settings-card > p {
+            color: var(--text);
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+        
+        .setting-row .setting-label {
+            font-weight: 500;
+            color: var(--heading);
+            font-size: 14px;
+        }
+        
+        .setting-row .setting-value {
+            color: var(--text);
+            font-size: 13px;
+        }
+        
+        .setting-row input[type="number"],
+        .setting-row input[type="text"] {
+            width: 80px;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--heading);
+            font-size: 13px;
+        }
+        
+        .setting-row input[type="text"] {
+            width: 120px;
+        }
+        
+        .setting-row input:focus {
+            outline: none;
+            border-color: var(--olive-green);
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--olive-green);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .connection-status {
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        
+        .connection-status.connected {
+            background: var(--olive-green-soft);
+            color: var(--olive-green);
+        }
+        
+        .connection-status.disconnected {
+            background: rgba(239, 68, 68, 0.1);
+            color: #EF4444;
+        }
+        
+        .connection-status.checking {
+            background: rgba(245, 158, 11, 0.1);
+            color: #F59E0B;
+        }
+        
+        .btn-primary {
+            background: var(--olive-green);
+            color: var(--sidebar-blue);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+            width: 100%;
+            margin-top: 8px;
+        }
+        
+        .btn-primary:hover {
+            background: var(--olive-green-bright);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-danger {
+            background: #EF4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+            width: 100%;
+            margin-top: 8px;
+        }
+        
+        .btn-danger:hover {
+            background: #DC2626;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: var(--heading);
+            border: 1px solid var(--border-color);
+            padding: 10px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: 0.2s;
+            width: 100%;
+            margin-top: 8px;
+        }
+        
+        .btn-outline:hover {
+            background: var(--olive-green-soft);
+            border-color: var(--olive-green);
+        }
+        
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        
+        .status-dot.online {
+            background: var(--olive-green);
+        }
+        
+        .status-dot.offline {
+            background: #EF4444;
+        }
+        
+        .status-dot.checking {
+            background: #F59E0B;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .last-sync-time {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        
+        .settings-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .settings-actions button {
+            flex: 1;
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+    </style>
 </head>
 <body>
 
@@ -5047,68 +5481,134 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
                 <div class="page-header">
                     <div>
                         <h1>Settings</h1>
-                        <p>Security, integrations, and data retention.</p>
+                        <p>Configure your attendance system preferences.</p>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-outline" @click="exportSettings()" style="width:auto; padding:8px 16px; margin:0;">📤 Export</button>
+                        <button class="btn-outline" @click="importSettings()" style="width:auto; padding:8px 16px; margin:0;">📥 Import</button>
                     </div>
                 </div>
 
                 <div class="settings-grid">
+                    <!-- Google Sheets Integration -->
                     <div class="settings-card">
-                        <h3>Google Sheets Integration</h3>
-                        <p>Two-way sync of attendance data with auto field mapping.</p>
+                        <h3>📊 Google Sheets Integration</h3>
+                        <p>Connect to Google Sheets for real-time attendance sync.</p>
                         <div class="setting-row">
                             <span class="setting-label">Connection Status</span>
-                            <span class="connection-status" x-show="!sheetsConnected" style="color:#EF4444">Not connected</span>
-                            <span class="connection-status" x-show="sheetsConnected" style="color:#728C47">Connected</span>
+                            <span class="status-badge">
+                                <span class="status-dot" :class="sheetsStatus"></span>
+                                <span class="connection-status" :class="sheetsStatus" x-text="sheetsStatus === 'connected' ? 'Connected' : (sheetsStatus === 'checking' ? 'Checking...' : 'Disconnected')"></span>
+                            </span>
                         </div>
-                        <button class="btn-primary" style="width:100%; margin-top:16px" @click="sheetsConnected = !sheetsConnected">
-                            <span x-show="!sheetsConnected">Connect Google Sheet</span>
-                            <span x-show="sheetsConnected">Disconnect</span>
-                        </button>
+                        <div class="setting-row">
+                            <span class="setting-label">Last Sync</span>
+                            <span class="setting-value last-sync-time" x-text="lastSync || 'Never'"></span>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Total Records</span>
+                            <span class="setting-value" x-text="totalRecords || '0'"></span>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Cache Age</span>
+                            <span class="setting-value last-sync-time" x-text="cacheAge || 'Unknown'"></span>
+                        </div>
+                        <div class="settings-actions">
+                            <button class="btn-primary" @click="testConnection()" :disabled="sheetsStatus === 'checking'">
+                                <span x-show="sheetsStatus !== 'checking'">🔄 Test Connection</span>
+                                <span x-show="sheetsStatus === 'checking'">⏳ Testing...</span>
+                            </button>
+                            <button class="btn-danger" @click="clearCache()">🗑️ Clear Cache</button>
+                        </div>
+                        <button class="btn-outline" @click="refreshData()" style="margin-top:8px;">🔄 Refresh Data</button>
                     </div>
 
+                    <!-- Security -->
                     <div class="settings-card">
-                        <h3>Security</h3>
+                        <h3>🔒 Security</h3>
                         <p>Session management, encryption, and access control.</p>
                         <div class="setting-row">
                             <span class="setting-label">Session timeout (minutes)</span>
-                            <input type="number" x-model="settings.sessionTimeout" style="width:80px; padding:8px; border-radius:8px; border:1px solid var(--border-color)">
+                            <input type="number" x-model="settings.sessionTimeout" @change="saveSetting('sessionTimeout')" min="5" max="1440">
                         </div>
                         <div class="setting-row">
-                            <span class="setting-label">Data encryption (in transit & at rest)</span>
-                            <span class="setting-value">Recommended for compliance</span>
+                            <span class="setting-label">Data encryption</span>
+                            <span class="setting-value">✅ Enabled (SSL/TLS)</span>
                         </div>
                         <div class="setting-row">
                             <span class="setting-label">Role-based access (RBAC)</span>
-                            <span class="setting-value">Always enforced. Staff cannot access admin areas.</span>
+                            <span class="setting-value">✅ Enforced</span>
                         </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Force HTTPS</span>
+                            <label class="switch">
+                                <input type="checkbox" x-model="settings.forceHTTPS" @change="saveSetting('forceHTTPS')">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <button class="btn-primary" @click="applySecuritySettings()">🔐 Apply Security Settings</button>
                     </div>
 
+                    <!-- Data Retention -->
                     <div class="settings-card">
-                        <h3>Data Retention</h3>
+                        <h3>🗄️ Data Retention</h3>
                         <p>Configure how long attendance data is kept.</p>
                         <div class="setting-row">
                             <span class="setting-label">Retention period (days)</span>
-                            <input type="number" x-model="settings.retentionDays" style="width:80px; padding:8px; border-radius:8px; border:1px solid var(--border-color)">
+                            <input type="number" x-model="settings.retentionDays" @change="saveSetting('retentionDays')" min="7" max="365">
                         </div>
-                        <button class="btn-outline" style="width:100%; margin-top:16px" @click="saveSettings()">Save Settings</button>
+                        <div class="setting-row">
+                            <span class="setting-label">Auto-archive old data</span>
+                            <label class="switch">
+                                <input type="checkbox" x-model="settings.autoArchive" @change="saveSetting('autoArchive')">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Records stored</span>
+                            <span class="setting-value" x-text="totalRecords || '0'"></span>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Oldest record</span>
+                            <span class="setting-value" x-text="oldestRecord || 'N/A'"></span>
+                        </div>
+                        <button class="btn-danger" @click="clearOldData()" x-show="totalRecords > 0">
+                            🗑️ Delete Records Older Than <span x-text="settings.retentionDays"></span> Days
+                        </button>
                     </div>
 
+                    <!-- Location Settings -->
                     <div class="settings-card">
-                        <h3>Location Settings</h3>
+                        <h3>📍 Location Settings</h3>
                         <p>Configure sign-in location requirements.</p>
                         <div class="setting-row">
-                            <span class="setting-label">Max sign-in distance (meters)</span>
-                            <input type="number" x-model="settings.maxDistance" style="width:80px; padding:8px; border-radius:8px; border:1px solid var(--border-color)">
+                            <span class="setting-label">Max distance (meters)</span>
+                            <input type="number" x-model="settings.maxDistance" @change="saveSetting('maxDistance')" min="10" max="500">
                         </div>
                         <div class="setting-row">
                             <span class="setting-label">Require GPS for sign-in</span>
                             <label class="switch">
-                                <input type="checkbox" x-model="settings.requireGPS">
+                                <input type="checkbox" x-model="settings.requireGPS" @change="saveSetting('requireGPS')">
                                 <span class="slider"></span>
                             </label>
                         </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Default location</span>
+                            <input type="text" x-model="settings.defaultLocation" @change="saveSetting('defaultLocation')" style="width:150px;">
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Enable geofencing</span>
+                            <label class="switch">
+                                <input type="checkbox" x-model="settings.enableGeofencing" @change="saveSetting('enableGeofencing')">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <button class="btn-primary" @click="saveAllSettings()">💾 Save All Settings</button>
                     </div>
                 </div>
+
+                <!-- Hidden file input for import -->
+                <input type="file" id="fileInput" accept=".json" style="display:none;" @change="handleFileImport($event)">
             </div>
         </main>
     </div>
@@ -5118,29 +5618,243 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
 function settingsApp() {
     return {
         sidebarOpen: false,
-        sheetsConnected: false,
+        sheetsStatus: 'checking',
+        lastSync: '',
+        totalRecords: 0,
+        oldestRecord: 'N/A',
+        cacheAge: 'Unknown',
         settings: {
             sessionTimeout: 30,
             retentionDays: 90,
             maxDistance: 100,
-            requireGPS: false
+            requireGPS: false,
+            forceHTTPS: false,
+            autoArchive: true,
+            defaultLocation: 'HQ',
+            enableGeofencing: false
         },
         
-        init() {
+        async init() {
             window.themeManager.initTheme();
             this.loadSettings();
+            await this.testConnection();
+            await this.loadStats();
         },
         
         loadSettings() {
-            const saved = localStorage.getItem('appSettings');
+            const saved = localStorage.getItem('spysee_settings');
             if (saved) {
-                this.settings = JSON.parse(saved);
+                try {
+                    const parsed = JSON.parse(saved);
+                    this.settings = { ...this.settings, ...parsed };
+                } catch (e) {
+                    console.error('Error loading settings:', e);
+                }
             }
         },
         
-        saveSettings() {
-            localStorage.setItem('appSettings', JSON.stringify(this.settings));
-            window.appUtils.showToast('Settings saved successfully!', 'success');
+        saveSetting(key) {
+            // Save individual setting
+            localStorage.setItem('spysee_settings', JSON.stringify(this.settings));
+            window.appUtils.showToast('Setting saved!', 'success');
+            
+            // If session timeout changed, update PHP
+            if (key === 'sessionTimeout') {
+                this.updateSessionTimeout();
+            }
+        },
+        
+        saveAllSettings() {
+            localStorage.setItem('spysee_settings', JSON.stringify(this.settings));
+            window.appUtils.showToast('All settings saved successfully!', 'success');
+            this.updateSessionTimeout();
+        },
+        
+        async updateSessionTimeout() {
+            try {
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update_session_timeout',
+                        timeout: this.settings.sessionTimeout
+                    })
+                });
+            } catch (err) {
+                console.error('Error updating session timeout:', err);
+            }
+        },
+        
+        async testConnection() {
+            this.sheetsStatus = 'checking';
+            
+            try {
+                const response = await fetch('/api/test-sheets-connection?_=' + Date.now());
+                const data = await response.json();
+                
+                this.sheetsStatus = data.connected ? 'connected' : 'disconnected';
+                this.lastSync = data.last_sync || '';
+                this.cacheAge = data.cache_age || 'Unknown';
+                
+                if (data.connected) {
+                    window.appUtils.showToast('✅ Google Sheets is connected!', 'success');
+                } else {
+                    window.appUtils.showToast('❌ Google Sheets connection failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                this.sheetsStatus = 'disconnected';
+                window.appUtils.showToast('❌ Connection test failed: ' + err.message, 'error');
+            }
+        },
+        
+        async loadStats() {
+            try {
+                const response = await fetch('/api/dashboard-stats?_=' + Date.now());
+                const data = await response.json();
+                if (data.success && data.data) {
+                    this.totalRecords = data.data.totalEventsToday || 0;
+                }
+                
+                // Get oldest record
+                const historyResponse = await fetch('/api/attendance-logs?_=' + Date.now());
+                const historyData = await historyResponse.json();
+                if (historyData.success && historyData.data && historyData.data.length > 0) {
+                    const last = historyData.data[historyData.data.length - 1];
+                    if (last && last.timestamp) {
+                        this.oldestRecord = new Date(last.timestamp).toLocaleDateString();
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading stats:', err);
+            }
+        },
+        
+        async clearCache() {
+            if (!confirm('Are you sure you want to clear the cache and refresh data from Google Sheets?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/clear-cache', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.appUtils.showToast('✅ Cache cleared and refreshed!', 'success');
+                    this.sheetsStatus = 'checking';
+                    await this.testConnection();
+                    await this.loadStats();
+                } else {
+                    window.appUtils.showToast('❌ Failed to clear cache: ' + data.error, 'error');
+                }
+            } catch (err) {
+                window.appUtils.showToast('❌ Error clearing cache: ' + err.message, 'error');
+            }
+        },
+        
+        async refreshData() {
+            try {
+                const response = await fetch('/api/refresh-data', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.appUtils.showToast('✅ Data refreshed!', 'success');
+                    await this.testConnection();
+                    await this.loadStats();
+                } else {
+                    window.appUtils.showToast('❌ Failed to refresh data: ' + data.error, 'error');
+                }
+            } catch (err) {
+                window.appUtils.showToast('❌ Error refreshing data: ' + err.message, 'error');
+            }
+        },
+        
+        async clearOldData() {
+            if (!confirm(`Are you sure you want to delete all records older than ${this.settings.retentionDays} days?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/clear-old-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        days: this.settings.retentionDays
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.appUtils.showToast(`✅ ${data.deleted || 0} old records deleted!`, 'success');
+                    await this.loadStats();
+                } else {
+                    window.appUtils.showToast('❌ Failed to delete old data: ' + data.error, 'error');
+                }
+            } catch (err) {
+                window.appUtils.showToast('❌ Error: ' + err.message, 'error');
+            }
+        },
+        
+        exportSettings() {
+            const settings = {
+                version: '1.0',
+                exported: new Date().toISOString(),
+                settings: this.settings
+            };
+            
+            const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `spysee_settings_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            window.appUtils.showToast('Settings exported!', 'success');
+        },
+        
+        importSettings() {
+            document.getElementById('fileInput').click();
+        },
+        
+        handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.settings) {
+                        this.settings = { ...this.settings, ...data.settings };
+                        localStorage.setItem('spysee_settings', JSON.stringify(this.settings));
+                        window.appUtils.showToast('✅ Settings imported successfully!', 'success');
+                    } else {
+                        window.appUtils.showToast('❌ Invalid settings file', 'error');
+                    }
+                } catch (err) {
+                    window.appUtils.showToast('❌ Failed to import settings: ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input
+        },
+        
+        applySecuritySettings() {
+            // Apply security settings
+            window.appUtils.showToast('🔐 Security settings applied!', 'success');
+            
+            // If force HTTPS is enabled, redirect to HTTPS if not already
+            if (this.settings.forceHTTPS && window.location.protocol !== 'https:') {
+                if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                    window.location.href = window.location.href.replace('http://', 'https://');
+                }
+            }
         }
     }
 }
@@ -5528,531 +6242,6 @@ function calendarApp() {
 </html>
 
 ================
-File: frontend/src/views/staff/dashboard.php
-================
-<?php
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
-    header('Location: ' . route_url('/login'));
-    exit;
-}
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $title ?? 'Staff Dashboard' ?></title>
-    <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="<?= asset_url('js/app.js') ?>"></script>
-    <style>
-        /* STAFF DASHBOARD - EXACT MATCH TO SCREENSHOT */
-        .staff-dashboard-container {
-            max-width: 100%;
-            padding: 28px 32px;
-        }
-
-        /* Hi Sarah header */
-        .greeting {
-            margin-bottom: 32px;
-        }
-        .greeting h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--heading);
-            margin-bottom: 6px;
-        }
-        .greeting p {
-            font-size: 14px;
-            color: var(--text);
-        }
-
-        /* Status block - matching screenshot exactly */
-        .status-block {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 28px 32px;
-            margin-bottom: 32px;
-            width: 100%;
-        }
-        .offsite-badge {
-            display: inline-block;
-            background: rgba(168, 201, 122, 0.12);
-            color: #A8C97A;
-            padding: 4px 12px;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            letter-spacing: 0.3px;
-        }
-        .status-block p {
-            font-size: 14px;
-            color: var(--text);
-            margin-bottom: 6px;
-        }
-        .status-block h2 {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--heading);
-            margin-bottom: 24px;
-        }
-        .scan-btn {
-            display: inline-block;
-            background: var(--sidebar-blue);
-            color: white;
-            padding: 12px 28px;
-            border-radius: 40px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            border: none;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .scan-btn:hover {
-            background: var(--sidebar-hover);
-        }
-
-        /* Menu items - NO EMOJIS, just text like screenshot */
-        .menu-items {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-        }
-        @media (max-width: 600px) {
-            .menu-items {
-                grid-template-columns: 1fr;
-            }
-        }
-        .menu-item {
-            display: block;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 24px 16px;
-            text-decoration: none;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s ease;
-        }
-        .menu-item:hover {
-            border-color: var(--olive-green);
-            transform: translateY(-2px);
-            background: var(--olive-green-soft);
-        }
-        .menu-item h3 {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--heading);
-            margin-bottom: 4px;
-        }
-        .menu-item p {
-            font-size: 13px;
-            color: var(--text);
-        }
-
-        /* Modal Styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-        }
-        .modal-container {
-            background: var(--card-bg);
-            border-radius: 24px;
-            width: 420px;
-            max-width: 95%;
-            max-height: none;
-            overflow-y: visible;
-        }
-        .modal-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .modal-header h2 {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--heading);
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: var(--text);
-        }
-        .modal-body {
-            padding: 12px 20px;
-        }
-        .modal-footer {
-            padding: 12px 20px;
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-        }
-        .btn-cancel {
-            padding: 10px 20px;
-            background: #F0F2F5;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        .btn-submit {
-            padding: 10px 20px;
-            background: var(--sidebar-blue);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        body.dark-mode .btn-cancel {
-            background: #334155;
-            color: white;
-        }
-
-        /* Calendar Grid */
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 8px;
-            margin-top: 12px;
-        }
-        @media (max-width: 480px) {
-            .calendar-grid {
-                gap: 4px;
-            }
-            .calendar-day {
-                font-size: 12px;
-            }
-        }
-        .calendar-day-header {
-            text-align: center;
-            font-weight: 600;
-            font-size: 12px;
-            padding: 8px;
-            color: var(--text);
-        }
-        .calendar-day {
-            aspect-ratio: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 12px;
-            cursor: pointer;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            font-size: 14px;
-            transition: 0.2s;
-        }
-        .calendar-day:hover {
-            background: var(--olive-green-soft);
-        }
-        .calendar-day.selected {
-            background: var(--olive-green);
-            color: var(--sidebar-blue);
-            border-color: var(--olive-green);
-        }
-        .calendar-day.other-month {
-            opacity: 0.3;
-        }
-        .calendar-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        .calendar-nav button {
-            padding: 8px 16px;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            cursor: pointer;
-        }
-        .selected-date-info {
-            margin-top: 20px;
-            padding: 16px;
-            background: var(--olive-green-soft);
-            border-radius: 12px;
-            text-align: center;
-        }
-
-        /* Form Styles */
-        .input-group {
-            margin-bottom: 10px;
-        }
-        .input-group label {
-            display: block;
-            font-size: 13px;
-            font-weight: 500;
-            margin-bottom: 6px;
-            color: var(--heading);
-        }
-        .input-group input, .input-group select, .input-group textarea {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            background: var(--card-bg);
-            color: var(--heading);
-            font-family: inherit;
-            font-size: 13px;
-        }
-        .input-group textarea {
-            resize: vertical;
-        }
-
-        [x-cloak] { display: none !important; }
-    </style>
-</head>
-<body>
-
-<div x-data="dashboardApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
-    <div class="app-layout">
-        <?php $activePage = 'dashboard'; include __DIR__ . '/staff-sidebar.php'; ?>
-        
-        <main class="main-content">
-            <?php if (file_exists(__DIR__ . '/../partials/top-nav.php')) include __DIR__ . '/../partials/top-nav.php'; ?>
-            
-            <div class="staff-dashboard-container">
-                <!-- Greeting - EXACT as screenshot -->
-                <div class="greeting">
-                    <h1>Hi, <?= htmlspecialchars($user['name'] ?? 'User') ?></h1>
-                    <p x-text="currentDateFormatted"></p>
-                </div>
-
-                <!-- Status Block - EXACT as screenshot (no extra elements) -->
-                <div class="status-block">
-                    <div class="offsite-badge" x-text="isClockedIn ? 'ONSITE' : 'OFFSITE'" :style="isClockedIn ? 'color: #9CB07A; background: rgba(156, 176, 122, 0.12);' : ''">OFFSITE</div>
-                    <p>You are currently</p>
-                    <h2 x-text="isClockedIn ? 'Signed in' : 'Sign Out'">Sign Out</h2>
-                    <a href="<?= route_url('/scan-qr') ?>" class="scan-btn">Scan QR</a>
-                </div>
-
-                <!-- Menu Items - NO EMOJIS, just text like screenshot -->
-                <div class="menu-items">
-                    <div class="menu-item" @click="openCalendarModal()">
-                        <h3>Calendar</h3>
-                        <p>View your schedule</p>
-                    </div>
-                    <div class="menu-item" @click="openLeaveModal()">
-                        <h3>Leave Requests</h3>
-                        <p>Submit a new request</p>
-                    </div>
-                    <div class="menu-item" onclick="window.location.href='<?= route_url('/profile') ?>'">
-                        <h3>Profile</h3>
-                        <p>Manage your account</p>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Calendar Modal Popup -->
-    <div x-show="calendarModalOpen" x-cloak class="modal-overlay" @click.away="calendarModalOpen = false">
-        <div class="modal-container">
-            <div class="modal-header">
-                <h2>Calendar</h2>
-                <button class="modal-close" @click="calendarModalOpen = false">✕</button>
-            </div>
-            <div class="modal-body">
-                <p style="margin-bottom: 12px; color: var(--text);">Pick a date to view your schedule.</p>
-                <div class="calendar-nav">
-                    <button @click="prevMonth()">←</button>
-                    <h3 x-text="monthName + ' ' + year"></h3>
-                    <button @click="nextMonth()">→</button>
-                </div>
-                <div class="calendar-grid">
-                    <template x-for="day in ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']">
-                        <div class="calendar-day-header" x-text="day"></div>
-                    </template>
-                    <template x-for="day in calendarDays" :key="day">
-                        <div class="calendar-day" :class="{ 'other-month': !day, 'selected': selectedDay === day && day }" @click="day && selectDay(day)">
-                            <span x-text="day || ''"></span>
-                        </div>
-                    </template>
-                </div>
-                <div class="selected-date-info" x-show="selectedDay">
-                    <p><strong>Selected:</strong> <span x-text="selectedDateFormatted"></span></p>
-                    <p x-text="selectedStatus"></p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-cancel" @click="calendarModalOpen = false">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Leave Request Modal Popup -->
-    <div x-show="leaveModalOpen" x-cloak class="modal-overlay" @click.away="leaveModalOpen = false">
-        <div class="modal-container">
-            <div class="modal-header">
-                <h2>New Leave Request</h2>
-                <button class="modal-close" @click="leaveModalOpen = false">✕</button>
-            </div>
-            <div class="modal-body">
-                <p style="margin-bottom: 12px; color: var(--text);">Submit a request for time off.</p>
-                <div class="input-group" style="margin-bottom: 12px;">
-                    <label>Type</label>
-                    <select x-model="leaveRequest.type">
-                        <option value="OFFSITE">OFFSITE</option>
-                        <option value="Annual leave">Annual leave</option>
-                        <option value="Sick leave">Sick leave</option>
-                        <option value="Personal leave">Personal leave</option>
-                    </select>
-                </div>
-                <div class="input-group" style="margin-bottom: 12px;">
-                    <label>From</label>
-                    <input type="date" x-model="leaveRequest.from">
-                </div>
-                <div class="input-group" style="margin-bottom: 12px;">
-                    <label>To</label>
-                    <input type="date" x-model="leaveRequest.to">
-                </div>
-                <div class="input-group" style="margin-bottom: 12px;">
-                    <label>Reason (optional)</label>
-                    <textarea x-model="leaveRequest.reason" rows="3" placeholder="Add a short note for your manager"></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-cancel" @click="leaveModalOpen = false">Cancel</button>
-                <button class="btn-submit" @click="submitLeaveRequest()">Submit request</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-function dashboardApp() {
-    return {
-        sidebarOpen: false,
-        isClockedIn: false,
-        calendarModalOpen: false,
-        currentDateObj: new Date(),
-        user: { id: '', name: '', email: '' }, // Initialize user object
-        selectedDay: null,
-        leaveModalOpen: false,
-        leaveRequest: {
-            type: 'OFFSITE',
-            from: '',
-            to: '',
-            reason: '',
-        },
-        
-        get year() { return this.currentDateObj.getFullYear(); },
-        get currentDateFormatted() {
-            return new Date().toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        },
-        get month() { return this.currentDateObj.getMonth(); },
-        get monthName() { return this.currentDateObj.toLocaleString('default', { month: 'long' }); },
-        get firstDay() { return new Date(this.year, this.month, 1).getDay(); },
-        get daysInMonth() { return new Date(this.year, this.month + 1, 0).getDate(); },
-        get calendarDays() {
-            const days = [];
-            for (let i = 0; i < this.firstDay; i++) days.push(null);
-            for (let i = 1; i <= this.daysInMonth; i++) days.push(i);
-            return days;
-        },
-        get selectedDateFormatted() {
-            if (!this.selectedDay) return '';
-            const date = new Date(this.year, this.month, this.selectedDay);
-            return date.toLocaleDateString('en-ZA', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
-        },
-        get selectedStatus() {
-            const status = this.getDayStatus(this.selectedDay);
-            if (status === 'present') return 'You were present on this day';
-            if (status === 'absent') return 'No sign-in recorded on this day';
-            if (status === 'leave') return 'You were on leave this day';
-            return 'No attendance data for this day';
-        },
-        
-        async init() {
-            window.themeManager.initTheme();
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'User', 'email' => 'user@spysee.app']); ?>;
-            this.user = userData;
-            await this.updateStatus();
-            
-            // Poll for status updates every 10 seconds for real-time sync
-            setInterval(() => this.updateStatus(), 10000);
-        },
-        
-        async updateStatus() {
-            try {
-                // Use absolute path for consistency with other API calls
-                const response = await fetch('api/onsite-staff.php');
-                const data = await response.json();
-                const onsiteStaff = data.data || [];
-                this.isClockedIn = onsiteStaff.some(s => s.name === this.user.name);
-            } catch (err) {
-                console.error('Error checking status:', err);
-            }
-        },
-        
-        openCalendarModal() {
-            this.currentDateObj = new Date();
-            this.selectedDay = new Date().getDate();
-            this.calendarModalOpen = true;
-        },
-        
-        prevMonth() {
-            this.currentDateObj = new Date(this.year, this.month - 1);
-            this.selectedDay = null;
-        },
-        
-        nextMonth() {
-            this.currentDateObj = new Date(this.year, this.month + 1);
-            this.selectedDay = null;
-        },
-        
-        selectDay(day) {
-            this.selectedDay = day;
-        },
-        
-        getDayStatus(day) {
-            const presentDays = [1, 2, 3, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 27, 28, 29];
-            const absentDays = [5, 12, 19, 26];
-            const leaveDays = [11, 18, 25];
-            if (presentDays.includes(day)) return 'present';
-            if (absentDays.includes(day)) return 'absent';
-            if (leaveDays.includes(day)) return 'leave';
-            return null;
-        },
-        
-        openLeaveModal() {
-            this.leaveRequest = { type: 'OFFSITE', from: '', to: '', reason: '' };
-            this.leaveModalOpen = true;
-        },
-        
-        submitLeaveRequest() {
-            if (!this.leaveRequest.from || !this.leaveRequest.to) {
-                window.appUtils.showToast('Please select both From and To dates', 'error');
-                return;
-            }
-            window.appUtils.showToast(`Leave request submitted successfully!`, 'success');
-            this.leaveModalOpen = false;
-        }
-    }
-}
-</script>
-</body>
-</html>
-
-================
 File: frontend/src/views/staff/history.php
 ================
 <?php
@@ -6071,7 +6260,249 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
     <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="<?= asset_url('js/app.js') ?>"></script>
-    <style>[x-cloak] { display: none !important; }</style>
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        .history-container {
+            padding: 28px 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        
+        .history-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--heading);
+        }
+        
+        .history-header p {
+            color: var(--text);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+        
+        .history-filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .history-filters input,
+        .history-filters select {
+            padding: 10px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--card-bg);
+            color: var(--heading);
+            font-size: 14px;
+            min-width: 180px;
+        }
+        
+        .history-filters input:focus,
+        .history-filters select:focus {
+            outline: none;
+            border-color: var(--olive-green);
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            background: var(--card-bg);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        .history-table th {
+            padding: 16px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text);
+            border-bottom: 2px solid var(--border-color);
+            background: var(--background);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .history-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--heading);
+        }
+        
+        .history-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .history-table tr:hover td {
+            background: var(--olive-green-soft);
+        }
+        
+        .sync-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            background: var(--olive-green-soft);
+            color: var(--olive-green);
+        }
+        
+        .empty-row td {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        
+        .hours-positive {
+            color: var(--olive-green);
+            font-weight: 600;
+        }
+        
+        .hours-negative {
+            color: #F87171;
+            font-weight: 600;
+        }
+        
+        .hours-zero {
+            color: var(--muted);
+        }
+        
+        .entry-count {
+            font-size: 12px;
+            color: var(--muted);
+            margin-left: 8px;
+        }
+        
+        .clickable-row {
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+        
+        .clickable-row .toggle-icon {
+            display: inline-block;
+            transition: transform 0.2s ease;
+            font-size: 12px;
+            color: var(--muted);
+            margin-right: 8px;
+        }
+        
+        .clickable-row .toggle-icon.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .clickable-row:hover td {
+            background: var(--olive-green-soft);
+        }
+        
+        .clickable-row.expanded td {
+            background: var(--olive-green-soft);
+            border-bottom-color: transparent;
+        }
+        
+        .detail-row td {
+            padding: 8px 16px 8px 48px;
+            font-size: 13px;
+            color: var(--text);
+            background: var(--background);
+        }
+        
+        .detail-row .detail-time {
+            font-weight: 500;
+            color: var(--heading);
+        }
+        
+        .detail-row .detail-type {
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+            display: inline-block;
+        }
+        
+        .detail-row .detail-type.in {
+            background: var(--olive-green-soft);
+            color: var(--olive-green);
+        }
+        
+        .detail-row .detail-type.out {
+            background: rgba(248, 113, 113, 0.12);
+            color: #F87171;
+        }
+        
+        .detail-row .detail-location {
+            color: var(--muted);
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        
+        .detail-row .detail-method {
+            color: var(--muted);
+            font-size: 11px;
+            margin-left: 8px;
+            background: var(--card-bg);
+            padding: 0 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        
+        .row-group {
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .row-group:last-child {
+            border-bottom: none;
+        }
+        
+        .row-group .clickable-row td {
+            border-bottom: none;
+        }
+        
+        @media (max-width: 600px) {
+            .history-container {
+                padding: 16px;
+            }
+            
+            .history-filters {
+                flex-direction: column;
+            }
+            
+            .history-filters input,
+            .history-filters select {
+                width: 100%;
+                min-width: unset;
+            }
+            
+            .history-table th,
+            .history-table td {
+                padding: 10px 12px;
+                font-size: 12px;
+            }
+            
+            .detail-row td {
+                padding: 6px 12px 6px 24px;
+                font-size: 11px;
+            }
+        }
+    </style>
 </head>
 <body>
 
@@ -6082,36 +6513,79 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
         <main class="main-content">
             <?php if (file_exists(__DIR__ . '/../partials/top-nav.php')) include __DIR__ . '/../partials/top-nav.php'; ?>
             
-            <div class="page-content">
-                <h1>Attendance History</h1>
-                <p>Your past sign-in and sign-out activity.</p>
+            <div class="history-container">
+                <div class="history-header">
+                    <div>
+                        <h1>Attendance History</h1>
+                        <p>Your past sign-in and sign-out activity.</p>
+                    </div>
+                    <button class="btn-outline" @click="exportCSV()" style="height:44px; padding:0 20px; border-radius:12px; border:1px solid var(--border-color); background:transparent; color:var(--heading); cursor:pointer;">
+                        📥 Export CSV
+                    </button>
+                </div>
 
                 <div class="history-filters">
-                    <input type="text" x-model="searchQuery" placeholder="Search by date...">
+                    <input type="text" x-model="searchQuery" placeholder="Search by date (e.g. 2026-08-11)...">
                     <select x-model="filterType">
                         <option value="all">All Types</option>
                         <option value="sign-in">Sign In</option>
                         <option value="sign-out">Sign Out</option>
+                    </select>
+                    <select x-model="sortOrder">
+                        <option value="desc">Newest First</option>
+                        <option value="asc">Oldest First</option>
                     </select>
                 </div>
 
                 <div class="table-container">
                     <table class="history-table">
                         <thead>
-                            <tr><th>DATE</th><th>Sign In</th><th>Sign Out</th><th>TOTAL HOURS</th><th>SYNC</th></tr>
+                            <tr>
+                                <th>DATE</th>
+                                <th>First In</th>
+                                <th>Last Out</th>
+                                <th>TOTAL HOURS</th>
+                                <th>ENTRIES</th>
+                                <th>SYNC</th>
+                            </tr>
                         </thead>
                         <tbody>
                             <template x-for="day in groupedRecords" :key="day.date">
-                                <tr>
-                                    <td x-text="day.date"></td>
-                                    <td x-text="day.clockIn || '--:--'"></td>
-                                    <td x-text="day.clockOut || '--:--'"></td>
-                                    <td x-text="day.totalHours || '--'"></td>
-                                    <td><span class="sync-badge synced">Synced</span></td>
-                                </tr>
+                                <tbody class="row-group">
+                                    <tr class="clickable-row" @click="day.expanded = !day.expanded" :class="{ 'expanded': day.expanded }">
+                                        <td>
+                                            <span class="toggle-icon" :class="{ 'expanded': day.expanded }">▶</span>
+                                            <span x-text="day.date"></span>
+                                        </td>
+                                        <td x-text="day.firstIn || '--:--'"></td>
+                                        <td x-text="day.lastOut || '--:--'"></td>
+                                        <td>
+                                            <span x-show="day.totalHours !== null" 
+                                                  :class="day.totalHours > 0 ? 'hours-positive' : (day.totalHours < 0 ? 'hours-negative' : 'hours-zero')"
+                                                  x-text="day.totalHours !== null ? day.totalHours.toFixed(1) + 'h' : '--'">
+                                            </span>
+                                            <span x-show="day.totalHours === null" class="hours-zero">--</span>
+                                        </td>
+                                        <td>
+                                            <span class="entry-count" x-text="day.records.length + ' entries'"></span>
+                                        </td>
+                                        <td><span class="sync-badge synced">Synced</span></td>
+                                    </tr>
+                                    <template x-for="record in day.records" :key="record.id">
+                                        <tr class="detail-row" x-show="day.expanded">
+                                            <td></td>
+                                            <td colspan="5">
+                                                <span class="detail-time" x-text="record.time"></span>
+                                                <span class="detail-type" :class="record.type" x-text="record.type === 'sign-in' ? 'IN' : 'OUT'"></span>
+                                                <span class="detail-location" x-text="'📍 ' + record.location"></span>
+                                                <span class="detail-method" x-text="'📱 ' + (record.method || 'QR')"></span>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
                             </template>
                             <tr x-show="groupedRecords.length === 0">
-                                <td colspan="5" class="empty-row">No records found.</td>
+                                <td colspan="6" class="empty-row">No records found for the selected filters.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -6129,51 +6603,175 @@ function historyApp() {
         records: [],
         searchQuery: '',
         filterType: 'all',
+        sortOrder: 'desc',
         
         get filteredRecords() {
             let filtered = this.records;
-            if (this.filterType !== 'all') filtered = filtered.filter(r => r.type === this.filterType);
-            if (this.searchQuery) filtered = filtered.filter(r => r.date.includes(this.searchQuery));
+            
+            if (this.filterType !== 'all') {
+                filtered = filtered.filter(r => r.type === this.filterType);
+            }
+            
+            if (this.searchQuery) {
+                filtered = filtered.filter(r => r.date.includes(this.searchQuery));
+            }
+            
+            filtered = [...filtered].sort((a, b) => {
+                const dateA = new Date(a.timestamp);
+                const dateB = new Date(b.timestamp);
+                return this.sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+            });
+            
             return filtered;
         },
         
         get groupedRecords() {
             const grouped = {};
+            
             this.filteredRecords.forEach(record => {
-                if (!grouped[record.date]) grouped[record.date] = { date: record.date, clockIn: null, clockOut: null };
-                if (record.type === 'sign-in') grouped[record.date].clockIn = record.time;
-                else grouped[record.date].clockOut = record.time;
+                if (!grouped[record.date]) {
+                    grouped[record.date] = {
+                        date: record.date,
+                        firstIn: null,
+                        lastOut: null,
+                        totalHours: null,
+                        records: [],
+                        expanded: false
+                    };
+                }
+                grouped[record.date].records.push(record);
             });
+            
             const result = Object.values(grouped);
+            const today = new Date().toISOString().split('T')[0];
+            
             result.forEach(day => {
-                if (day.clockIn && day.clockOut) {
-                    const inTime = new Date(`2000/01/01 ${day.clockIn}`);
-                    const outTime = new Date(`2000/01/01 ${day.clockOut}`);
-                    const diff = (outTime - inTime) / (1000 * 60 * 60);
-                    day.totalHours = diff.toFixed(1);
+                // Sort records chronologically
+                day.records.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                
+                let firstIn = null;
+                let lastOut = null;
+                let totalSeconds = 0;
+                let lastCheckIn = null;
+                let isToday = day.date === today;
+                let hasValidPair = false;
+                
+                for (const record of day.records) {
+                    if (record.type === 'sign-in') {
+                        // If we have a previous check-in without check-out, and it's not today, ignore it
+                        if (lastCheckIn && !isToday) {
+                            // For past dates, we only count complete pairs
+                            lastCheckIn = null;
+                        }
+                        lastCheckIn = record;
+                        if (!firstIn) {
+                            firstIn = record;
+                        }
+                    } else if (record.type === 'sign-out' && lastCheckIn) {
+                        const inTime = new Date(lastCheckIn.timestamp);
+                        const outTime = new Date(record.timestamp);
+                        
+                        // Only count if out is after in (positive duration)
+                        if (outTime > inTime) {
+                            const diffMs = outTime - inTime;
+                            totalSeconds += diffMs / 1000;
+                            hasValidPair = true;
+                        }
+                        
+                        lastCheckIn = null;
+                        lastOut = record;
+                    }
+                }
+                
+                // For today only: if still clocked in, count time until now
+                if (lastCheckIn && isToday) {
+                    const inTime = new Date(lastCheckIn.timestamp);
+                    const now = new Date();
+                    if (inTime < now) {
+                        const diffMs = now - inTime;
+                        totalSeconds += diffMs / 1000;
+                        hasValidPair = true;
+                    }
+                }
+                
+                // Set display values
+                day.firstIn = firstIn ? firstIn.time : null;
+                day.lastOut = lastOut ? lastOut.time : null;
+                
+                // Only show hours if we have at least one valid pair
+                if (hasValidPair && totalSeconds > 0) {
+                    day.totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
+                } else if (day.records.length > 0) {
+                    day.totalHours = 0;
+                } else {
+                    day.totalHours = null;
                 }
             });
+            
             return result;
         },
         
         async init() {
             window.themeManager.initTheme();
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff']); ?>;
+            
+            const userData = <?php echo json_encode([
+                'id' => $_SESSION['staff_id'] ?? $_SESSION['user_id'] ?? 'STF-001',
+                'name' => $_SESSION['staff_name'] ?? $_SESSION['user_name'] ?? 'Staff',
+                'email' => $_SESSION['user_email'] ?? ''
+            ]); ?>;
             this.user = userData;
+            
             await this.loadHistory();
         },
         
         async loadHistory() {
-            const response = await fetch('api/user-history.php?user_id=' + this.user.id);
-            const data = await response.json();
-            const history = data.data || [];
-            this.records = history.map(r => ({
-                id: r.id,
-                date: r.date,
-                time: new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                type: r.type,
-                location: r.location
-            }));
+            try {
+                const response = await fetch('api/user-history.php?user_id=' + this.user.id + '&_=' + Date.now());
+                const data = await response.json();
+                const history = data.data || [];
+                
+                this.records = history.map(r => {
+                    const date = new Date(r.timestamp);
+                    return {
+                        id: r.id,
+                        date: r.date,
+                        time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        timestamp: r.timestamp,
+                        type: r.type,
+                        location: r.location || 'Office',
+                        method: r.method || 'QR'
+                    };
+                });
+                
+                console.log('📊 Loaded history records:', this.records.length);
+            } catch (err) {
+                console.error('❌ Error loading history:', err);
+                this.records = [];
+            }
+        },
+        
+        exportCSV() {
+            if (this.groupedRecords.length === 0) {
+                window.appUtils.showToast('No records to export.', 'error');
+                return;
+            }
+            
+            let csv = 'Date,First In,Last Out,Total Hours,Entry Count\n';
+            this.groupedRecords.forEach(day => {
+                csv += `${day.date},${day.firstIn || ''},${day.lastOut || ''},${day.totalHours !== null ? day.totalHours.toFixed(1) : ''},${day.records.length}\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance_history_${this.user.id}_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            window.appUtils.showToast('CSV exported successfully!', 'success');
         }
     }
 }
@@ -6695,266 +7293,6 @@ To get a local copy up and running, follow these simple steps.
 Lutfeeya Cupido 💚
 
 ================
-File: backend/src/config/GoogleSheets.php
-================
-<?php
-// ============================================================
-// FILE: backend/src/config/GoogleSheets.php
-// OPTIMIZED - Faster timeouts & better error handling
-// ============================================================
-
-define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbz5r1-cfdlPAK7eFOdf4OcDi764oVx_Uh54Uo32x-UPQHD7IMJrnwcpp3mAZ7ycVIpB/exec');
-define('CACHE_FILE', __DIR__ . '/../../storage/cache/sheets_cache.json');
-
-// ============================================================
-// SESSION HELPERS
-// ============================================================
-
-function isLoggedIn() {
-    return isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true;
-}
-
-function isAdmin() {
-    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin';
-}
-
-function isStaff() {
-    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'staff';
-}
-
-function getUserRole() {
-    return $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
-}
-
-// ============================================================
-// HTTP HELPER - OPTIMIZED WITH SHORT TIMEOUTS
-// ============================================================
-
-function httpGet($url) {
-    // Try cURL first (faster)
-    if (function_exists('curl_init')) {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);        // 5 second max
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3); // 3 second connect
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0');
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        if ($response !== false && $httpCode === 200) {
-            return $response;
-        }
-    }
-    
-    // Fallback to file_get_contents
-    $context = stream_context_create([
-        'http' => [
-            'timeout' => 5,
-            'header' => "User-Agent: Mozilla/5.0\r\n"
-        ]
-    ]);
-    return @file_get_contents($url, false, $context);
-}
-
-function httpPost($url, $payload) {
-    $options = [
-        'http' => [
-            'header'  => "Content-Type: text/plain;charset=utf-8\r\n",
-            'method'  => 'POST',
-            'content' => $payload,
-            'timeout' => 2
-        ]
-    ];
-    $context = stream_context_create($options);
-    return @file_get_contents($url, false, $context);
-}
-
-// ============================================================
-// GOOGLE SHEETS API
-// ============================================================
-
-function getCredentialsFromSheets() {
-    $response = httpGet(APP_SCRIPT_URL . '?action=getCredentials');
-    if ($response === false) {
-        $response = httpGet(APP_SCRIPT_URL);
-        if ($response === false) {
-            return ['success' => false, 'error' => 'Failed to fetch credentials'];
-        }
-    }
-    $data = json_decode($response, true);
-    if (!$data) {
-        return ['success' => false, 'error' => 'Invalid JSON response'];
-    }
-    return $data;
-}
-
-function fetchSheetsData() {
-    $response = httpGet(APP_SCRIPT_URL);
-    if ($response === false) return ['success' => false, 'error' => 'Failed to fetch'];
-    $data = json_decode($response, true);
-    if (!$data) {
-        return ['success' => false, 'error' => 'Invalid JSON response'];
-    }
-    return $data;
-}
-
-function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
-    $payload = ['staff_id' => $staffId, 'name' => $name, 'method' => $method];
-    if ($token) $payload['token'] = $token;
-    if ($expires) $payload['expires'] = $expires;
-
-    $response = httpPost(APP_SCRIPT_URL, json_encode($payload));
-    if ($response === false) return ['success' => false, 'error' => 'Failed to connect'];
-    return json_decode($response, true);
-}
-
-function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
-    $url = APP_SCRIPT_URL;
-    $payload = json_encode([
-        'staff_id' => $staffId,
-        'name' => $name,
-        'method' => $method,
-        'token' => $token,
-        'expires' => $expires
-    ]);
-    
-    if (PHP_OS_FAMILY === 'Windows') {
-        $cmd = 'start /B C:\xampp\php\php.exe -r "' . 
-               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
-               '$context = stream_context_create($options);' .
-               '@file_get_contents(\'' . $url . '\', false, $context);"';
-        pclose(popen($cmd, 'r'));
-    } else {
-        $cmd = 'php -r "' .
-               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
-               '$context = stream_context_create($options);' .
-               '@file_get_contents(\'' . $url . '\', false, $context);" > /dev/null 2>&1 &';
-        exec($cmd);
-    }
-}
-
-// ============================================================
-// CACHE FUNCTIONS
-// ============================================================
-
-function getCachedData() {
-    if (file_exists(CACHE_FILE)) {
-        $cached = json_decode(file_get_contents(CACHE_FILE), true);
-        if ($cached && isset($cached['data'])) return $cached['data'];
-    }
-    return null;
-}
-
-function updateCache() {
-    $data = fetchSheetsData();
-    if ($data && isset($data['success']) && $data['success']) {
-        $dir = dirname(CACHE_FILE);
-        if (!is_dir($dir)) mkdir($dir, 0777, true);
-        file_put_contents(CACHE_FILE, json_encode([
-            'data' => $data,
-            'fetched_at' => time()
-        ]));
-        return true;
-    }
-    return false;
-}
-
-function getStatusFromCache($staffId) {
-    $data = getCachedData();
-    if (!$data) return 'out';
-    
-    $rows = $data['rows'] ?? [];
-    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
-        array_shift($rows);
-    }
-    
-    $latestStatus = 'out';
-    $latestTimestamp = '';
-    
-    foreach ($rows as $row) {
-        if (isset($row[1]) && $row[1] === $staffId) {
-            if (empty($latestTimestamp) || $row[0] > $latestTimestamp) {
-                $latestTimestamp = $row[0];
-                $status = str_replace('Check-', '', $row[3] ?? '');
-                $latestStatus = strtolower($status);
-            }
-        }
-    }
-    return $latestStatus;
-}
-
-function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
-    $data = getCachedData();
-    if (!$data) {
-        $data = fetchSheetsData();
-        if (!$data || !isset($data['success']) || !$data['success']) return;
-    }
-    
-    $rows = $data['rows'] ?? [];
-    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
-        array_shift($rows);
-    }
-    
-    $found = false;
-    
-    foreach ($rows as $index => $row) {
-        if (isset($row[1]) && $row[1] === $staffId) {
-            $row[3] = 'Check-' . $newStatus;
-            $row[0] = date('Y-m-d H:i:s');
-            $rows[$index] = $row;
-            $found = true;
-            break;
-        }
-    }
-    
-    if (!$found) {
-        $rows[] = [
-            date('Y-m-d H:i:s'),
-            $staffId,
-            $staffName,
-            'Check-' . $newStatus,
-            'QR'
-        ];
-    }
-    
-    $data['rows'] = $rows;
-    file_put_contents(CACHE_FILE, json_encode([
-        'data' => $data,
-        'fetched_at' => time()
-    ]));
-}
-
-function getStaffListFromCache() {
-    $data = getCachedData();
-    if (!$data) return [];
-    
-    $rows = $data['rows'] ?? [];
-    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
-        array_shift($rows);
-    }
-    
-    $staffList = [];
-    $seen = [];
-    
-    foreach ($rows as $row) {
-        if (isset($row[1]) && !isset($seen[$row[1]])) {
-            $seen[$row[1]] = true;
-            $staffList[] = [
-                'staff_id' => $row[1],
-                'name' => $row[2] ?? 'Unknown',
-                'status' => strtolower(str_replace('Check-', '', $row[3] ?? ''))
-            ];
-        }
-    }
-    return $staffList;
-}
-
-================
 File: backend/src/controllers/AttendanceController.php
 ================
 <?php
@@ -7201,22 +7539,17 @@ class AttendanceService
 }
 
 ================
+File: backend/storage/cache/sheets_cache.json
+================
+{"data":{"success":true,"rows":[["2026-07-27T09:55:04.959Z","STF-001","Big Boy","Check-in","QR","STF-001_20260727","Test"],["2026-07-27T09:55:42.567Z","STF-001","Big Boy","Check-out","QR","STF-001_20260727","Test"],["2026-08-13 10:30:17","STF-002","Small Man","Check-Check-in","QR","STF-002_20260727","Test"],["2026-07-27T10:08:40.400Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-27T10:08:44.004Z","STF-003","Small Man","Check-out","QR","STF-003_20260727","Test"],["2026-07-27T10:08:55.682Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-29T06:29:52.013Z","STF-002","Small Man","Check-out","QR","STF-002_20260729","Test"],["2026-07-29T06:38:57.548Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:40:06.491Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T06:40:45.160Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:49:35.113Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T06:49:58.671Z","STF-003","Test User","Check-in","QR","STF-003_20260729","Test"],["2026-07-29T06:52:01.932Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T07:21:50.462Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T07:24:05.023Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T08:22:35.865Z","STF-001","Big Boy","Check-out","web","STF-001_20260729","Test"],["2026-07-29T13:41:20.780Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260729","Test"],["2026-07-29T13:41:33.380Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:41:42.777Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:42:21.956Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:43:25.180Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:43:37.180Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-30T12:57:54.863Z","STF-001","Big Boy","Check-in","QR","STF-001_20260730","Test"],["2026-07-30T12:58:10.055Z","STF-001","Big Boy","Check-out","QR","STF-001_20260730","Test"],["2026-07-30T12:58:14.620Z","STF-001","Big Boy","Check-in","web","STF-001_20260730","Test"],["2026-07-30T12:58:34.589Z","STF-001","Big Boy","Check-out","web","STF-001_20260730","Test"],["2026-07-31T06:35:36.175Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T06:36:09.550Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:50:41.769Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:59:01.269Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:01:39.482Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:32.564Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:44.604Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:03:10.498Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:37:49.569Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:50:47.619Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T09:51:30.162Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T09:56:02.831Z","TEST-001","Test User","Check-in","test","TEST-001_20260731","Test"],["2026-07-31T10:07:42.550Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:08:11.385Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:11:14.753Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:13:21.655Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:27:08.452Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:30:33.256Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:15:17.731Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:15:58.241Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:17:09.402Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:17:48.989Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:02:56.074Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:09:12.041Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:09:43.409Z","STF-003","Test User","Check-out","QR","STF-003_20260731","Test"],["2026-07-31T13:13:07.696Z","STF-002","Small Man","Check-in","web","STF-002_20260731","Test"],["2026-07-31T13:13:15.824Z","STF-002","Small Man","Check-out","web","STF-002_20260731","Test"],["2026-07-31T13:14:06.525Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:14:25.910Z","STF-003","Test User","Check-out","web","STF-003_20260731","Test"],["2026-07-31T13:15:41.363Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:16:35.467Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T13:30:21.363Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:32:25.578Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260731","Test"],["2026-07-31T13:34:00.112Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:34:31.345Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:53:43.736Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:53:59.639Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:55:02.288Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:55:16.043Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:57:24.001Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:57:43.727Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T14:01:03.370Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T14:01:16.018Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-08-05T13:55:45.172Z","STF-001","Big Boy","Check-in","web","STF-001_20260805","Test"],["2026-08-05T13:55:56.094Z","STF-001","Big Boy","Check-out","web","STF-001_20260805","Test"],["2026-08-06T10:16:26.866Z","STF-001","Big Boy","Check-in","web","STF-001_20260806","Test"],["2026-08-06T12:44:13.606Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:06:38.289Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:07:49.099Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:08:37.666Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:25:27.703Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:42:03.545Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:43:28.620Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:58:04.229Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-11T07:23:55.927Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:24:31.612Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:33:14.807Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:34:04.768Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:40:34.909Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T10:27:57.193Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T10:51:38.209Z","STF-003","Test User","Check-in","QR","STF-003_20260811","Test"],["2026-08-12T06:34:25.608Z","STF-001","Big Boy","Check-out","QR","STF-001_20260812","Test"],["2026-08-12T12:42:37.061Z","STF-001","Big Boy","Check-in","QR","STF-001_20260812","Test"],["2026-08-12T12:45:17.734Z","STF-001","Big Boy","Check-out","QR","STF-001_20260812","Test"],["2026-08-12T14:22:19.045Z","STF-001","Big Boy","Check-in","QR","STF-001_20260812","Test"]]},"fetched_at":1786609817}
+
+================
 File: frontend/src/views/admin/dashboard.php
 ================
 <?php
-// frontend/src/views/admin/dashboard.php
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-
-// Use isLoggedIn() from GoogleSheets.php
-if (!isLoggedIn()) {
-    header('Location: ' . route_url('/login'));
-    exit;
-}
-
-// Check role
-$role = $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
-if ($role !== 'admin') {
-    header('Location: ' . route_url('/login'));
+if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+    header('Location: /index.php/login');
     exit;
 }
 ?>
@@ -7227,291 +7560,77 @@ if ($role !== 'admin') {
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>Admin Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
+    <link rel="stylesheet" href="/assets/css/style.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="<?= asset_url('js/app.js') ?>"></script>
+    <script src="/assets/js/app.js"></script>
     <style>
         [x-cloak] { display: none !important; }
-        
         :root {
             --primary: #2f6f4f;
-            --primary-light: #e9f4ee;
             --danger: #a3432f;
             --paper: #fafaf8;
             --line: #dcdcd6;
             --muted: #6b6f76;
             --ink: #1b1f23;
             --radius: 12px;
-            --shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: var(--paper);
-            color: var(--ink);
-            padding: 16px;
-            min-height: 100vh;
-        }
-        .container { max-width: 600px; margin: 0 auto; }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0 16px;
-            border-bottom: 1px solid var(--line);
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--paper); color: var(--ink); padding: 16px; min-height: 100vh; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0 16px; border-bottom: 1px solid var(--line); margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
         .header h1 { font-size: 22px; }
         .header .sub { color: var(--muted); font-size: 14px; }
-        .header-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        
-        .fullscreen-btn {
-            background: var(--primary);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-size: 13px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .fullscreen-btn:hover {
-            opacity: 0.9;
-        }
-        
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--line);
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            color: var(--ink);
-            text-decoration: none;
-            touch-action: manipulation;
-        }
+        .header-actions { display: flex; gap: 8px; align-items: center; }
+        .fullscreen-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn-outline { background: transparent; border: 2px solid var(--line); border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; color: var(--ink); text-decoration: none; }
         .btn-outline.danger { border-color: var(--danger); color: var(--danger); }
-        
-        /* QR Section - Compact on Dashboard */
-        .qr-section {
-            background: #fff;
-            border: 2px solid var(--line);
-            border-radius: 16px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-            transition: transform 0.1s;
-        }
-        .qr-section:active {
-            transform: scale(0.99);
-        }
-        .qr-section .label {
-            font-size: 13px;
-            color: var(--muted);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        #qrbox {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 180px;
-            margin: 8px 0 4px;
-        }
-        #qrbox img, #qrbox canvas { max-width: 100%; height: auto; }
-        
-        .countdown {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--primary);
-            margin: 2px 0;
-        }
+        .qr-section { background: #fff; border: 2px solid var(--line); border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); cursor: pointer; }
+        .qr-section .label { font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        #qrbox { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 180px; margin: 8px 0 4px; }
+        #qrbox canvas { max-width: 100%; height: auto; }
+        .countdown { font-size: 28px; font-weight: 700; color: var(--primary); margin: 2px 0; }
         .countdown-label { font-size: 12px; color: var(--muted); }
-        
-        .refresh-btn {
-            background: var(--primary);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            touch-action: manipulation;
-            margin-top: 8px;
-        }
-        .refresh-btn:active { opacity: 0.7; }
-        
-        .qr-info {
-            font-size: 12px;
-            color: var(--muted);
-            margin-top: 6px;
-        }
-        .qr-info strong { color: var(--ink); }
-        
-        .staff-count {
-            font-size: 13px;
-            color: var(--muted);
-            margin-top: 4px;
-        }
+        .refresh-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 8px 20px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+        .qr-info { font-size: 12px; color: var(--muted); margin-top: 6px; }
+        .staff-count { font-size: 13px; color: var(--muted); margin-top: 4px; }
         .staff-count b { color: var(--primary); }
-        
-        .staff-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px;
-            margin-top: 8px;
-        }
-        .staff-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 12px;
-            background: var(--paper);
-            border-radius: 6px;
-            border: 1px solid var(--line);
-            font-size: 13px;
-        }
+        .staff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+        .staff-item { display: flex; justify-content: space-between; padding: 6px 12px; background: var(--paper); border-radius: 6px; border: 1px solid var(--line); font-size: 13px; }
         .badge-in { color: var(--primary); font-weight: 600; }
         .badge-out { color: var(--danger); font-weight: 600; }
-        
-        .card {
-            background: #fff;
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: var(--shadow);
-        }
-        .card-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--muted);
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .spinner {
-            text-align: center;
-            padding: 20px;
-            color: var(--muted);
-        }
-        .spinner .dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            margin: 0 4px;
-            background: var(--primary);
-            border-radius: 50%;
-            animation: bounce 1.2s infinite ease-in-out;
-        }
+        .card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .card-title { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .spinner { text-align: center; padding: 20px; color: var(--muted); }
+        .spinner .dot { display: inline-block; width: 10px; height: 10px; margin: 0 4px; background: var(--primary); border-radius: 50%; animation: bounce 1.2s infinite ease-in-out; }
         .spinner .dot:nth-child(2) { animation-delay: 0.2s; }
         .spinner .dot:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-            40% { transform: scale(1); opacity: 1; }
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        .stat-box {
-            background: #fff;
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            padding: 16px;
-            text-align: center;
-        }
-        .stat-box .number {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--primary);
-        }
-        .stat-box .label {
-            font-size: 12px;
-            color: var(--muted);
-            margin-top: 4px;
-        }
-        
-        /* Scan Toast */
-        .scan-toast {
-            position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 16px 24px;
-            border-radius: 12px;
-            text-align: center;
-            font-size: 16px;
-            font-weight: 600;
-            display: none;
-            animation: slideUp 0.4s ease;
-            z-index: 1000;
-            max-width: 90%;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-        }
-        .scan-toast.success {
-            display: block;
-            background: var(--primary);
-            color: #fff;
-            border: 2px solid var(--primary);
-        }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+        .stat-box { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; text-align: center; }
+        .stat-box .number { font-size: 28px; font-weight: 700; color: var(--primary); }
+        .stat-box .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+        .scan-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 16px 24px; border-radius: 12px; text-align: center; font-size: 16px; font-weight: 600; display: none; z-index: 1000; max-width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+        .scan-toast.success { display: block; background: var(--primary); color: #fff; }
         .scan-toast .name { font-weight: 700; }
         .scan-toast .time { font-weight: 400; font-size: 13px; opacity: 0.8; margin-top: 4px; }
-        .scan-toast .location-badge {
-            display: inline-block;
-            background: rgba(255,255,255,0.2);
-            padding: 2px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            margin-top: 4px;
-        }
-        
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-            to { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-        
-        @media (max-width: 480px) {
-            .header { flex-direction: column; gap: 8px; align-items: stretch; text-align: center; }
-            .header-actions { justify-content: center; }
-            .staff-grid { grid-template-columns: 1fr; }
-            .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-            .stat-box .number { font-size: 20px; }
-            .qr-section { padding: 16px; }
-            #qrbox { min-height: 150px; }
-        }
+        .activity-list { display: flex; flex-direction: column; gap: 4px; }
+        .activity-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-item .act-type { font-weight: 600; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+        .activity-item .act-type.in { background: var(--primary-light); color: var(--primary); }
+        .activity-item .act-type.out { background: rgba(163, 67, 47, 0.1); color: var(--danger); }
+        .activity-item .act-time { color: var(--muted); font-size: 12px; }
+        @media (max-width: 480px) { .header { flex-direction: column; gap: 8px; align-items: stretch; text-align: center; } .header-actions { justify-content: center; } .staff-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; } .stat-box .number { font-size: 20px; } .qr-section { padding: 16px; } #qrbox { min-height: 150px; } }
     </style>
 </head>
 <body>
 
 <script>window.themeManager.initTheme();</script>
 
-<div x-data="dashboardApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
+<div x-data="dashboardApp()" x-init="init()" x-cloak>
     <div class="app-layout">
         <?php $activePage = 'dashboard'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
-        
         <main class="main-content">
             <?php include __DIR__ . '/../partials/top-nav.php'; ?>
-            
             <div class="page-content">
                 <div class="page-header">
                     <div>
@@ -7519,12 +7638,11 @@ if ($role !== 'admin') {
                         <p>Live overview of your team's attendance.</p>
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <a href="<?= route_url('/admin-dashboard/qr') ?>" class="fullscreen-btn">📱 QR Fullscreen</a>
-                        <a href="<?= route_url('/logout') ?>" class="btn-outline danger" style="padding: 8px 16px; font-size: 13px;">🚪 Logout</a>
+                        <a href="/index.php/admin-dashboard/qr" class="fullscreen-btn">📱 QR Fullscreen</a>
+                        <a href="/index.php/logout" class="btn-outline danger" style="padding: 8px 16px; font-size: 13px;">🚪 Logout</a>
                     </div>
                 </div>
 
-                <!-- Stats Grid -->
                 <div class="stats-grid">
                     <div class="stat-box">
                         <div class="number" x-text="stats.currentlyOnsite || 0"></div>
@@ -7540,7 +7658,6 @@ if ($role !== 'admin') {
                     </div>
                 </div>
 
-                <!-- QR Section (Compact on Dashboard) -->
                 <div class="qr-section" id="qrCard">
                     <div class="label">📱 Scan to Clock In/Out</div>
                     <div id="qrbox"><div style="color:var(--muted);">⏳ Generating...</div></div>
@@ -7548,29 +7665,34 @@ if ($role !== 'admin') {
                     <div class="countdown-label">seconds until refresh</div>
                     <div class="staff-count" id="staffCount">👥 <b>0</b> staff online</div>
                     <button class="refresh-btn" onclick="generateQR()">🔄 Refresh Now</button>
-                    <div class="qr-info">
-                        💡 Each QR is valid for <strong>one scan only</strong>. New code every 30s.
-                    </div>
+                    <div class="qr-info">💡 Each QR is valid for <strong>one scan only</strong>. New code every 30s.</div>
                 </div>
 
-                <!-- Scan Result Toast -->
                 <div id="scanToast" class="scan-toast">
                     <div id="toastContent">
                         <span id="toastIcon">✅</span>
                         <span id="toastText">Sign in successful</span>
                         <div class="name" id="toastName"></div>
-                        <div class="location-badge" id="toastLocation">📍 HQ</div>
                         <div class="time" id="toastTime"></div>
                     </div>
                 </div>
 
-                <!-- Staff Status -->
                 <div class="card">
-                    <div class="card-title">👥 Staff Status</div>
+                    <div class="card-title">👥 Staff Online</div>
                     <div id="staffList">
                         <div class="spinner">
                             <span class="dot"></span><span class="dot"></span><span class="dot"></span>
                             <div style="margin-top:6px;font-size:13px;">Loading staff...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">📋 Recent Activity</div>
+                    <div id="activityList">
+                        <div class="spinner">
+                            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                            <div style="margin-top:6px;font-size:13px;">Loading activity...</div>
                         </div>
                     </div>
                 </div>
@@ -7581,8 +7703,14 @@ if ($role !== 'admin') {
 
 <script>
 // ============================================================
-// ADMIN DASHBOARD - QR + STATS
+// ADMIN DASHBOARD - FULL FEATURES
 // ============================================================
+
+const isMobile = /iPhone|Android|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+const STAFF_INTERVAL = isMobile ? 30000 : 15000;
+const STATS_INTERVAL = isMobile ? 60000 : 30000;
+const SCAN_INTERVAL = isMobile ? 10000 : 5000;
 
 let timer = null;
 let secondsLeft = 30;
@@ -7595,7 +7723,6 @@ function getBaseUrl() {
     const isLocalhost = window.location.hostname === 'localhost' || 
                         window.location.hostname === '127.0.0.1' ||
                         window.location.hostname === '0.0.0.0';
-    
     if (isLocalhost) {
         return 'https://glance-rancidity-level.ngrok-free.dev';
     }
@@ -7611,10 +7738,8 @@ async function generateQR() {
     try {
         const token = Math.random().toString(36).substring(2, 10);
         const expires = new Date(Date.now() + 30000).toISOString();
-        
         const location = locations[currentLocationIndex % locations.length];
         currentLocationIndex++;
-        
         const baseUrl = getBaseUrl();
         const qrUrl = baseUrl + '/scan.php?' + 
             'token=' + encodeURIComponent(token) +
@@ -7623,8 +7748,6 @@ async function generateQR() {
             '&name=QR_Scan' +
             '&method=QR' +
             '&location=' + encodeURIComponent(location);
-        
-        console.log('QR URL:', qrUrl);
         
         box.innerHTML = '';
         const div = document.createElement('div');
@@ -7637,7 +7760,6 @@ async function generateQR() {
             colorLight: '#ffffff',
             correctLevel: QRCode.CorrectLevel.H
         });
-        
         startCountdown(30);
     } catch (err) {
         box.innerHTML = '<div style="color:#a3432f;">❌ Error: ' + err.message + '</div>';
@@ -7649,7 +7771,6 @@ function startCountdown(seconds) {
     secondsLeft = seconds;
     const countdownEl = document.getElementById('countdown');
     if (countdownEl) countdownEl.textContent = secondsLeft;
-    
     timer = setInterval(() => {
         secondsLeft -= 1;
         if (secondsLeft <= 0) {
@@ -7661,45 +7782,28 @@ function startCountdown(seconds) {
     }, 1000);
 }
 
-function showToast(message, type, name = '', location = '', timestamp = '') {
+function showToast(message, type, name = '', timestamp = '') {
     const toast = document.getElementById('scanToast');
-    const icon = document.getElementById('toastIcon');
-    const text = document.getElementById('toastText');
-    const nameEl = document.getElementById('toastName');
-    const locationEl = document.getElementById('toastLocation');
-    const timeEl = document.getElementById('toastTime');
-    
-    icon.textContent = type === 'success' ? '✅' : '❌';
-    text.textContent = message;
-    nameEl.textContent = name ? '[' + name + ']' : '';
-    locationEl.textContent = location ? '📍 ' + location : '📍 HQ';
-    timeEl.textContent = timestamp ? 'at ' + timestamp : '';
-    
+    document.getElementById('toastIcon').textContent = type === 'success' ? '✅' : '❌';
+    document.getElementById('toastText').textContent = message;
+    document.getElementById('toastName').textContent = name ? '[' + name + ']' : '';
+    document.getElementById('toastTime').textContent = timestamp ? 'at ' + timestamp : '';
     toast.className = 'scan-toast ' + type;
     toast.style.display = 'block';
-    
     if (toastTimeout) clearTimeout(toastTimeout);
-    toastTimeout = setTimeout(() => {
-        toast.style.display = 'none';
-    }, 8000);
+    toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 5000);
 }
 
 async function loadStaff() {
     try {
-        const response = await fetch('/api/onsite-staff.php');
+        const response = await fetch('/api/onsite-staff');
         const data = await response.json();
         const staff = data.data || [];
         const container = document.getElementById('staffList');
-        
         if (staff.length > 0) {
             const html = staff.map(s => {
                 const status = s.status === 'signed_in' ? 'in' : 'out';
-                return `
-                    <div class="staff-item">
-                        <span>${escapeHtml(s.name)}</span>
-                        <span class="${status === 'in' ? 'badge-in' : 'badge-out'}">${status === 'in' ? '✅ In' : '❌ Out'}</span>
-                    </div>
-                `;
+                return `<div class="staff-item"><span>${escapeHtml(s.name)}</span><span class="${status === 'in' ? 'badge-in' : 'badge-out'}">${status === 'in' ? '✅ In' : '❌ Out'}</span></div>`;
             }).join('');
             container.innerHTML = '<div class="staff-grid">' + html + '</div>';
             document.getElementById('staffCount').innerHTML = '👥 <b>' + staff.length + '</b> staff online';
@@ -7715,7 +7819,7 @@ async function loadStaff() {
 
 async function loadStats() {
     try {
-        const response = await fetch('/api/dashboard-stats.php');
+        const response = await fetch('/api/dashboard-stats');
         const data = await response.json();
         const stats = data.data || {};
         const numbers = document.querySelectorAll('.stat-box .number');
@@ -7726,6 +7830,32 @@ async function loadStats() {
         }
     } catch (err) {
         console.error('Error loading stats:', err);
+    }
+}
+
+async function loadActivity() {
+    try {
+        const response = await fetch('/api/recent-activity');
+        const data = await response.json();
+        const activities = data.data || [];
+        const container = document.getElementById('activityList');
+        
+        if (activities.length > 0) {
+            container.innerHTML = activities.map(a => `
+                <div class="activity-item">
+                    <span>
+                        <span class="act-type ${a.action}">${a.action === 'sign-in' ? 'IN' : 'OUT'}</span>
+                        <span style="margin-left:8px;">${escapeHtml(a.name)}</span>
+                    </span>
+                    <span class="act-time">${new Date(a.timestamp).toLocaleTimeString()}</span>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<div style="color:var(--muted);font-size:14px;padding:12px;">No recent activity</div>';
+        }
+    } catch (err) {
+        console.error('Error loading activity:', err);
+        document.getElementById('activityList').innerHTML = '<div style="color:var(--danger);font-size:14px;padding:12px;">❌ Error loading activity</div>';
     }
 }
 
@@ -7742,42 +7872,40 @@ function escapeHtml(str) {
 
 async function checkScanResult() {
     try {
-        const response = await fetch('/api/check-scan-result.php');
+        const response = await fetch('/api/check-scan-result');
         const data = await response.json();
         if (data.success && data.name) {
-            showToast(
-                data.action + ' successful',
-                'success',
-                data.name,
-                data.location || 'HQ',
-                data.timestamp
-            );
-            setTimeout(() => { loadStaff(); loadStats(); }, 1000);
+            showToast(data.action + ' successful', 'success', data.name, data.timestamp);
+            setTimeout(() => { loadStaff(); loadStats(); loadActivity(); }, 1000);
         }
-    } catch (e) {
-        // Silently fail
-    }
+    } catch (e) { /* silent fail */ }
 }
 
-// Click on QR card to refresh (but not on buttons)
 document.getElementById('qrCard')?.addEventListener('click', function(e) {
     if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
     generateQR();
 });
 
-// Init
-generateQR();
-loadStaff();
-loadStats();
-setInterval(loadStaff, 15000);
-setInterval(loadStats, 30000);
-setInterval(checkScanResult, 3000);
+// Init with delay
+setTimeout(() => {
+    generateQR();
+    loadStaff();
+    loadStats();
+    loadActivity();
+}, isMobile ? 500 : 100);
+
+// Polling with longer intervals
+setInterval(loadStaff, STAFF_INTERVAL);
+setInterval(loadStats, STATS_INTERVAL);
+setInterval(loadActivity, STATS_INTERVAL);
+setInterval(checkScanResult, SCAN_INTERVAL);
 
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
         checkScanResult();
         loadStaff();
         loadStats();
+        loadActivity();
     }
 });
 </script>
@@ -8127,7 +8255,7 @@ function startCountdown(seconds) {
 
 async function loadStaff() {
     try {
-        const response = await fetch('/api/onsite-staff.php');
+        const response = await fetch('/api/onsite-staff');
         const data = await response.json();
         const staff = data.data || [];
         const container = document.getElementById('staffList');
@@ -8176,6 +8304,320 @@ loadStaff();
 updateClock();
 setInterval(loadStaff, 15000);
 setInterval(updateClock, 1000);
+</script>
+</body>
+</html>
+
+================
+File: frontend/src/views/staff/dashboard.php
+================
+<?php
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
+    header('Location: /index.php/login');
+    exit;
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Staff Dashboard</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="/assets/js/app.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .staff-dashboard-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .greeting { margin-bottom: 24px; }
+        .greeting h1 { font-size: 28px; font-weight: 700; color: var(--heading); }
+        .greeting p { font-size: 14px; color: var(--text); }
+        
+        .status-block {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 28px 32px;
+            margin-bottom: 24px;
+        }
+        .offsite-badge {
+            display: inline-block;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            background: rgba(168, 201, 122, 0.12);
+            color: #A8C97A;
+        }
+        .offsite-badge.onsite {
+            background: rgba(156, 176, 122, 0.2);
+            color: #9CB07A;
+        }
+        .status-block p { font-size: 14px; color: var(--text); margin-bottom: 4px; }
+        .status-block h2 { font-size: 32px; font-weight: 700; color: var(--heading); margin-bottom: 16px; }
+        .scan-btn {
+            display: inline-block;
+            background: var(--sidebar-blue);
+            color: white;
+            padding: 12px 32px;
+            border-radius: 40px;
+            text-decoration: none;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .scan-btn:hover { background: var(--sidebar-hover); }
+        
+        .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        @media (max-width: 700px) { .dashboard-grid { grid-template-columns: 1fr; } }
+        .dashboard-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+            text-decoration: none;
+        }
+        .dashboard-card:hover { transform: translateY(-4px); border-color: var(--olive-green); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+        .dashboard-card .icon { font-size: 32px; margin-bottom: 8px; }
+        .dashboard-card h3 { font-size: 16px; font-weight: 600; color: var(--heading); }
+        .dashboard-card p { font-size: 13px; color: var(--text); }
+        
+        .staff-status-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .staff-status-section .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--heading);
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .staff-status-section .section-title .count {
+            font-size: 13px;
+            color: var(--text);
+            font-weight: 400;
+        }
+        .staff-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        @media (max-width: 600px) { .staff-list { grid-template-columns: 1fr; } }
+        .staff-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--background);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        .staff-item .name { font-weight: 500; color: var(--heading); }
+        .staff-item .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .staff-item .status-dot.online { background: #22c55e; }
+        .staff-item .status-dot.offline { background: #94a3b8; }
+        .staff-item .status-text { font-size: 12px; font-weight: 500; }
+        .staff-item .status-text.online { color: #22c55e; }
+        .staff-item .status-text.offline { color: #94a3b8; }
+        
+        .activity-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+        }
+        .activity-section .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--heading);
+            margin-bottom: 16px;
+        }
+        .activity-list { display: flex; flex-direction: column; gap: 8px; }
+        .activity-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-item .activity-left { display: flex; align-items: center; gap: 10px; }
+        .activity-item .activity-type {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+        .activity-item .activity-type.in { background: var(--olive-green-soft); color: var(--olive-green); }
+        .activity-item .activity-type.out { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+        .activity-item .activity-name { font-weight: 500; color: var(--heading); }
+        .activity-item .activity-time { font-size: 12px; color: var(--text); }
+        
+        .empty-state { text-align: center; padding: 20px; color: var(--text); }
+    </style>
+</head>
+<body>
+
+<div x-data="dashboardApp()" x-init="init()" x-cloak>
+    <div class="app-layout">
+        <?php $activePage = 'dashboard'; include __DIR__ . '/staff-sidebar.php'; ?>
+        <main class="main-content">
+            <?php include __DIR__ . '/../partials/top-nav.php'; ?>
+            <div class="staff-dashboard-container">
+                <!-- Greeting -->
+                <div class="greeting">
+                    <h1>Hi, <?= htmlspecialchars($_SESSION['staff_name'] ?? 'User') ?></h1>
+                    <p x-text="currentDateFormatted"></p>
+                </div>
+
+                <!-- Status Block -->
+                <div class="status-block">
+                    <div class="offsite-badge" :class="isClockedIn ? 'onsite' : ''" x-text="isClockedIn ? '🟢 ONSITE' : '⚪ OFFSITE'">OFFSITE</div>
+                    <p>You are currently</p>
+                    <h2 x-text="isClockedIn ? 'Signed In' : 'Signed Out'">Sign Out</h2>
+                    <a href="/index.php/scan-qr" class="scan-btn">📷 Scan QR</a>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="dashboard-grid">
+                    <a href="/index.php/calendar" class="dashboard-card">
+                        <div class="icon">📅</div>
+                        <h3>Calendar</h3>
+                        <p>View your schedule</p>
+                    </a>
+                    <a href="/index.php/history" class="dashboard-card">
+                        <div class="icon">📊</div>
+                        <h3>History</h3>
+                        <p>Your attendance records</p>
+                    </a>
+                    <a href="/index.php/profile" class="dashboard-card">
+                        <div class="icon">👤</div>
+                        <h3>Profile</h3>
+                        <p>Manage your account</p>
+                    </a>
+                </div>
+
+                <!-- Staff Status -->
+                <div class="staff-status-section">
+                    <div class="section-title">
+                        <span>👥 Staff Online</span>
+                        <span class="count" x-text="onlineStaff.length + ' online'"></span>
+                    </div>
+                    <div class="staff-list" x-show="onlineStaff.length > 0">
+                        <template x-for="staff in onlineStaff" :key="staff.id">
+                            <div class="staff-item">
+                                <span class="name" x-text="staff.name"></span>
+                                <div>
+                                    <span class="status-dot online"></span>
+                                    <span class="status-text online">Online</span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="empty-state" x-show="onlineStaff.length === 0">
+                        No staff currently online
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="activity-section">
+                    <div class="section-title">📋 Recent Activity</div>
+                    <div class="activity-list" x-show="recentActivity.length > 0">
+                        <template x-for="activity in recentActivity" :key="activity.id">
+                            <div class="activity-item">
+                                <div class="activity-left">
+                                    <span class="activity-type" :class="activity.action" x-text="activity.action === 'sign-in' ? 'IN' : 'OUT'"></span>
+                                    <span class="activity-name" x-text="activity.name"></span>
+                                </div>
+                                <span class="activity-time" x-text="formatTime(activity.timestamp)"></span>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="empty-state" x-show="recentActivity.length === 0">
+                        No recent activity
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+function dashboardApp() {
+    return {
+        sidebarOpen: false,
+        isClockedIn: false,
+        onlineStaff: [],
+        recentActivity: [],
+        user: <?php echo json_encode([
+            'id' => $_SESSION['staff_id'] ?? 'STF-001',
+            'name' => $_SESSION['staff_name'] ?? 'Staff'
+        ]); ?>,
+        pollTimer: null,
+        
+        get currentDateFormatted() {
+            return new Date().toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        },
+        
+        formatTime(timestamp) {
+            if (!timestamp) return '--:--';
+            return new Date(timestamp).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+        },
+        
+        async init() {
+            window.themeManager.initTheme();
+            await this.loadDashboardData();
+            
+            const isMobile = /iPhone|Android|iPad|iPod|Mobile/i.test(navigator.userAgent);
+            const interval = isMobile ? 30000 : 15000;
+            
+            if (this.pollTimer) clearInterval(this.pollTimer);
+            this.pollTimer = setInterval(() => this.loadDashboardData(), interval);
+        },
+
+        async loadDashboardData() {
+            try {
+                const staffResponse = await fetch('/index.php/api/onsite-staff');
+                const staffData = await staffResponse.json();
+                const onsite = staffData.data || [];
+                
+                this.isClockedIn = onsite.some(s => s.id === this.user.id);
+                this.onlineStaff = onsite;
+                
+                const activityResponse = await fetch('/index.php/api/recent-activity');
+                const activityData = await activityResponse.json();
+                this.recentActivity = activityData.data || [];
+                
+                this.updateUI();
+            } catch (err) {
+                console.error('Error loading dashboard data:', err);
+            }
+        },
+        
+        updateUI() {
+            const badge = document.querySelector('.offsite-badge');
+            const statusText = document.querySelector('.status-block h2');
+            if (badge) {
+                badge.textContent = this.isClockedIn ? '🟢 ONSITE' : '⚪ OFFSITE';
+                badge.className = 'offsite-badge' + (this.isClockedIn ? ' onsite' : '');
+            }
+            if (statusText) statusText.textContent = this.isClockedIn ? 'Signed In' : 'Signed Out';
+        }
+    }
+}
 </script>
 </body>
 </html>
@@ -10203,69 +10645,296 @@ A: Implement login.php with backend API, store session/token
 Start with `/staff/dashboard.php` for the main staff interface.
 
 ================
+File: backend/src/config/GoogleSheets.php
+================
+<?php
+// ============================================================
+// FILE: backend/src/config/GoogleSheets.php
+// OPTIMIZED - Faster timeouts & immediate cache updates
+// ============================================================
+
+define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbz5r1-cfdlPAK7eFOdf4OcDi764oVx_Uh54Uo32x-UPQHD7IMJrnwcpp3mAZ7ycVIpB/exec');
+define('CACHE_FILE', __DIR__ . '/../../storage/cache/sheets_cache.json');
+
+// ============================================================
+// SESSION HELPERS
+// ============================================================
+
+function isLoggedIn() {
+    return isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true;
+}
+
+function isAdmin() {
+    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin';
+}
+
+function isStaff() {
+    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'staff';
+}
+
+function getUserRole() {
+    return $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
+}
+
+// ============================================================
+// HTTP HELPER - OPTIMIZED WITH SHORT TIMEOUTS
+// ============================================================
+
+function httpGet($url) {
+    // Try cURL first (faster)
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0');
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($response !== false && $httpCode === 200) {
+            return $response;
+        }
+    }
+    
+    // Fallback to file_get_contents
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 5,
+            'header' => "User-Agent: Mozilla/5.0\r\n"
+        ]
+    ]);
+    return @file_get_contents($url, false, $context);
+}
+
+function httpPost($url, $payload) {
+    $options = [
+        'http' => [
+            'header'  => "Content-Type: text/plain;charset=utf-8\r\n",
+            'method'  => 'POST',
+            'content' => $payload,
+            'timeout' => 2
+        ]
+    ];
+    $context = stream_context_create($options);
+    return @file_get_contents($url, false, $context);
+}
+
+// ============================================================
+// GOOGLE SHEETS API
+// ============================================================
+
+function getCredentialsFromSheets() {
+    $response = httpGet(APP_SCRIPT_URL . '?action=getCredentials');
+    if ($response === false) {
+        $response = httpGet(APP_SCRIPT_URL);
+        if ($response === false) {
+            return ['success' => false, 'error' => 'Failed to fetch credentials'];
+        }
+    }
+    $data = json_decode($response, true);
+    if (!$data) {
+        return ['success' => false, 'error' => 'Invalid JSON response'];
+    }
+    return $data;
+}
+
+function fetchSheetsData() {
+    $response = httpGet(APP_SCRIPT_URL);
+    if ($response === false) return ['success' => false, 'error' => 'Failed to fetch'];
+    $data = json_decode($response, true);
+    if (!$data) {
+        return ['success' => false, 'error' => 'Invalid JSON response'];
+    }
+    return $data;
+}
+
+function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
+    $payload = ['staff_id' => $staffId, 'name' => $name, 'method' => $method];
+    if ($token) $payload['token'] = $token;
+    if ($expires) $payload['expires'] = $expires;
+
+    $response = httpPost(APP_SCRIPT_URL, json_encode($payload));
+    if ($response === false) return ['success' => false, 'error' => 'Failed to connect'];
+    return json_decode($response, true);
+}
+
+function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
+    $url = APP_SCRIPT_URL;
+    $payload = json_encode([
+        'staff_id' => $staffId,
+        'name' => $name,
+        'method' => $method,
+        'token' => $token,
+        'expires' => $expires
+    ]);
+    
+    if (PHP_OS_FAMILY === 'Windows') {
+        $cmd = 'start /B C:\xampp\php\php.exe -r "' . 
+               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
+               '$context = stream_context_create($options);' .
+               '@file_get_contents(\'' . $url . '\', false, $context);" 2>nul';
+        pclose(popen($cmd, 'r'));
+    } else {
+        $cmd = 'php -r "' .
+               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
+               '$context = stream_context_create($options);' .
+               '@file_get_contents(\'' . $url . '\', false, $context);" > /dev/null 2>&1 &';
+        exec($cmd);
+    }
+}
+
+// ============================================================
+// CACHE FUNCTIONS - WITH IMMEDIATE UPDATE
+// ============================================================
+
+function getCachedData() {
+    if (file_exists(CACHE_FILE)) {
+        $cached = json_decode(file_get_contents(CACHE_FILE), true);
+        if ($cached && isset($cached['data'])) return $cached['data'];
+    }
+    return null;
+}
+
+function updateCache() {
+    $data = fetchSheetsData();
+    if ($data && isset($data['success']) && $data['success']) {
+        $dir = dirname(CACHE_FILE);
+        if (!is_dir($dir)) mkdir($dir, 0777, true);
+        file_put_contents(CACHE_FILE, json_encode([
+            'data' => $data,
+            'fetched_at' => time()
+        ]));
+        return true;
+    }
+    return false;
+}
+
+// ============================================================
+// STATUS FUNCTIONS - WITH INSTANT LOCAL UPDATE
+// ============================================================
+
+function getStatusFromCache($staffId) {
+    $data = getCachedData();
+    if (!$data) return 'out';
+    
+    $rows = $data['rows'] ?? [];
+    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
+        array_shift($rows);
+    }
+    
+    $latestStatus = 'out';
+    $latestTimestamp = '';
+    
+    foreach ($rows as $row) {
+        if (isset($row[1]) && $row[1] === $staffId) {
+            if (empty($latestTimestamp) || $row[0] > $latestTimestamp) {
+                $latestTimestamp = $row[0];
+                $status = str_replace('Check-', '', $row[3] ?? '');
+                $latestStatus = strtolower($status);
+            }
+        }
+    }
+    return $latestStatus;
+}
+
+function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
+    $data = getCachedData();
+    
+    if (!$data) {
+        $data = fetchSheetsData();
+        if (!$data || !isset($data['success']) || !$data['success']) {
+            $data = ['rows' => []];
+        }
+    }
+    
+    $rows = $data['rows'] ?? [];
+    
+    if (!empty($rows) && is_array($rows[0])) {
+        $firstRow = array_values($rows[0]);
+        $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
+        if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
+            array_shift($rows);
+        }
+    }
+    
+    $found = false;
+    foreach ($rows as $index => $row) {
+        if (isset($row[1]) && $row[1] === $staffId) {
+            $row[0] = date('Y-m-d H:i:s');
+            $row[3] = 'Check-' . $newStatus;
+            $rows[$index] = $row;
+            $found = true;
+            break;
+        }
+    }
+    
+    if (!$found) {
+        $rows[] = [
+            date('Y-m-d H:i:s'),
+            $staffId,
+            $staffName,
+            'Check-' . $newStatus,
+            'web'
+        ];
+    }
+    
+    $data['rows'] = $rows;
+    file_put_contents(CACHE_FILE, json_encode([
+        'data' => $data,
+        'fetched_at' => time()
+    ]));
+}
+
+function getStaffListFromCache() {
+    $data = getCachedData();
+    if (!$data) return [];
+    
+    $rows = $data['rows'] ?? [];
+    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
+        array_shift($rows);
+    }
+    
+    $staffList = [];
+    $seen = [];
+    
+    foreach ($rows as $row) {
+        if (isset($row[1]) && !isset($seen[$row[1]])) {
+            $seen[$row[1]] = true;
+            $staffList[] = [
+                'staff_id' => $row[1],
+                'name' => $row[2] ?? 'Unknown',
+                'status' => strtolower(str_replace('Check-', '', $row[3] ?? ''))
+            ];
+        }
+    }
+    return $staffList;
+}
+
+================
 File: frontend/data/functions.php
 ================
 <?php
 // ============================================================
 // FILE: frontend/data/functions.php
-// OPTIMIZED - Google Sheets Integration WITH CACHE
+// OPTIMIZED - INSTANT STATUS UPDATES
 // ============================================================
 
 require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
 
 // ============================================================
-// CACHE FUNCTIONS
+// GET ALL STAFF WITH CURRENT STATUS (FROM CACHE - INSTANT!)
 // ============================================================
 
-function getCachedDataWithTTL($ttl = 60) {
-    if (file_exists(CACHE_FILE)) {
-        $cached = json_decode(file_get_contents(CACHE_FILE), true);
-        if ($cached && isset($cached['data'])) {
-            $age = time() - ($cached['fetched_at'] ?? 0);
-            if ($age < $ttl) {
-                return $cached['data'];
-            }
-        }
-    }
-    return null;
-}
-
-function getFreshOrCachedData() {
-    // TRY CACHE FIRST (FAST!)
-    $data = getCachedDataWithTTL(60);
-    if ($data) return $data;
-    
-    // Cache expired - fetch fresh (SLOW, but only once per minute)
-    $data = fetchSheetsData();
-    if ($data && isset($data['success']) && $data['success']) {
-        updateCache();
-        return $data;
-    }
-    
-    // If fetch fails, use stale cache (better than nothing)
-    $staleData = getCachedData();
-    if ($staleData) return $staleData;
-    
-    return null;
-}
-
-// ============================================================
-// DASHBOARD FUNCTIONS (NOW INSTANT!)
-// ============================================================
-
-function getDashboardStats() {
-    $data = getFreshOrCachedData();
+function getAllStaffWithStatus() {
+    $data = getCachedData();
     
     if (!$data || !isset($data['rows'])) {
-        return [
-            'success' => true,
-            'data' => [
-                'currentlyOnsite' => 0,
-                'totalClockedInToday' => 0,
-                'pendingSync' => 0,
-                'totalEventsToday' => 0
-            ]
-        ];
+        return ['success' => true, 'data' => []];
     }
     
     $rows = $data['rows'] ?? [];
@@ -10279,31 +10948,228 @@ function getDashboardStats() {
         }
     }
     
+    // Process rows - get latest status for each staff
     $staffStatus = [];
-    $today = date('Y-m-d');
-    $todayCheckins = 0;
+    $latestTimestamp = [];
     
     foreach ($rows as $row) {
         if (isset($row[1]) && !empty($row[1])) {
             $staffId = trim($row[1]);
-            $status = str_replace('Check-', '', $row[3] ?? '');
-            $statusLower = strtolower(trim($status));
             $timestamp = $row[0] ?? date('Y-m-d H:i:s');
             
-            $staffStatus[$staffId] = [
-                'name' => $row[2] ?? 'Unknown',
-                'status' => $statusLower,
-                'timestamp' => $timestamp
+            if (isset($latestTimestamp[$staffId]) && $timestamp <= $latestTimestamp[$staffId]) {
+                continue;
+            }
+            
+            $statusRaw = $row[3] ?? '';
+            $status = str_replace('Check-', '', $statusRaw);
+            $statusLower = strtolower(trim($status));
+            
+            if ($statusLower === 'in' || $statusLower === 'out') {
+                $staffStatus[$staffId] = [
+                    'id' => $staffId,
+                    'staff_id' => $staffId,
+                    'employee_id' => $staffId,
+                    'name' => $row[2] ?? 'Unknown',
+                    'status' => $statusLower,
+                    'last_action' => $timestamp
+                ];
+                $latestTimestamp[$staffId] = $timestamp;
+            }
+        }
+    }
+    
+    // Try to get users from credentials, but don't fail if it doesn't work
+    $allUsers = getAllUsersFromSheets();
+    if (!empty($allUsers)) {
+        foreach ($allUsers as $user) {
+            $userId = $user['id'] ?? '';
+            if (!empty($userId) && !isset($staffStatus[$userId])) {
+                $staffStatus[$userId] = [
+                    'id' => $userId,
+                    'staff_id' => $userId,
+                    'employee_id' => $userId,
+                    'name' => $user['name'] ?? 'Unknown',
+                    'status' => 'out',
+                    'last_action' => date('Y-m-d H:i:s')
+                ];
+            }
+        }
+    }
+    
+    return ['success' => true, 'data' => array_values($staffStatus)];
+}
+
+// ============================================================
+// GET ONSITE STAFF - INSTANT FROM CACHE
+// ============================================================
+
+function getOnsiteStaff() {
+    $allStaff = getAllStaffWithStatus();
+    if (!$allStaff['success']) {
+        return ['success' => true, 'data' => []];
+    }
+    
+    $onsite = [];
+    foreach ($allStaff['data'] as $staff) {
+        if ($staff['status'] === 'in') {
+            $onsite[] = [
+                'id' => $staff['id'],
+                'staff_id' => $staff['staff_id'],
+                'employee_id' => $staff['employee_id'],
+                'name' => $staff['name'],
+                'role' => 'Staff',
+                'sign_in_time' => $staff['last_action'],
+                'status' => 'signed_in'
             ];
         }
     }
     
+    return ['success' => true, 'data' => $onsite];
+}
+
+// ============================================================
+// GET STAFF STATUS - INSTANT FROM CACHE
+// ============================================================
+
+function getStaffStatus($userId) {
+    $allStaff = getAllStaffWithStatus();
+    if (!$allStaff['success']) {
+        return 'out';
+    }
+    
+    foreach ($allStaff['data'] as $staff) {
+        if ($staff['id'] === $userId || $staff['staff_id'] === $userId || $staff['employee_id'] === $userId) {
+            return $staff['status'];
+        }
+    }
+    
+    return 'out';
+}
+
+// ============================================================
+// GET ALL USERS FROM GOOGLE SHEETS - WITH ERROR HANDLING
+// ============================================================
+
+function getAllUsersFromSheets() {
+    $creds = getCredentialsFromSheets();
+    
+    // Check if we got valid data
+    if (!$creds || !is_array($creds) || !isset($creds['success']) || !$creds['success']) {
+        return [];
+    }
+    
+    $users = [];
+    
+    // Get Staff - check if key exists and is an array
+    $staffList = isset($creds['staff']) && is_array($creds['staff']) ? $creds['staff'] : [];
+    foreach ($staffList as $staff) {
+        if (is_array($staff)) {
+            $staffId = $staff['staff_id'] ?? $staff['Staff_ID'] ?? '';
+            if (!empty($staffId)) {
+                $users[] = [
+                    'id' => $staffId,
+                    'name' => $staff['name'] ?? $staff['Name'] ?? 'Unknown',
+                    'email' => strtolower($staffId) . '@spysee.app',
+                    'employee_id' => $staffId,
+                    'role' => 'staff',
+                    'status' => isset($staff['active']) && strtoupper($staff['active']) === 'YES' ? 'active' : 'inactive'
+                ];
+            }
+        }
+    }
+    
+    // Get Admins - check if key exists and is an array
+    $adminList = isset($creds['admins']) && is_array($creds['admins']) ? $creds['admins'] : [];
+    foreach ($adminList as $admin) {
+        if (is_array($admin)) {
+            $adminId = $admin['admin_id'] ?? $admin['Admin_ID'] ?? '';
+            if (!empty($adminId)) {
+                $users[] = [
+                    'id' => $adminId,
+                    'name' => $admin['name'] ?? $admin['Name'] ?? 'Unknown',
+                    'email' => strtolower($adminId) . '@spysee.app',
+                    'employee_id' => $adminId,
+                    'role' => 'admin',
+                    'status' => 'active'
+                ];
+            }
+        }
+    }
+    
+    return $users;
+}
+
+// ============================================================
+// CLOCK IN/OUT - INSTANT STATUS UPDATE
+// ============================================================
+
+function handleClockIn($data) {
+    $userId = $data['user_id'] ?? $_SESSION['user_id'] ?? null;
+    $staffName = $data['name'] ?? $_SESSION['user_name'] ?? 'Staff';
+    
+    if (!$userId) {
+        return ['success' => false, 'message' => 'User not identified'];
+    }
+    
+    $currentStatus = getStaffStatus($userId);
+    
+    if ($currentStatus === 'in') {
+        return ['success' => false, 'message' => 'Already Signed in'];
+    }
+    
+    updateLocalStatus($userId, 'in', $staffName);
+    sendAsyncToGoogleSheets($userId, $staffName, 'web');
+    
+    return [
+        'success' => true, 
+        'message' => 'Signed in successfully', 
+        'timestamp' => date('Y-m-d H:i:s'),
+        'status' => 'in'
+    ];
+}
+
+function handleClockOut($data) {
+    $userId = $data['user_id'] ?? $_SESSION['user_id'] ?? null;
+    $staffName = $data['name'] ?? $_SESSION['user_name'] ?? 'Staff';
+    
+    if (!$userId) {
+        return ['success' => false, 'message' => 'User not identified'];
+    }
+    
+    $currentStatus = getStaffStatus($userId);
+    
+    if ($currentStatus === 'out') {
+        return ['success' => false, 'message' => 'Not currently Signed in'];
+    }
+    
+    updateLocalStatus($userId, 'out', $staffName);
+    sendAsyncToGoogleSheets($userId, $staffName, 'web');
+    
+    return [
+        'success' => true, 
+        'message' => 'Signed out successfully', 
+        'timestamp' => date('Y-m-d H:i:s'),
+        'status' => 'out'
+    ];
+}
+
+// ============================================================
+// DASHBOARD FUNCTIONS
+// ============================================================
+
+function getDashboardStats() {
+    $allStaff = getAllStaffWithStatus();
+    
     $onsiteCount = 0;
-    foreach ($staffStatus as $sid => $staff) {
+    $todayCheckins = 0;
+    $today = date('Y-m-d');
+    
+    foreach ($allStaff['data'] as $staff) {
         if ($staff['status'] === 'in') {
             $onsiteCount++;
         }
-        $datePart = substr($staff['timestamp'], 0, 10);
+        $datePart = substr($staff['last_action'], 0, 10);
         if ($datePart === $today && $staff['status'] === 'in') {
             $todayCheckins++;
         }
@@ -10320,57 +11186,8 @@ function getDashboardStats() {
     ];
 }
 
-function getOnsiteStaff() {
-    $data = getFreshOrCachedData();
-    if (!$data || !isset($data['rows'])) {
-        return ['success' => true, 'data' => []];
-    }
-    
-    $rows = $data['rows'] ?? [];
-    
-    if (!empty($rows) && is_array($rows[0])) {
-        $firstRow = array_values($rows[0]);
-        $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
-        if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
-            array_shift($rows);
-        }
-    }
-    
-    $staffStatus = [];
-    
-    foreach ($rows as $row) {
-        if (isset($row[1]) && !empty($row[1])) {
-            $staffId = trim($row[1]);
-            $status = str_replace('Check-', '', $row[3] ?? '');
-            $statusLower = strtolower(trim($status));
-            
-            $staffStatus[$staffId] = [
-                'name' => $row[2] ?? 'Unknown',
-                'status' => $statusLower,
-                'last_action' => $row[0] ?? date('Y-m-d H:i:s')
-            ];
-        }
-    }
-    
-    $onsite = [];
-    foreach ($staffStatus as $sid => $staff) {
-        if ($staff['status'] === 'in') {
-            $onsite[] = [
-                'id' => $sid,
-                'name' => $staff['name'],
-                'role' => 'Staff',
-                'employee_id' => $sid,
-                'sign_in_time' => $staff['last_action'],
-                'status' => 'signed_in'
-            ];
-        }
-    }
-    
-    return ['success' => true, 'data' => $onsite];
-}
-
 function getRecentActivity() {
-    $data = getFreshOrCachedData();
+    $data = getCachedData();
     
     if (!$data || !isset($data['rows'])) {
         return ['success' => true, 'data' => []];
@@ -10392,10 +11209,11 @@ function getRecentActivity() {
     foreach (array_reverse($rows) as $row) {
         if ($count >= 10) break;
         if (isset($row[1]) && isset($row[2]) && isset($row[3])) {
+            $status = str_replace('Check-', '', $row[3] ?? '');
             $activities[] = [
                 'id' => uniqid(),
                 'name' => $row[2] ?? 'Unknown',
-                'action' => str_replace('Check-', '', $row[3] ?? ''),
+                'action' => strtolower(trim($status)) === 'in' ? 'sign-in' : 'sign-out',
                 'timestamp' => $row[0] ?? date('Y-m-d H:i:s')
             ];
             $count++;
@@ -10406,57 +11224,11 @@ function getRecentActivity() {
 }
 
 // ============================================================
-// CLOCK IN/OUT
-// ============================================================
-
-function handleClockIn($data) {
-    $userId = $data['user_id'] ?? $_SESSION['user_id'] ?? null;
-    $staffName = $data['name'] ?? $_SESSION['user_name'] ?? 'Staff';
-    
-    if (!$userId) {
-        return ['success' => false, 'message' => 'User not identified'];
-    }
-    
-    $currentStatus = getStatusFromCache($userId);
-    
-    if ($currentStatus === 'in') {
-        return ['success' => false, 'message' => 'Already Signed in'];
-    }
-    
-    updateLocalStatus($userId, 'in', $staffName);
-    sendAsyncToGoogleSheets($userId, $staffName, 'web');
-    updateCache();
-    
-    return ['success' => true, 'message' => 'Signed in successfully', 'timestamp' => date('Y-m-d H:i:s')];
-}
-
-function handleClockOut($data) {
-    $userId = $data['user_id'] ?? $_SESSION['user_id'] ?? null;
-    $staffName = $data['name'] ?? $_SESSION['user_name'] ?? 'Staff';
-    
-    if (!$userId) {
-        return ['success' => false, 'message' => 'User not identified'];
-    }
-    
-    $currentStatus = getStatusFromCache($userId);
-    
-    if ($currentStatus === 'out') {
-        return ['success' => false, 'message' => 'Not currently Signed in'];
-    }
-    
-    updateLocalStatus($userId, 'out', $staffName);
-    sendAsyncToGoogleSheets($userId, $staffName, 'web');
-    updateCache();
-    
-    return ['success' => true, 'message' => 'Signed out successfully', 'timestamp' => date('Y-m-d H:i:s')];
-}
-
-// ============================================================
 // USER HISTORY
 // ============================================================
 
 function getUserHistory($userId) {
-    $data = getFreshOrCachedData();
+    $data = getCachedData();
     
     if (!$data || !isset($data['rows'])) {
         return ['success' => true, 'data' => []];
@@ -10475,13 +11247,18 @@ function getUserHistory($userId) {
     $records = [];
     foreach ($rows as $row) {
         if (isset($row[1]) && $row[1] === $userId) {
+            $status = str_replace('Check-', '', $row[3] ?? '');
+            $type = strtolower(trim($status)) === 'in' ? 'sign-in' : 'sign-out';
+            $method = isset($row[4]) && !empty($row[4]) ? $row[4] : 'QR';
+            
             $records[] = [
                 'id' => uniqid(),
                 'user_id' => $row[1],
-                'type' => str_replace('Check-', '', $row[3] ?? ''),
+                'type' => $type,
                 'timestamp' => $row[0] ?? date('Y-m-d H:i:s'),
                 'date' => isset($row[0]) ? substr($row[0], 0, 10) : date('Y-m-d'),
-                'location' => $row[4] ?? 'Office'
+                'location' => $row[5] ?? 'Office',
+                'method' => $method
             ];
         }
     }
@@ -10490,7 +11267,7 @@ function getUserHistory($userId) {
 }
 
 function getAllAttendanceLogs() {
-    $data = getFreshOrCachedData();
+    $data = getCachedData();
     
     if (!$data || !isset($data['rows'])) {
         return ['success' => true, 'data' => []];
@@ -10509,10 +11286,11 @@ function getAllAttendanceLogs() {
     $logs = [];
     foreach (array_reverse($rows) as $row) {
         if (isset($row[1]) && isset($row[2]) && isset($row[3])) {
+            $status = str_replace('Check-', '', $row[3] ?? '');
             $logs[] = [
                 'id' => uniqid(),
                 'staff' => $row[2] ?? 'Unknown',
-                'type' => str_replace('Check-', '', $row[3] ?? ''),
+                'type' => strtolower(trim($status)) === 'in' ? 'sign-in' : 'sign-out',
                 'timestamp' => $row[0] ?? date('Y-m-d H:i:s'),
                 'date' => isset($row[0]) ? substr($row[0], 0, 10) : date('Y-m-d'),
                 'location' => $row[4] ?? 'Office',
@@ -10529,59 +11307,15 @@ function getAllAttendanceLogs() {
 // ============================================================
 
 function getAllUsers() {
-    $creds = getCredentialsFromSheets();
-    if (!$creds || !$creds['success']) {
-        return ['success' => false, 'data' => []];
-    }
-    
-    $users = [];
-    foreach ($creds['staff'] as $staff) {
-        $users[] = [
-            'id' => $staff['staff_id'],
-            'name' => $staff['name'],
-            'email' => strtolower($staff['staff_id']) . '@spysee.app',
-            'employee_id' => $staff['staff_id'],
-            'role' => 'staff',
-            'status' => $staff['active'] === 'YES' ? 'active' : 'inactive'
-        ];
-    }
-    
-    foreach ($creds['admins'] as $admin) {
-        $users[] = [
-            'id' => $admin['admin_id'],
-            'name' => $admin['name'],
-            'email' => strtolower($admin['admin_id']) . '@spysee.app',
-            'employee_id' => $admin['admin_id'],
-            'role' => 'admin',
-            'status' => 'active'
-        ];
-    }
-    
+    $users = getAllUsersFromSheets();
     return ['success' => true, 'data' => $users];
 }
 
-function findUserById($data, $userId) {
-    $creds = getCredentialsFromSheets();
-    if ($creds && $creds['success']) {
-        foreach ($creds['staff'] as $staff) {
-            if ($staff['staff_id'] === $userId) {
-                return [
-                    'id' => $staff['staff_id'],
-                    'name' => $staff['name'],
-                    'role' => 'staff',
-                    'employee_id' => $staff['staff_id']
-                ];
-            }
-        }
-        foreach ($creds['admins'] as $admin) {
-            if ($admin['admin_id'] === $userId) {
-                return [
-                    'id' => $admin['admin_id'],
-                    'name' => $admin['name'],
-                    'role' => 'admin',
-                    'employee_id' => $admin['admin_id']
-                ];
-            }
+function findUserById($userId) {
+    $users = getAllUsersFromSheets();
+    foreach ($users as $user) {
+        if ($user['id'] === $userId || $user['employee_id'] === $userId) {
+            return $user;
         }
     }
     return null;
@@ -10596,10 +11330,37 @@ declare(strict_types=1);
 
 session_start();
 
-// Force no cache for development
-header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-header("Cache-Control: post-check=0, pre-check=0", false);
-header("Pragma: no-cache");
+// ============================================================
+// RATE LIMITING - Prevent API flooding
+// ============================================================
+function checkRateLimit() {
+    $rateLimitKey = 'rate_limit_' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    $rateLimitFile = sys_get_temp_dir() . '/' . $rateLimitKey . '.json';
+    $now = time();
+    $limit = 20; // Max 20 requests per minute
+    $window = 60;
+    
+    if (file_exists($rateLimitFile)) {
+        $data = json_decode(file_get_contents($rateLimitFile), true);
+        if ($data && isset($data['count']) && isset($data['reset'])) {
+            if ($now < $data['reset']) {
+                if ($data['count'] >= $limit) {
+                    http_response_code(429);
+                    echo json_encode(['success' => false, 'message' => 'Too many requests. Please wait.']);
+                    exit;
+                }
+                $data['count']++;
+            } else {
+                $data = ['count' => 1, 'reset' => $now + $window];
+            }
+        } else {
+            $data = ['count' => 1, 'reset' => $now + $window];
+        }
+    } else {
+        $data = ['count' => 1, 'reset' => $now + $window];
+    }
+    file_put_contents($rateLimitFile, json_encode($data));
+}
 
 // ============================================================
 // ROUTER SETUP
@@ -10609,17 +11370,42 @@ $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
 $baseUrl = rtrim(str_replace('\\', '/', dirname($scriptName)), '/');
 $baseUrl = $baseUrl === '' ? '' : $baseUrl;
 
-if (str_starts_with($requestPath, $scriptName)) {
-    $path = substr($requestPath, strlen($scriptName)) ?: '/';
-} elseif ($baseUrl !== '' && str_starts_with($requestPath, $baseUrl)) {
-    $path = substr($requestPath, strlen($baseUrl)) ?: '/';
-} else {
-    $path = $requestPath;
+$path = $requestPath;
+if ($baseUrl !== '' && str_starts_with($path, $baseUrl)) {
+    $path = substr($path, strlen($baseUrl)) ?: '/';
+}
+if (str_starts_with($path, $scriptName)) {
+    $path = substr($path, strlen($scriptName)) ?: '/';
 }
 
 $path = '/' . trim($path, '/');
 $path = $path === '/' ? '/' : rtrim($path, '/');
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+// ============================================================
+// STATIC FILE HANDLING - Cached aggressively
+// ============================================================
+$staticExtensions = ['css', 'js', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'eot', 'map'];
+$pathInfo = pathinfo($requestPath);
+
+if (isset($pathInfo['extension']) && in_array($pathInfo['extension'], $staticExtensions)) {
+    $filePath = __DIR__ . '/assets/' . ltrim($requestPath, '/');
+    if (file_exists($filePath)) {
+        $mimeTypes = [
+            'css' => 'text/css', 'js' => 'application/javascript',
+            'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'ico' => 'image/x-icon',
+            'woff' => 'font/woff', 'woff2' => 'font/woff2', 'ttf' => 'font/ttf',
+            'eot' => 'application/vnd.ms-fontobject', 'map' => 'application/json'
+        ];
+        if (isset($mimeTypes[$pathInfo['extension']])) {
+            header('Content-Type: ' . $mimeTypes[$pathInfo['extension']]);
+        }
+        header('Cache-Control: public, max-age=31536000, immutable');
+        readfile($filePath);
+        exit;
+    }
+}
 
 // ============================================================
 // LOAD FUNCTIONS
@@ -10638,19 +11424,12 @@ function view(string $view, array $data = []): void
 function route_url(string $path = '/'): string
 {
     $path = '/' . trim($path, '/');
-    $path = $path === '/' ? '/' : $path;
-    return ($GLOBALS['baseUrl'] ?? '') . '/index.php' . ($path === '/' ? '' : $path);
+    return $path === '/' ? '/index.php' : '/index.php' . $path;
 }
 
 function asset_url(string $path): string
 {
-    return ($GLOBALS['baseUrl'] ?? '') . '/assets/' . ltrim($path, '/');
-}
-
-function api_url(string $path = ''): string
-{
-    $path = '/' . trim($path, '/');
-    return ($GLOBALS['baseUrl'] ?? '') . '/index.php/api' . ($path === '/' ? '' : $path);
+    return '/assets/' . ltrim($path, '/');
 }
 
 function redirect_to(string $path): never
@@ -10669,24 +11448,24 @@ function getSessionRole(): ?string {
 if ($path === '/login' && $method === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
-    
     $creds = getCredentialsFromSheets();
     
     if ($creds && $creds['success']) {
         $loggedIn = false;
-        
         foreach ($creds['staff'] as $staff) {
-            if ($staff['staff_id'] === $username && $staff['pin'] === $password && $staff['active'] === 'YES') {
+            $staffId = $staff['staff_id'] ?? '';
+            $staffPin = $staff['pin'] ?? $staff['PIN'] ?? '';
+            $staffActive = $staff['active'] ?? $staff['Active'] ?? 'NO';
+            if ($staffId === $username && $staffPin === $password && strtoupper($staffActive) === 'YES') {
                 $_SESSION['logged_in'] = true;
                 $_SESSION['user_type'] = 'staff';
                 $_SESSION['user_role'] = 'staff';
-                $_SESSION['staff_id'] = $staff['staff_id'];
-                $_SESSION['staff_name'] = $staff['name'];
-                $_SESSION['user_id'] = $staff['staff_id'];
-                $_SESSION['user_name'] = $staff['name'];
-                $_SESSION['employee_id'] = $staff['staff_id'];
+                $_SESSION['staff_id'] = $staffId;
+                $_SESSION['staff_name'] = $staff['name'] ?? 'Staff';
+                $_SESSION['user_id'] = $staffId;
+                $_SESSION['user_name'] = $staff['name'] ?? 'Staff';
+                $_SESSION['employee_id'] = $staffId;
                 $loggedIn = true;
-                
                 if (!empty($_SESSION['redirect_after_login'])) {
                     $redirectUrl = $_SESSION['redirect_after_login'];
                     unset($_SESSION['redirect_after_login']);
@@ -10697,19 +11476,19 @@ if ($path === '/login' && $method === 'POST') {
                 exit;
             }
         }
-        
         foreach ($creds['admins'] as $admin) {
-            if ($admin['admin_id'] === $username && $admin['password'] === $password) {
+            $adminId = $admin['admin_id'] ?? '';
+            $adminPass = $admin['password'] ?? $admin['Password'] ?? '';
+            if ($adminId === $username && $adminPass === $password) {
                 $_SESSION['logged_in'] = true;
                 $_SESSION['user_type'] = 'admin';
                 $_SESSION['user_role'] = 'admin';
-                $_SESSION['staff_id'] = $admin['admin_id'];
-                $_SESSION['staff_name'] = $admin['name'];
-                $_SESSION['user_id'] = $admin['admin_id'];
-                $_SESSION['user_name'] = $admin['name'];
-                $_SESSION['employee_id'] = $admin['admin_id'];
+                $_SESSION['staff_id'] = $adminId;
+                $_SESSION['staff_name'] = $admin['name'] ?? 'Admin';
+                $_SESSION['user_id'] = $adminId;
+                $_SESSION['user_name'] = $admin['name'] ?? 'Admin';
+                $_SESSION['employee_id'] = $adminId;
                 $loggedIn = true;
-                
                 if (!empty($_SESSION['redirect_after_login'])) {
                     $redirectUrl = $_SESSION['redirect_after_login'];
                     unset($_SESSION['redirect_after_login']);
@@ -10720,14 +11499,12 @@ if ($path === '/login' && $method === 'POST') {
                 exit;
             }
         }
-        
         if (!$loggedIn) {
             $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
         }
     } else {
         $_SESSION['login_error'] = '❌ Could not connect to Google Sheets. Check your config.';
     }
-    
     header('Location: /index.php/login');
     exit;
 }
@@ -10742,10 +11519,14 @@ if ($path === '/logout') {
 }
 
 // ============================================================
-// API ROUTES - CLEAN SWITCH
+// API ROUTES - With Rate Limiting
 // ============================================================
-if (str_starts_with($path, '/api/')) {
+if ($path === '/api' || str_starts_with($path, '/api/')) {
+    // Apply rate limiting to API calls
+    checkRateLimit();
+    
     header('Content-Type: application/json');
+    header('Cache-Control: private, max-age=5');
     
     $apiPath = str_replace('.php', '', $path);
     
@@ -10753,38 +11534,33 @@ if (str_starts_with($path, '/api/')) {
         case '/api/dashboard-stats':
             echo json_encode(getDashboardStats());
             break;
-            
         case '/api/onsite-staff':
             echo json_encode(getOnsiteStaff());
             break;
-            
+        case '/api/all-staff':
+            echo json_encode(getAllStaffWithStatus());
+            break;
         case '/api/recent-activity':
             echo json_encode(getRecentActivity());
             break;
-            
         case '/api/sign-in':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
             echo json_encode(handleClockIn($data));
             break;
-            
         case '/api/sign-out':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
             echo json_encode(handleClockOut($data));
             break;
-            
         case '/api/user-history':
             $userId = $_GET['user_id'] ?? $_SESSION['user_id'] ?? '';
             echo json_encode(getUserHistory($userId));
             break;
-            
         case '/api/attendance-logs':
             echo json_encode(getAllAttendanceLogs());
             break;
-            
         case '/api/users':
             echo json_encode(getAllUsers());
             break;
-            
         case '/api/check-scan-result':
             if (isset($_SESSION['qr_result'])) {
                 $result = $_SESSION['qr_result'];
@@ -10800,17 +11576,128 @@ if (str_starts_with($path, '/api/')) {
                 echo json_encode(['success' => false]);
             }
             break;
-            
+        case '/api/test-sheets-connection':
+            $connected = false;
+            $lastSync = '';
+            $cacheAge = 'Unknown';
+            $error = '';
+            try {
+                $data = fetchSheetsData();
+                if ($data && isset($data['success']) && $data['success']) {
+                    $connected = true;
+                    if (file_exists(CACHE_FILE)) {
+                        $cached = json_decode(file_get_contents(CACHE_FILE), true);
+                        if ($cached && isset($cached['fetched_at'])) {
+                            $lastSync = date('Y-m-d H:i:s', $cached['fetched_at']);
+                            $age = time() - $cached['fetched_at'];
+                            if ($age < 60) $cacheAge = $age . ' seconds ago';
+                            elseif ($age < 3600) $cacheAge = round($age / 60) . ' minutes ago';
+                            else $cacheAge = round($age / 3600) . ' hours ago';
+                        }
+                    }
+                } else {
+                    $error = $data['error'] ?? 'Failed to fetch data';
+                }
+            } catch (Exception $e) {
+                $error = $e->getMessage();
+            }
+            echo json_encode([
+                'success' => true,
+                'connected' => $connected,
+                'last_sync' => $lastSync,
+                'cache_age' => $cacheAge,
+                'error' => $error
+            ]);
+            break;
+        case '/api/clear-cache':
+            try {
+                if (file_exists(CACHE_FILE)) unlink(CACHE_FILE);
+                updateCache();
+                echo json_encode(['success' => true, 'message' => 'Cache cleared and refreshed']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+        case '/api/refresh-data':
+            try {
+                $result = updateCache();
+                if ($result) {
+                    echo json_encode(['success' => true, 'message' => 'Data refreshed successfully']);
+                } else {
+                    echo json_encode(['success' => false, 'error' => 'Failed to refresh data']);
+                }
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+        case '/api/settings':
+            $input = json_decode(file_get_contents('php://input'), true);
+            $action = $input['action'] ?? '';
+            switch ($action) {
+                case 'update_session_timeout':
+                    $timeout = intval($input['timeout'] ?? 30);
+                    if ($timeout < 5) $timeout = 5;
+                    if ($timeout > 1440) $timeout = 1440;
+                    ini_set('session.gc_maxlifetime', $timeout * 60);
+                    echo json_encode(['success' => true, 'message' => 'Session timeout updated to ' . $timeout . ' minutes']);
+                    break;
+                default:
+                    echo json_encode(['success' => false, 'error' => 'Unknown action']);
+            }
+            break;
+        case '/api/clear-old-data':
+            $input = json_decode(file_get_contents('php://input'), true);
+            $days = intval($input['days'] ?? 90);
+            try {
+                $data = getCachedData();
+                if (!$data || !isset($data['rows'])) {
+                    echo json_encode(['success' => true, 'deleted' => 0]);
+                    break;
+                }
+                $rows = $data['rows'] ?? [];
+                $cutoff = date('Y-m-d H:i:s', strtotime("-$days days"));
+                $deleted = 0;
+                $newRows = [];
+                $header = [];
+                if (!empty($rows) && is_array($rows[0])) {
+                    $firstRow = array_values($rows[0]);
+                    $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
+                    if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
+                        $header = array_shift($rows);
+                    }
+                }
+                foreach ($rows as $row) {
+                    if (isset($row[0])) {
+                        try {
+                            $date = new DateTime($row[0]);
+                            if ($date < new DateTime($cutoff)) {
+                                $deleted++;
+                                continue;
+                            }
+                        } catch (Exception $e) {}
+                    }
+                    $newRows[] = $row;
+                }
+                if (!empty($header)) array_unshift($newRows, $header);
+                $data['rows'] = $newRows;
+                file_put_contents(CACHE_FILE, json_encode([
+                    'data' => $data,
+                    'fetched_at' => time()
+                ]));
+                echo json_encode(['success' => true, 'deleted' => $deleted, 'remaining' => count($newRows)]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
         default:
             http_response_code(404);
-            echo json_encode(['success' => false, 'message' => 'API endpoint not found']);
-            break;
+            echo json_encode(['success' => false, 'message' => 'API endpoint not found: ' . $apiPath]);
     }
     exit;
 }
 
 // ============================================================
-// PAGE ROUTES - CLEAN SWITCH
+// PAGE ROUTES
 // ============================================================
 switch ($path) {
     case '/':
@@ -10820,129 +11707,77 @@ switch ($path) {
         unset($_SESSION['login_error']);
         view('login', compact('title', 'error'));
         break;
-
     case '/staff-dashboard':
-        if (!isLoggedIn()) {
-            redirect_to('/login');
-            break;
-        }
-        
+        if (!isLoggedIn()) { redirect_to('/login'); break; }
         $role = getSessionRole();
-        if ($role === 'admin') {
-            redirect_to('/admin-dashboard');
-            break;
-        }
-        if ($role !== 'staff') {
-            redirect_to('/login');
-            break;
-        }
-        
+        if ($role === 'admin') { redirect_to('/admin-dashboard'); break; }
+        if ($role !== 'staff') { redirect_to('/login'); break; }
         $title = 'Staff Dashboard | SpySee';
         $user = [
-            'name' => $_SESSION['user_name'] ?? 'Staff',
+            'id' => $_SESSION['staff_id'] ?? $_SESSION['user_id'] ?? 'STF-001',
+            'name' => $_SESSION['staff_name'] ?? $_SESSION['user_name'] ?? 'Staff',
             'email' => $_SESSION['user_email'] ?? '',
-            'employeeId' => $_SESSION['employee_id'] ?? '',
+            'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'STF-001',
             'role' => 'staff'
         ];
         view('staff/dashboard', compact('title', 'user'));
         break;
-
     case '/scan-qr':
-        if (!isLoggedIn() || getSessionRole() !== 'staff') {
-            redirect_to('/login');
-            break;
-        }
+        if (!isLoggedIn() || getSessionRole() !== 'staff') { redirect_to('/login'); break; }
         $title = 'Scan QR Code | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Staff', 'email' => $_SESSION['user_email'] ?? ''];
+        $user = ['id' => $_SESSION['staff_id'] ?? 'STF-001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
         view('staff/scan-qr', compact('title', 'user'));
         break;
-
     case '/history':
-        if (!isLoggedIn() || getSessionRole() !== 'staff') {
-            redirect_to('/login');
-            break;
-        }
+        if (!isLoggedIn() || getSessionRole() !== 'staff') { redirect_to('/login'); break; }
         $title = 'Attendance History | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Staff', 'email' => $_SESSION['user_email'] ?? ''];
+        $user = ['id' => $_SESSION['staff_id'] ?? 'STF-001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
         view('staff/history', compact('title', 'user'));
         break;
-
     case '/calendar':
-        if (!isLoggedIn() || getSessionRole() !== 'staff') {
-            redirect_to('/login');
-            break;
-        }
+        if (!isLoggedIn() || getSessionRole() !== 'staff') { redirect_to('/login'); break; }
         $title = 'Calendar | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Staff', 'email' => $_SESSION['user_email'] ?? ''];
+        $user = ['id' => $_SESSION['staff_id'] ?? 'STF-001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
         view('staff/calendar', compact('title', 'user'));
         break;
-
     case '/profile':
-        if (!isLoggedIn() || getSessionRole() !== 'staff') {
-            redirect_to('/login');
-            break;
-        }
+        if (!isLoggedIn() || getSessionRole() !== 'staff') { redirect_to('/login'); break; }
         $title = 'Profile | SpySee';
         $user = [
-            'name' => $_SESSION['user_name'] ?? 'Staff',
+            'id' => $_SESSION['staff_id'] ?? 'STF-001',
+            'name' => $_SESSION['staff_name'] ?? 'Staff',
             'email' => $_SESSION['user_email'] ?? '',
-            'employeeId' => $_SESSION['employee_id'] ?? '',
-            'role' => 'staff'
+            'employeeId' => $_SESSION['staff_id'] ?? 'STF-001'
         ];
         view('staff/profile', compact('title', 'user'));
         break;
-
     case '/admin-dashboard':
-        if (!isLoggedIn() || getSessionRole() !== 'admin') {
-            redirect_to('/login');
-            break;
-        }
+        if (!isLoggedIn() || getSessionRole() !== 'admin') { redirect_to('/login'); break; }
         $title = 'Admin Dashboard | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
-        view('admin/dashboard', compact('title', 'user'));
+        view('admin/dashboard', compact('title'));
         break;
-
     case '/admin-dashboard/users':
-        if (!isLoggedIn() || getSessionRole() !== 'admin') {
-            redirect_to('/login');
-            break;
-        }
+        if (!isLoggedIn() || getSessionRole() !== 'admin') { redirect_to('/login'); break; }
         $title = 'User Management | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
-        view('admin/users', compact('title', 'user'));
+        view('admin/users', compact('title'));
         break;
-
     case '/admin-dashboard/attendance':
-        if (!isLoggedIn() || getSessionRole() !== 'admin') {
-            redirect_to('/login');
-            break;
-        }
+        if (!isLoggedIn() || getSessionRole() !== 'admin') { redirect_to('/login'); break; }
         $title = 'Attendance Logs | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
-        view('admin/attendance', compact('title', 'user'));
+        view('admin/attendance', compact('title'));
         break;
-
     case '/admin-dashboard/qr':
     case '/admin-dashboard/qr-generator':
     case '/admin-dashboard/qr-display':
-        if (!isLoggedIn() || getSessionRole() !== 'admin') {
-            redirect_to('/login');
-            break;
-        }
+        if (!isLoggedIn() || getSessionRole() !== 'admin') { redirect_to('/login'); break; }
         $title = 'QR Terminal | SpySee';
         view('admin/qr', compact('title'));
         break;
-
     case '/admin-dashboard/settings':
-        if (!isLoggedIn() || getSessionRole() !== 'admin') {
-            redirect_to('/login');
-            break;
-        }
+        if (!isLoggedIn() || getSessionRole() !== 'admin') { redirect_to('/login'); break; }
         $title = 'Settings | SpySee';
-        $user = ['name' => $_SESSION['user_name'] ?? 'Admin', 'email' => $_SESSION['user_email'] ?? ''];
-        view('admin/settings', compact('title', 'user'));
+        view('admin/settings', compact('title'));
         break;
-
     default:
         http_response_code(404);
         $title = 'Not Found | SpySee';

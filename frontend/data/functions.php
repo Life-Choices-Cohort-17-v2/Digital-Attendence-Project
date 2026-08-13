@@ -11,7 +11,7 @@ require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
 // ============================================================
 
 function getAllStaffWithStatus() {
-    $data = getCachedData(); // Use cache directly - no fetch delay
+    $data = getCachedData();
     
     if (!$data || !isset($data['rows'])) {
         return ['success' => true, 'data' => []];
@@ -37,7 +37,6 @@ function getAllStaffWithStatus() {
             $staffId = trim($row[1]);
             $timestamp = $row[0] ?? date('Y-m-d H:i:s');
             
-            // Skip if this timestamp is older than what we have
             if (isset($latestTimestamp[$staffId]) && $timestamp <= $latestTimestamp[$staffId]) {
                 continue;
             }
@@ -60,19 +59,21 @@ function getAllStaffWithStatus() {
         }
     }
     
-    // Get all users from credentials
+    // Try to get users from credentials, but don't fail if it doesn't work
     $allUsers = getAllUsersFromSheets();
-    foreach ($allUsers as $user) {
-        $userId = $user['id'];
-        if (!isset($staffStatus[$userId])) {
-            $staffStatus[$userId] = [
-                'id' => $userId,
-                'staff_id' => $userId,
-                'employee_id' => $userId,
-                'name' => $user['name'],
-                'status' => 'out',
-                'last_action' => date('Y-m-d H:i:s')
-            ];
+    if (!empty($allUsers)) {
+        foreach ($allUsers as $user) {
+            $userId = $user['id'] ?? '';
+            if (!empty($userId) && !isset($staffStatus[$userId])) {
+                $staffStatus[$userId] = [
+                    'id' => $userId,
+                    'staff_id' => $userId,
+                    'employee_id' => $userId,
+                    'name' => $user['name'] ?? 'Unknown',
+                    'status' => 'out',
+                    'last_action' => date('Y-m-d H:i:s')
+                ];
+            }
         }
     }
     
@@ -127,37 +128,53 @@ function getStaffStatus($userId) {
 }
 
 // ============================================================
-// GET ALL USERS FROM GOOGLE SHEETS
+// GET ALL USERS FROM GOOGLE SHEETS - WITH ERROR HANDLING
 // ============================================================
 
 function getAllUsersFromSheets() {
     $creds = getCredentialsFromSheets();
-    if (!$creds || !$creds['success']) {
+    
+    // Check if we got valid data
+    if (!$creds || !is_array($creds) || !isset($creds['success']) || !$creds['success']) {
         return [];
     }
     
     $users = [];
     
-    foreach ($creds['staff'] as $staff) {
-        $users[] = [
-            'id' => $staff['staff_id'] ?? $staff['Staff_ID'] ?? '',
-            'name' => $staff['name'] ?? $staff['Name'] ?? 'Unknown',
-            'email' => strtolower($staff['staff_id'] ?? '') . '@spysee.app',
-            'employee_id' => $staff['staff_id'] ?? $staff['Staff_ID'] ?? '',
-            'role' => 'staff',
-            'status' => isset($staff['active']) && strtoupper($staff['active']) === 'YES' ? 'active' : 'inactive'
-        ];
+    // Get Staff - check if key exists and is an array
+    $staffList = isset($creds['staff']) && is_array($creds['staff']) ? $creds['staff'] : [];
+    foreach ($staffList as $staff) {
+        if (is_array($staff)) {
+            $staffId = $staff['staff_id'] ?? $staff['Staff_ID'] ?? '';
+            if (!empty($staffId)) {
+                $users[] = [
+                    'id' => $staffId,
+                    'name' => $staff['name'] ?? $staff['Name'] ?? 'Unknown',
+                    'email' => strtolower($staffId) . '@spysee.app',
+                    'employee_id' => $staffId,
+                    'role' => 'staff',
+                    'status' => isset($staff['active']) && strtoupper($staff['active']) === 'YES' ? 'active' : 'inactive'
+                ];
+            }
+        }
     }
     
-    foreach ($creds['admins'] as $admin) {
-        $users[] = [
-            'id' => $admin['admin_id'] ?? $admin['Admin_ID'] ?? '',
-            'name' => $admin['name'] ?? $admin['Name'] ?? 'Unknown',
-            'email' => strtolower($admin['admin_id'] ?? '') . '@spysee.app',
-            'employee_id' => $admin['admin_id'] ?? $admin['Admin_ID'] ?? '',
-            'role' => 'admin',
-            'status' => 'active'
-        ];
+    // Get Admins - check if key exists and is an array
+    $adminList = isset($creds['admins']) && is_array($creds['admins']) ? $creds['admins'] : [];
+    foreach ($adminList as $admin) {
+        if (is_array($admin)) {
+            $adminId = $admin['admin_id'] ?? $admin['Admin_ID'] ?? '';
+            if (!empty($adminId)) {
+                $users[] = [
+                    'id' => $adminId,
+                    'name' => $admin['name'] ?? $admin['Name'] ?? 'Unknown',
+                    'email' => strtolower($adminId) . '@spysee.app',
+                    'employee_id' => $adminId,
+                    'role' => 'admin',
+                    'status' => 'active'
+                ];
+            }
+        }
     }
     
     return $users;
@@ -175,28 +192,21 @@ function handleClockIn($data) {
         return ['success' => false, 'message' => 'User not identified'];
     }
     
-    // Check current status from cache
     $currentStatus = getStaffStatus($userId);
     
     if ($currentStatus === 'in') {
         return ['success' => false, 'message' => 'Already Signed in'];
     }
     
-    // INSTANT: Update local cache immediately
     updateLocalStatus($userId, 'in', $staffName);
+    sendAsyncToGoogleSheets($userId, $staffName, 'web');
     
-    // INSTANT: Return success to user (no waiting)
-    $result = [
+    return [
         'success' => true, 
         'message' => 'Signed in successfully', 
         'timestamp' => date('Y-m-d H:i:s'),
         'status' => 'in'
     ];
-    
-    // BACKGROUND: Send to Google Sheets (non-blocking)
-    sendAsyncToGoogleSheets($userId, $staffName, 'web');
-    
-    return $result;
 }
 
 function handleClockOut($data) {
@@ -213,21 +223,15 @@ function handleClockOut($data) {
         return ['success' => false, 'message' => 'Not currently Signed in'];
     }
     
-    // INSTANT: Update local cache immediately
     updateLocalStatus($userId, 'out', $staffName);
+    sendAsyncToGoogleSheets($userId, $staffName, 'web');
     
-    // INSTANT: Return success
-    $result = [
+    return [
         'success' => true, 
         'message' => 'Signed out successfully', 
         'timestamp' => date('Y-m-d H:i:s'),
         'status' => 'out'
     ];
-    
-    // BACKGROUND: Send to Google Sheets
-    sendAsyncToGoogleSheets($userId, $staffName, 'web');
-    
-    return $result;
 }
 
 // ============================================================
@@ -324,13 +328,17 @@ function getUserHistory($userId) {
     foreach ($rows as $row) {
         if (isset($row[1]) && $row[1] === $userId) {
             $status = str_replace('Check-', '', $row[3] ?? '');
+            $type = strtolower(trim($status)) === 'in' ? 'sign-in' : 'sign-out';
+            $method = isset($row[4]) && !empty($row[4]) ? $row[4] : 'QR';
+            
             $records[] = [
                 'id' => uniqid(),
                 'user_id' => $row[1],
-                'type' => strtolower(trim($status)) === 'in' ? 'sign-in' : 'sign-out',
+                'type' => $type,
                 'timestamp' => $row[0] ?? date('Y-m-d H:i:s'),
                 'date' => isset($row[0]) ? substr($row[0], 0, 10) : date('Y-m-d'),
-                'location' => $row[4] ?? 'Office'
+                'location' => $row[5] ?? 'Office',
+                'method' => $method
             ];
         }
     }

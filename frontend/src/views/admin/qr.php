@@ -338,7 +338,7 @@ function startCountdown(seconds) {
 
 async function loadStaff() {
     try {
-        const response = await fetch('/api/onsite-staff.php');
+        const response = await fetch('/api/onsite-staff');
         const data = await response.json();
         const staff = data.data || [];
         const container = document.getElementById('staffList');
