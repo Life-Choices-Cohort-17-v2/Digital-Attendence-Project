@@ -52,7 +52,8 @@ try {
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-$uri = parse_url($requestUri, PHP_URL_PATH);
+// Ensure $uri defaults to empty string if parse_url returns null or false
+$uri = parse_url($requestUri, PHP_URL_PATH) ?? '';
 
 // Dynamic path resolution (supports subfolders or defined BASE_PATH constant)
 if (defined('BASE_PATH')) {
@@ -61,8 +62,11 @@ if (defined('BASE_PATH')) {
     $route = preg_replace('#^/.*?(backend|Digital-Attendence-Project)#i', '', $uri);
 }
 
+// Normalize multiple slashes and trailing slashes
+$route = preg_replace('#/+#', '/', $route);
 $route = str_replace('/index.php', '', $route);
 $route = rtrim($route, '/');
+
 if (empty($route)) {
     $route = '/';
 }
@@ -162,6 +166,25 @@ switch ($route) {
             echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
         }
         break;
+
+        // --- SETTINGS ENDPOINTS ---
+    case '/settings':
+        if ($method === 'GET') {
+            (new Controllers\SettingsController($pdo))->index();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    case '/sync-errors':
+    if ($method === 'GET') {
+        (new Controllers\SyncErrorController($pdo))->index(); // <-- Singular matches SyncErrorController.php
+    } else {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+    }
+    break;
 
     // Default 404
     default:
