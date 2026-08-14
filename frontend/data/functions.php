@@ -1,13 +1,13 @@
 <?php
 // ============================================================
 // FILE: frontend/data/functions.php
-// OPTIMIZED - INSTANT STATUS UPDATES
+// GOOGLE SHEETS INTEGRATION - NO MOCK DATA
 // ============================================================
 
 require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
 
 // ============================================================
-// GET ALL STAFF WITH CURRENT STATUS (FROM CACHE - INSTANT!)
+// GET ALL STAFF WITH CURRENT STATUS (FROM CACHE)
 // ============================================================
 
 function getAllStaffWithStatus() {
@@ -59,7 +59,7 @@ function getAllStaffWithStatus() {
         }
     }
     
-    // Try to get users from credentials, but don't fail if it doesn't work
+    // Get users from credentials
     $allUsers = getAllUsersFromSheets();
     if (!empty($allUsers)) {
         foreach ($allUsers as $user) {
@@ -81,7 +81,7 @@ function getAllStaffWithStatus() {
 }
 
 // ============================================================
-// GET ONSITE STAFF - INSTANT FROM CACHE
+// GET ONSITE STAFF - FROM CACHE
 // ============================================================
 
 function getOnsiteStaff() {
@@ -109,7 +109,7 @@ function getOnsiteStaff() {
 }
 
 // ============================================================
-// GET STAFF STATUS - INSTANT FROM CACHE
+// GET STAFF STATUS - FROM CACHE
 // ============================================================
 
 function getStaffStatus($userId) {
@@ -128,20 +128,19 @@ function getStaffStatus($userId) {
 }
 
 // ============================================================
-// GET ALL USERS FROM GOOGLE SHEETS - WITH ERROR HANDLING
+// GET ALL USERS FROM GOOGLE SHEETS
 // ============================================================
 
 function getAllUsersFromSheets() {
     $creds = getCredentialsFromSheets();
     
-    // Check if we got valid data
     if (!$creds || !is_array($creds) || !isset($creds['success']) || !$creds['success']) {
         return [];
     }
     
     $users = [];
     
-    // Get Staff - check if key exists and is an array
+    // Get Staff
     $staffList = isset($creds['staff']) && is_array($creds['staff']) ? $creds['staff'] : [];
     foreach ($staffList as $staff) {
         if (is_array($staff)) {
@@ -159,7 +158,7 @@ function getAllUsersFromSheets() {
         }
     }
     
-    // Get Admins - check if key exists and is an array
+    // Get Admins
     $adminList = isset($creds['admins']) && is_array($creds['admins']) ? $creds['admins'] : [];
     foreach ($adminList as $admin) {
         if (is_array($admin)) {
@@ -178,6 +177,15 @@ function getAllUsersFromSheets() {
     }
     
     return $users;
+}
+
+// ============================================================
+// GET ALL USERS
+// ============================================================
+
+function getAllUsers() {
+    $users = getAllUsersFromSheets();
+    return ['success' => true, 'data' => $users];
 }
 
 // ============================================================
@@ -380,23 +388,4 @@ function getAllAttendanceLogs() {
     }
     
     return ['success' => true, 'data' => $logs];
-}
-
-// ============================================================
-// USER MANAGEMENT
-// ============================================================
-
-function getAllUsers() {
-    $users = getAllUsersFromSheets();
-    return ['success' => true, 'data' => $users];
-}
-
-function findUserById($userId) {
-    $users = getAllUsersFromSheets();
-    foreach ($users as $user) {
-        if ($user['id'] === $userId || $user['employee_id'] === $userId) {
-            return $user;
-        }
-    }
-    return null;
 }
