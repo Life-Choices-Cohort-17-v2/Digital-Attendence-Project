@@ -13,47 +13,38 @@ if ($role !== 'admin') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>QR Terminal - Clock In/Out</title>
+    <title>QR Terminal | SpySee</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="<?= asset_url('js/app.js') ?>"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [x-cloak] { display: none !important; }
         
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #fafaf8;
-            color: #1b1f23;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        
-        .container {
+        .qr-page-content {
+            padding: 28px 32px;
             max-width: 700px;
-            width: 100%;
             margin: 0 auto;
         }
         
-        .header {
+        .qr-header {
             text-align: center;
             margin-bottom: 24px;
         }
-        .header h1 {
+        .qr-header h1 {
             font-size: 28px;
             font-weight: 700;
-            color: #2f6f4f;
+            color: var(--heading);
         }
-        .header .sub {
-            color: #6b6f76;
+        .qr-header .sub {
+            color: var(--text);
             font-size: 14px;
             margin-top: 4px;
         }
         .location-badge {
             display: inline-block;
-            background: #e9f4ee;
-            color: #2f6f4f;
+            background: var(--accent-soft);
+            color: var(--accent);
             padding: 4px 16px;
             border-radius: 20px;
             font-size: 13px;
@@ -61,45 +52,27 @@ if ($role !== 'admin') {
             margin-top: 8px;
         }
         
-        .back-btn {
-            display: inline-block;
-            background: var(--sidebar-blue);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-        .back-btn:hover {
-            background: var(--sidebar-hover);
-        }
-        .header-actions {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        
         .qr-card {
-            background: #ffffff;
-            border: 2px solid #dcdcd6;
-            border-radius: 16px;
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 20px;
             padding: 32px;
             text-align: center;
             margin-bottom: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
-            transition: transform 0.1s;
+            transition: transform 0.1s, border-color 0.2s;
+        }
+        .qr-card:hover {
+            border-color: var(--accent);
         }
         .qr-card:active {
             transform: scale(0.99);
         }
         .qr-card .label {
             font-size: 13px;
-            color: #6b6f76;
+            color: var(--text);
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -117,37 +90,40 @@ if ($role !== 'admin') {
         #qrbox img {
             max-width: 100%;
             height: auto;
+            background: #fff;
+            padding: 16px;
+            border-radius: 12px;
         }
         
         .countdown {
             font-size: 48px;
             font-weight: 700;
-            color: #2f6f4f;
+            color: var(--accent);
             margin: 4px 0;
             line-height: 1;
         }
         .countdown-label {
             font-size: 14px;
-            color: #6b6f76;
+            color: var(--text);
         }
         .refresh-hint {
             font-size: 12px;
-            color: #6b6f76;
+            color: var(--muted);
             margin-top: 12px;
             opacity: 0.6;
         }
         
         .staff-card {
-            background: #ffffff;
-            border: 1px solid #dcdcd6;
-            border-radius: 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
             padding: 16px;
             margin-top: 12px;
         }
         .staff-card .title {
             font-weight: 600;
             font-size: 14px;
-            color: #6b6f76;
+            color: var(--text);
             margin-bottom: 8px;
         }
         .staff-grid {
@@ -159,20 +135,21 @@ if ($role !== 'admin') {
             display: flex;
             justify-content: space-between;
             padding: 6px 12px;
-            background: #fafaf8;
-            border-radius: 6px;
-            border: 1px solid #dcdcd6;
+            background: var(--background);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
             font-size: 13px;
+            color: var(--heading);
         }
-        .badge-in { color: #2f6f4f; font-weight: 600; }
-        .badge-out { color: #a3432f; font-weight: 600; }
-        .staff-empty { color: #6b6f76; font-size: 13px; padding: 8px 0; }
+        .badge-in { color: var(--accent); font-weight: 600; }
+        .badge-out { color: #EF4444; font-weight: 600; }
+        .staff-empty { color: var(--text); font-size: 13px; padding: 8px 0; text-align: center; }
         
         .footer {
             text-align: center;
             margin-top: 16px;
             font-size: 12px;
-            color: #6b6f76;
+            color: var(--muted);
         }
         
         .qr-loading {
@@ -185,8 +162,8 @@ if ($role !== 'admin') {
         .qr-loading .spinner {
             width: 40px;
             height: 40px;
-            border: 4px solid #dcdcd6;
-            border-top-color: #2f6f4f;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
@@ -195,57 +172,62 @@ if ($role !== 'admin') {
         }
         
         @media (max-width: 600px) {
-            .container { padding: 0; }
+            .qr-page-content { padding: 16px; }
             .qr-card { padding: 20px; }
             .countdown { font-size: 36px; }
             #qrbox { min-height: 220px; }
             .staff-grid { grid-template-columns: 1fr; }
-            body { padding: 10px; }
         }
         @media print {
             .footer { display: none; }
-            body { background: #fff; padding: 0; }
-            .qr-card { box-shadow: none; border: 1px solid #ddd; }
+            .qr-card { box-shadow: none; border-color: var(--border-color); }
         }
     </style>
 </head>
 <body>
-<div class="container">
 
-    <div class="header-actions">
-        <a href="<?= route_url('/admin-dashboard') ?>" class="back-btn">← Back to Dashboard</a>
-    </div>
+<script>window.themeManager.initTheme();</script>
 
-    <div class="header">
-        <h1>📱 QR Terminal</h1>
-        <p class="sub">Scan this QR code with your phone to clock in/out</p>
-        <div class="location-badge" id="locationBadge">📍 HQ Entrance</div>
-    </div>
+<div x-data="qrApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
+    <div class="app-layout">
+        <?php $activePage = 'qr'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
+        
+        <main class="main-content">
+            <?php include __DIR__ . '/../partials/top-nav.php'; ?>
+            
+            <div class="qr-page-content">
+                <div class="qr-header">
+                    <h1>📱 QR Terminal</h1>
+                    <p class="sub">Scan this QR code with your phone to clock in/out</p>
+                    <div class="location-badge" id="locationBadge">📍 HQ Entrance</div>
+                </div>
 
-    <div class="qr-card" onclick="generateQR()" id="qrCard">
-        <div class="label">📸 Scan to Clock In/Out</div>
-        <div id="qrbox">
-            <div class="qr-loading" id="qrLoading">
-                <div class="spinner"></div>
-                <div style="margin-top:12px;color:#6b6f76;font-size:14px;">Generating QR code...</div>
+                <div class="qr-card" @click="generateQR()" id="qrCard">
+                    <div class="label">📸 Scan to Clock In/Out</div>
+                    <div id="qrbox">
+                        <div class="qr-loading" id="qrLoading">
+                            <div class="spinner"></div>
+                            <div style="margin-top:12px;color:var(--text);font-size:14px;">Generating QR code...</div>
+                        </div>
+                    </div>
+                    <div class="countdown" id="countdown">30</div>
+                    <div class="countdown-label">seconds until refresh</div>
+                    <div class="refresh-hint">👆 Tap the QR code to refresh</div>
+                </div>
+
+                <div class="staff-card">
+                    <div class="title">👥 Staff Status</div>
+                    <div id="staffList">
+                        <div class="staff-empty">Loading staff...</div>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    Powered by SpySee &bull; <span id="currentTime"></span>
+                </div>
             </div>
-        </div>
-        <div class="countdown" id="countdown">30</div>
-        <div class="countdown-label">seconds until refresh</div>
-        <div class="refresh-hint">👆 Tap the QR code to refresh</div>
+        </main>
     </div>
-
-    <div class="staff-card">
-        <div class="title">👥 Staff Status</div>
-        <div id="staffList">
-            <div class="staff-empty">Loading staff...</div>
-        </div>
-    </div>
-
-    <div class="footer">
-        Powered by SpySee &bull; <span id="currentTime"></span>
-    </div>
-
 </div>
 
 <script>
@@ -274,7 +256,7 @@ async function generateQR() {
     box.innerHTML = `
         <div class="qr-loading">
             <div class="spinner"></div>
-            <div style="margin-top:12px;color:#6b6f76;font-size:14px;">Generating QR code...</div>
+            <div style="margin-top:12px;color:var(--text);font-size:14px;">Generating QR code...</div>
         </div>
     `;
     
@@ -315,7 +297,7 @@ async function generateQR() {
         
     } catch (err) {
         console.error('QR Generation Error:', err);
-        box.innerHTML = '<div style="color:#a3432f;padding:20px;">❌ Error generating QR: ' + err.message + '</div>';
+        box.innerHTML = '<div style="color:#EF4444;padding:20px;">❌ Error generating QR: ' + err.message + '</div>';
     }
 }
 
@@ -338,7 +320,7 @@ function startCountdown(seconds) {
 
 async function loadStaff() {
     try {
-        const response = await fetch('/api/onsite-staff');
+        const response = await fetch('/index.php/api/onsite-staff');
         const data = await response.json();
         const staff = data.data || [];
         const container = document.getElementById('staffList');
@@ -361,7 +343,7 @@ async function loadStaff() {
         }
     } catch (err) {
         console.error('Error loading staff:', err);
-        document.getElementById('staffList').innerHTML = '<div style="color:#a3432f;font-size:13px;">❌ Error loading staff</div>';
+        document.getElementById('staffList').innerHTML = '<div style="color:#EF4444;font-size:13px;">❌ Error loading staff</div>';
     }
 }
 
@@ -381,12 +363,22 @@ function updateClock() {
     document.getElementById('currentTime').textContent = now.toLocaleTimeString();
 }
 
-// Init
-generateQR();
-loadStaff();
-updateClock();
-setInterval(loadStaff, 15000);
-setInterval(updateClock, 1000);
+// Alpine.js App
+function qrApp() {
+    return {
+        sidebarOpen: false,
+        
+        init() {
+            window.themeManager.initTheme();
+            generateQR();
+            loadStaff();
+            updateClock();
+            setInterval(loadStaff, 15000);
+            setInterval(updateClock, 1000);
+        }
+    }
+}
 </script>
+
 </body>
 </html>

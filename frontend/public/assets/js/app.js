@@ -1,44 +1,24 @@
-/**app.js */
+/** app.js – Dark mode only, no toggle */
 
-// Theme Manager
+// Theme Manager – always dark
 window.themeManager = {
-    _applyTheme(isDark) {
-        if (isDark) {
-            document.body.classList.add('dark-mode');
-            document.body.style.setProperty('--background', '#0f172a');
-            document.body.style.setProperty('--card-bg', '#1e293b');
-            document.body.style.setProperty('--border-color', '#334155');
-            document.body.style.setProperty('--heading', '#f1f5f9');
-            document.body.style.setProperty('--text', '#94a3b8');
-        } else {
-            document.body.classList.remove('dark-mode');
-            document.body.style.setProperty('--background', '#E5E7EB');
-            document.body.style.setProperty('--card-bg', '#FFFFFF');
-            document.body.style.setProperty('--border-color', '#D1D5DB');
-            document.body.style.setProperty('--heading', '#093C5D');
-            document.body.style.setProperty('--text', '#5C6B7A');
-        }
+    _applyTheme() {
+        // Always apply dark mode
+        document.body.classList.add('dark-mode');
+        document.body.style.setProperty('--background', '#202020');
+        document.body.style.setProperty('--card-bg', '#2a2a2a');
+        document.body.style.setProperty('--border-color', '#444444');
+        document.body.style.setProperty('--heading', '#F8F8F8');
+        document.body.style.setProperty('--text', '#999999');
     },
-
     initTheme() {
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        this._applyTheme(savedTheme === 'dark');
+        // Always set dark theme, ignore localStorage
+        this._applyTheme();
     },
-    
-    toggleTheme() {
-        const isDark = document.body.classList.toggle('dark-mode');
-        const theme = isDark ? 'dark' : 'light';
-        localStorage.setItem('theme', theme);
-        this._applyTheme(isDark);
-        return isDark;
-    },
-
-    isDark() {
-        return document.body.classList.contains('dark-mode');
-    }
+    // No toggle functions
 };
 
-// Helper functions
+// Helpers
 window.getInitials = function(name) {
     if (!name) return '?';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
@@ -66,24 +46,18 @@ window.getWeekday = function() {
     return new Date().toLocaleDateString('en-ZA', { weekday: 'long' });
 };
 
-// App Utilities (including global toast)
+// App Utilities (Toast)
 window.appUtils = {
     showToast(message, type = 'success') {
-        // Remove existing toast
-        const existingToast = document.querySelector('.toast-message');
-        if (existingToast) existingToast.remove();
-        
+        const existing = document.querySelector('.toast-message');
+        if (existing) existing.remove();
         const toast = document.createElement('div');
         toast.className = `toast-message ${type}`;
         toast.textContent = message;
         document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
+        setTimeout(() => toast.remove(), 3000);
     }
 };
-
 
 // API Helper
 window.api = {
@@ -91,7 +65,6 @@ window.api = {
         const response = await fetch(endpoint);
         return response.json();
     },
-    
     async post(endpoint, data) {
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -104,24 +77,22 @@ window.api = {
     }
 };
 
-// QR Utils
+// QR Utilities
 window.qrUtils = {
     getScanType(code) {
-        const upperCode = code.toUpperCase().trim();
-        if (upperCode === 'sign_in' || upperCode === 'CLOCKIN') return 'sign-in';
-        if (upperCode === 'sign_out' || upperCode === 'CLOCKOUT') return 'sign-out';
+        const upper = code.toUpperCase().trim();
+        if (upper === 'SIGN_IN' || upper === 'CLOCKIN') return 'sign-in';
+        if (upper === 'SIGN_OUT' || upper === 'CLOCKOUT') return 'sign-out';
         return null;
     },
-    
     async recordScan(type, userId, location = 'Office') {
         const endpoint = type === 'sign-in' ? 'api/sign-in.php' : 'api/sign-out.php';
         try {
-            const result = await window.api.post(endpoint, { type: type, user_id: userId, location: location });
-            // window.api.post now handles showing error toasts
+            const result = await window.api.post(endpoint, { type, user_id: userId, location });
             return result;
         } catch (error) {
             console.error('Error recording scan:', error);
-            window.appUtils.showToast('Failed to record. Please check your connection.', 'error');
+            window.appUtils.showToast('Failed to record. Check connection.', 'error');
             return null;
         }
     }

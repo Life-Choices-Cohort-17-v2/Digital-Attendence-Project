@@ -109,7 +109,6 @@ function profileApp() {
         passwordForm: { current: '', new: '', confirm: '' },
         
         init() {
-            window.themeManager.initTheme();
             const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Sarah Mthembu', 'email' => 'sarah@spysee.app', 'employeeId' => 'S-101']); ?>;
             this.user = userData;
         },

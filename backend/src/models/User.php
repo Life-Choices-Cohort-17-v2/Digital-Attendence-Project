@@ -1,33 +1,74 @@
-import { User } from '../types';
+<?php
+namespace Models;
 
-// Seed initial test accounts for the team
-export const MOCK_USERS: User[] = [
-  {
-    id: 'usr_001',
-    employeeId: 'EMP001',
-    email: 'staff@insite.com',
-    passwordHash: 'password123',
-    firstName: 'Alex',
-    lastName: 'Morgan',
-    role: 'staff',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'usr_002',
-    employeeId: 'ADM001',
-    email: 'admin@insite.com',
-    passwordHash: 'admin123',
-    firstName: 'Sarah',
-    lastName: 'Connor',
-    role: 'admin',
-    createdAt: new Date().toISOString()
-  }
-];
+use PDO;
 
-export const findUserByEmployeeId = (employeeId: string): User | undefined => {
-  return MOCK_USERS.find(u => u.employeeId.toUpperCase() === employeeId.toUpperCase());
-};
+class User
+{
+    private PDO $pdo;
 
-export const findUserById = (id: string): User | undefined => {
-  return MOCK_USERS.find(u => u.id === id);
-};
+    public function __construct(PDO $pdo)
+    {
+        $this->pdo = $pdo;
+    }
+
+    /**
+     * Find a user record by email address.
+     */
+    public function findByEmail(string $email): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
+        $stmt->execute(['email' => $email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user ?: null;
+    }
+
+    /**
+     * Find a user record by primary key ID.
+     */
+    public function findById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $id]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user ?: null;
+    }
+
+    /**
+     * Find a user record by employee string identifier (e.g., EMP001).
+     */
+    public function findByEmployeeId(string $employeeId): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE employee_id = :employee_id LIMIT 1');
+        $stmt->execute(['employee_id' => $employeeId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user ?: null;
+    }
+
+    /**
+     * Count total registered users in the database.
+     */
+    public function countAll(): int
+    {
+        $stmt = $this->pdo->query('SELECT COUNT(*) AS count FROM users');
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Count inactive accounts.
+     */
+    public function countInactive(): int
+    {
+        $stmt = $this->pdo->query("SELECT COUNT(*) AS count FROM users WHERE status = 'inactive'");
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Count active accounts for dashboard metrics.
+     */
+    public function countActive(): int
+    {
+        $stmt = $this->pdo->query("SELECT COUNT(*) AS count FROM users WHERE status = 'active'");
+        return (int) $stmt->fetchColumn();
+    }
+}

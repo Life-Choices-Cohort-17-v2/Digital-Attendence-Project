@@ -400,7 +400,6 @@ function historyApp() {
             const today = new Date().toISOString().split('T')[0];
             
             result.forEach(day => {
-                // Sort records chronologically
                 day.records.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
                 
                 let firstIn = null;
@@ -412,9 +411,7 @@ function historyApp() {
                 
                 for (const record of day.records) {
                     if (record.type === 'sign-in') {
-                        // If we have a previous check-in without check-out, and it's not today, ignore it
                         if (lastCheckIn && !isToday) {
-                            // For past dates, we only count complete pairs
                             lastCheckIn = null;
                         }
                         lastCheckIn = record;
@@ -425,7 +422,6 @@ function historyApp() {
                         const inTime = new Date(lastCheckIn.timestamp);
                         const outTime = new Date(record.timestamp);
                         
-                        // Only count if out is after in (positive duration)
                         if (outTime > inTime) {
                             const diffMs = outTime - inTime;
                             totalSeconds += diffMs / 1000;
@@ -437,7 +433,6 @@ function historyApp() {
                     }
                 }
                 
-                // For today only: if still clocked in, count time until now
                 if (lastCheckIn && isToday) {
                     const inTime = new Date(lastCheckIn.timestamp);
                     const now = new Date();
@@ -448,11 +443,9 @@ function historyApp() {
                     }
                 }
                 
-                // Set display values
                 day.firstIn = firstIn ? firstIn.time : null;
                 day.lastOut = lastOut ? lastOut.time : null;
                 
-                // Only show hours if we have at least one valid pair
                 if (hasValidPair && totalSeconds > 0) {
                     day.totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
                 } else if (day.records.length > 0) {

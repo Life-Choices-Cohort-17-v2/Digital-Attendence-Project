@@ -1,7 +1,7 @@
 <?php
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
-    header('Location: ' . route_url('/login'));
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') {
+    header('Location: /index.php/login');
     exit;
 }
 ?>
@@ -11,10 +11,10 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title><?= $title ?? 'Scan QR Code' ?></title>
-    <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
+    <link rel="stylesheet" href="/assets/css/style.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="<?= asset_url('js/app.js') ?>"></script>
+    <script src="/assets/js/app.js"></script>
     <style>
         [x-cloak] { display: none !important; }
         
@@ -47,8 +47,8 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
         }
         .ready-badge {
             display: inline-block;
-            background: var(--olive-green-soft);
-            color: var(--olive-green);
+            background: var(--accent-soft);
+            color: var(--accent);
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 12px;
@@ -59,7 +59,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             font-size: 14px;
         }
         
-        /* Camera Section - Full width */
         .camera-section {
             margin-bottom: 0;
         }
@@ -99,7 +98,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
             object-fit: cover;
         }
         
-        /* Zoom controls */
         .zoom-controls {
             display: flex;
             align-items: center;
@@ -145,8 +143,8 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
         }
         .result-message.success {
             display: block;
-            background: var(--olive-green-soft);
-            color: var(--olive-green);
+            background: var(--accent-soft);
+            color: var(--accent);
         }
         .result-message.error {
             display: block;
@@ -200,7 +198,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                         <p>Hold steady and center the QR code in the frame.</p>
                     </div>
 
-                    <!-- Camera Section -->
                     <div class="camera-section">
                         <button class="camera-btn" @click="startScanner()" x-show="!scannerActive">
                             📷 Open Camera to Scan
@@ -210,7 +207,6 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                         </button>
                         <div id="reader" x-show="scannerActive" x-cloak></div>
                         
-                        <!-- Zoom Controls -->
                         <div class="zoom-controls" x-show="scannerActive" x-cloak>
                             <button @click="zoomOut()" title="Zoom Out">−</button>
                             <span class="zoom-level" x-text="Math.round(zoomLevel * 100) + '%'"></span>
@@ -255,30 +251,25 @@ function scanApp() {
             try {
                 this.html5QrCode = new Html5Qrcode("reader");
                 
-                // Better config for mobile - larger qrbox and higher fps
                 const config = { 
                     fps: 15, 
                     qrbox: { width: 280, height: 280 },
                     aspectRatio: 1.0
                 };
                 
-                // Try environment camera first (rear camera)
                 const cameraId = { facingMode: "environment" };
                 
                 await this.html5QrCode.start(
                     cameraId,
                     config,
                     (decodedText) => {
-                        // QR code detected!
                         this.handleScan(decodedText);
                     },
                     (error) => {
                         // Ignore errors during scanning
-                        // console.debug(error);
                     }
                 );
                 
-                // Apply initial zoom if available
                 this.applyZoom();
                 
             } catch (err) {
@@ -320,7 +311,6 @@ function scanApp() {
         },
         
         applyZoom() {
-            // Apply zoom to the video element
             const video = document.querySelector('#reader video');
             if (video) {
                 video.style.transform = `scale(${this.zoomLevel})`;
@@ -329,55 +319,44 @@ function scanApp() {
         },
 
         async handleScan(decodedText) {
-            // Prevent multiple scans
             if (this.isProcessing) return;
             this.isProcessing = true;
             
             console.log('QR Code detected:', decodedText);
             
-            // Parse the QR data
-            let staffId = this.user.id;
-            let location = 'HQ';
-            let name = this.user.name;
-            
             try {
-                // Try to parse as URL with params
                 if (decodedText.includes('scan.php?')) {
                     const url = new URL(decodedText);
-                    staffId = url.searchParams.get('staff_id') || this.user.id;
-                    location = url.searchParams.get('location') || 'HQ';
-                    name = url.searchParams.get('name') || this.user.name;
+                    const staffId = url.searchParams.get('staff_id') || this.user.id;
+                    const location = url.searchParams.get('location') || 'HQ';
+                    const name = url.searchParams.get('name') || this.user.name;
                     
-                    // Send the scan to the server
                     const response = await fetch('/scan.php?' + url.searchParams.toString());
                     
-                    // Check if redirected
                     if (response.redirected) {
                         window.location.href = response.url;
                         return;
                     }
                     
-                    // Or call the API directly
                     const result = await this.recordScan(staffId, name, location);
                     if (result && result.success) {
                         this.resultMessage = result.message || '✅ Sign in/out successful!';
                         this.resultType = 'success';
                         this.stopScanner();
                         setTimeout(() => {
-                            window.location.href = '/staff-dashboard';
+                            window.location.href = '/index.php/staff-dashboard';
                         }, 1500);
                         return;
                     }
                 }
                 
-                // Fallback: try direct scan
                 const result = await this.recordScan(this.user.id, this.user.name, 'HQ');
                 if (result && result.success) {
                     this.resultMessage = result.message || '✅ Sign in/out successful!';
                     this.resultType = 'success';
                     this.stopScanner();
                     setTimeout(() => {
-                        window.location.href = '/staff-dashboard';
+                        window.location.href = '/index.php/staff-dashboard';
                     }, 1500);
                     return;
                 }
@@ -390,7 +369,6 @@ function scanApp() {
             
             this.isProcessing = false;
             
-            // Auto stop scanner after success
             if (this.resultType === 'success') {
                 this.stopScanner();
             }
@@ -398,8 +376,7 @@ function scanApp() {
 
         async recordScan(staffId, name, location) {
             try {
-                // Call the API directly
-                const response = await fetch('/api/sign-in.php', {
+                const response = await fetch('/api/sign-in', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -411,9 +388,8 @@ function scanApp() {
                 
                 const result = await response.json();
                 
-                // If the API says already signed in, try signing out
                 if (result.message === 'Already Signed in') {
-                    const outResponse = await fetch('/api/sign-out.php', {
+                    const outResponse = await fetch('/api/sign-out', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({

@@ -1,4 +1,5 @@
 <?php
+
 namespace Controllers;
 
 require_once __DIR__ . '/../validators/AttendanceValidator.php';
@@ -16,18 +17,37 @@ class AttendanceController
         $this->attendanceService = new AttendanceService($pdo);
     }
 
+    /**
+     * Safely reads and decodes the incoming JSON payload.
+     * Ensures the returned output is strictly an array.
+     */
+    private function parseRequestBody(): array
+    {
+        $rawInput = file_get_contents('php://input');
+        
+        if (trim($rawInput) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($rawInput, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception("Invalid JSON payload provided.");
+        }
+
+        if (!is_array($decoded)) {
+            throw new Exception("JSON payload must be a JSON object.");
+        }
+
+        return $decoded;
+    }
+
     public function scan(): void 
     {
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
-
         try {
+            $input = $this->parseRequestBody();
             $qrCode = AttendanceValidator::validateScanInput($input);
-            
-            // If your flow is scan -> instant clock-in:
             $result = $this->attendanceService->processScan($qrCode);
-            
-            // OR if your flow is scan -> return status check:
-            // $result = $this->attendanceService->processScan($qrCode);
             
             echo json_encode(['success' => true, 'data' => $result]);
         } catch (Exception $e) {
@@ -38,9 +58,8 @@ class AttendanceController
 
     public function clockIn(): void 
     {
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
-
         try {
+            $input = $this->parseRequestBody();
             $employeeId = AttendanceValidator::validateClockInput($input);
             $result = $this->attendanceService->clockIn($employeeId);
             
@@ -53,9 +72,8 @@ class AttendanceController
 
     public function clockOut(): void 
     {
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
-
         try {
+            $input = $this->parseRequestBody();
             $employeeId = AttendanceValidator::validateClockInput($input);
             $result = $this->attendanceService->clockOut($employeeId);
             
