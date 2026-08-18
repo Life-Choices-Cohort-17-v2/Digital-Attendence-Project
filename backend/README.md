@@ -17,9 +17,9 @@ This is the **PHP backend** for the Digital Attendance System. It serves as the 
 
 ### 1. Clone the Repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/Life-Choices-Cohort-17-v2/Digital-Attendence-Project.git
 cd Digital-Attendance-Project/backend
-
+/c/xampp/php/php.exe -S localhost:8000
 ```
 
 ---
