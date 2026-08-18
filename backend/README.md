@@ -19,3 +19,11 @@ This is the **PHP backend** for the Digital Attendance System. It serves as the 
 ```bash
 git clone <repository-url>
 cd Digital-Attendance-Project/backend
+
+```
+
+---
+
+## Author
+Lutfeeya Cupido 💚
+
