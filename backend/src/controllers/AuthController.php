@@ -42,12 +42,13 @@ class AuthController {
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
-            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_id']     = $user['id'];
+            $_SESSION['user_name']   = $user['name'];
+            $_SESSION['user_email']  = $user['email'];
             $_SESSION['employee_id'] = $user['employee_id'];
-            $_SESSION['name'] = $user['name'];
-            $_SESSION['email'] = $user['email'];
-            $_SESSION['role'] = $user['role'];
+            $_SESSION['user_role']   = $user['role'];
 
+            // Redirect based on content type
             if (str_contains($contentType, 'application/json')) {
                 header('Content-Type: application/json');
                 echo json_encode([
@@ -64,9 +65,9 @@ class AuthController {
             } else {
                 // Redirect based on role (optional)
                 if ($user['role'] === 'admin') {
-                    header('Location: /admin/dashboard');
+                    header('Location: http://localhost:8001/admin-dashboard');
                 } else {
-                    header('Location: /staff/dashboard');
+                    header('Location: http://localhost:8001/staff-dashboard');
                 }
             }
             exit;

@@ -1,5 +1,25 @@
 
 <?php
+
+// --- SHARED SESSION CONFIGURATION ---
+$sessionPath = dirname(__DIR__, 3) . '/storage/sessions';
+
+if (!is_dir($sessionPath)) {
+    mkdir($sessionPath, 0777, true);
+}
+
+session_save_path($sessionPath);
+session_name('INsite_SESSION');
+
+session_set_cookie_params([
+    'path' => '/',
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 /**
  * CENTRAL APPLICATION ROUTER
  * Merged router supporting Auth (Dev 2), Attendance (Dev 3), and Dashboard (Dev 5).

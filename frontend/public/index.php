@@ -7,10 +7,22 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // ---- Custom session save path ----
-$sessionPath = dirname(__DIR__) . '/storage/sessions';
-if (is_dir($sessionPath) && is_writable($sessionPath)) {
-    session_save_path($sessionPath);
+// --- SHARED SESSION CONFIGURATION ---
+$sessionPath = dirname(__DIR__, 2) . '/storage/sessions';
+
+if (!is_dir($sessionPath)) {
+    mkdir($sessionPath, 0777, true);
 }
+
+session_save_path($sessionPath);
+session_name('INsite_SESSION');
+
+session_set_cookie_params([
+    'path' => '/',
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
+
 session_start();
 
 // ---- Determine base URL dynamically ----
@@ -198,11 +210,12 @@ switch ($path) {
 
     // ---- Staff routes ----
     case '/staff-dashboard':
-    case '/dashboard.php':
-        $title = 'Staff Dashboard | SpySee';
-        $user = require_auth('staff');
-        view('staff/dashboard', compact('title', 'user'));
-        break;
+case '/dashboard.php':
+    $title = 'Staff Dashboard | SpySee';
+
+    $user = require_auth('staff');
+    view('staff/dashboard', compact('title', 'user'));
+    break;
 
     case '/scan-qr':
     case '/scan-qr.php':

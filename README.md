@@ -53,7 +53,7 @@ To get a local copy up and running, follow these simple steps.
     ```
 3. **Run PHP:**
     ```sh
-    /c/xampp/php/php.exe -S localhost:8000
+    /c/xampp/php/php.exe -S localhost:8001
     ```
 
 ---

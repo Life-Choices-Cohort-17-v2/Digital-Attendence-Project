@@ -29,6 +29,9 @@ backend/.env.development
 # PHP FRONTEND (No nested .gitignore)
 # ============================================
 
+# Application session files
+storage/sessions/
+
 # Composer dependencies (if you add later)
 phpfrontend/vendor/
 phpfrontend/composer.lock
