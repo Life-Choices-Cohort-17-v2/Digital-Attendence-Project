@@ -120,9 +120,9 @@ frontend/
         app.js
         utilities.js
     app.js
+    check-php.php
     index.php
     scan.php
-    test-sheets.php
   src/
     views/
       admin/
@@ -161,6 +161,14 @@ start-spysee.bat
 ================================================================
 Files
 ================================================================
+
+================
+File: frontend/public/check-php.php
+================
+// Create: frontend/public/check-php.php
+<?php
+phpinfo();
+?>
 
 ================
 File: .github/ISSUE_TEMPLATE/bug_report.md
@@ -794,12 +802,24 @@ File: frontend/public/scan.php
 <?php
 // ============================================================
 // FILE: frontend/public/scan.php
-// QR SCAN PROCESSOR - Handles QR code scanning for clock in/out
+// QR SCAN PROCESSOR - DEBUG VERSION
 // ============================================================
 
-// Load Google Sheets functions from backend
+// Force error logging
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Log every request
+error_log("========================================");
+error_log("📱 SCAN.PHP CALLED at " . date('Y-m-d H:i:s'));
+error_log("📱 GET params: " . json_encode($_GET));
+
+// Load Google Sheets functions
 require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
 session_start();
+
+error_log("📱 Session data: " . json_encode($_SESSION));
 
 // --- Helper Functions ---
 function redirect_to($path) {
@@ -819,8 +839,11 @@ $name = $_GET['name'] ?? '';
 $method = $_GET['method'] ?? 'QR';
 $location = $_GET['location'] ?? 'HQ Entrance';
 
+error_log("📱 QR Params - token: {$token}, staffId: {$staffId}, name: {$name}, location: {$location}");
+
 // --- Validate Token ---
 if (empty($token) || empty($expires)) {
+    error_log("❌ Invalid QR - missing token or expires");
     die('<!DOCTYPE html>
     <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Invalid QR</title>
@@ -840,6 +863,7 @@ if (empty($token) || empty($expires)) {
 // --- Check Expiry ---
 $expireTime = strtotime($expires);
 if ($expireTime < time()) {
+    error_log("❌ QR expired - expireTime: {$expireTime}, now: " . time());
     die('<!DOCTYPE html>
     <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title>QR Expired</title>
@@ -866,13 +890,19 @@ $_SESSION['qr_scan'] = [
     'location' => $location
 ];
 
+error_log("📱 QR data stored in session");
+
 // --- Check Login Status ---
+error_log("📱 Checking login status - isStaff(): " . (isStaff() ? 'true' : 'false'));
+
 if (isStaff()) {
+    error_log("📱 User is staff, processing scan...");
     processScan();
     exit;
 }
 
 if (isAdmin()) {
+    error_log("📱 User is admin, redirecting...");
     $_SESSION['message'] = '❌ Admins cannot clock in/out via QR.';
     $_SESSION['message_type'] = 'error';
     header('Location: ' . route_url('/admin-dashboard'));
@@ -880,6 +910,7 @@ if (isAdmin()) {
 }
 
 // --- Not logged in → redirect to login ---
+error_log("📱 User not logged in, redirecting to login...");
 $_SESSION['redirect_after_login'] = '/scan.php?' . http_build_query([
     'token' => $token,
     'expires' => $expires,
@@ -892,150 +923,74 @@ header('Location: ' . route_url('/login'));
 exit;
 
 // ============================================================
-// PROCESS SCAN - INSTANT RESPONSE
+// PROCESS SCAN - Uses logged-in user
 // ============================================================
 function processScan() {
     global $token, $expires, $staffId, $name, $method, $location;
     
-    $loggedInStaffId = $_SESSION['staff_id'] ?? '';
-    $loggedInStaffName = $_SESSION['staff_name'] ?? '';
+    error_log("========================================");
+    error_log("📱 PROCESSING SCAN");
+    error_log("📱 Session: " . json_encode($_SESSION));
     
-    // Validate staff matches QR
-    if (!empty($staffId) && $staffId !== 'QR_SCAN' && $staffId !== $loggedInStaffId) {
-        $_SESSION['message'] = '❌ This QR code is for a different staff member.';
+    // Use the LOGGED-IN user's ID
+    $useStaffId = $_SESSION['staff_id'] ?? '';
+    $useStaffName = $_SESSION['staff_name'] ?? '';
+    
+    error_log("📱 Using staff: {$useStaffId} ({$useStaffName})");
+    
+    // If user isn't properly logged in, redirect
+    if (empty($useStaffId)) {
+        error_log("❌ No staff ID in session!");
+        $_SESSION['message'] = '❌ Please log in first.';
         $_SESSION['message_type'] = 'error';
-        header('Location: ' . route_url('/staff-dashboard'));
+        header('Location: ' . route_url('/login'));
         exit;
     }
     
-    $useStaffId = !empty($staffId) && $staffId !== 'QR_SCAN' ? $staffId : $loggedInStaffId;
-    $useStaffName = !empty($name) && $name !== 'QR_Scan' ? $name : $loggedInStaffName;
-    
-    // --- STEP 1: Get current status from CACHE (INSTANT) ---
+    // --- STEP 1: Get current status from CACHE ---
     $currentStatus = getStatusFromCache($useStaffId);
+    error_log("📱 Current status from cache: {$currentStatus}");
     
     // Determine new status
     $newStatusDisplay = $currentStatus === 'in' ? 'Check-out' : 'Check-in';
     $actionDisplay = $currentStatus === 'in' ? 'Sign out' : 'Sign in';
     
-    // --- STEP 2: Update LOCAL CACHE immediately (INSTANT) ---
-    updateLocalStatus($useStaffId, $newStatusDisplay, $useStaffName);
+    error_log("📱 New status: {$newStatusDisplay}, Action: {$actionDisplay}");
     
-    // --- STEP 3: Send success message to user (INSTANT) ---
-    // Store the result for display on the dashboard
+    // --- STEP 2: Update LOCAL CACHE immediately ---
+    updateLocalStatus($useStaffId, $newStatusDisplay, $useStaffName);
+    error_log("📱 Local cache updated");
+    
+    // --- STEP 3: Send success message to user ---
     $_SESSION['qr_result'] = [
         'success' => true,
         'action' => $actionDisplay,
         'name' => $useStaffName,
+        'staff_id' => $useStaffId,
         'location' => $location,
         'timestamp' => date('Y-m-d H:i:s')
     ];
     
-    // --- STEP 4: Send to Google Sheets in the BACKGROUND (async - non-blocking) ---
-    // Person 6: External service call that doesn't block the user
+    // --- STEP 4: Send to Google Sheets ---
+    error_log("📤 Sending to Google Sheets: {$useStaffId} ({$useStaffName})");
+    error_log("📤 Method: {$method}, Location: {$location}");
+    
+    $result = sendToGoogleSheets($useStaffId, $useStaffName, $method, $token, $expires);
+    
+    error_log("📤 Google Sheets response: " . json_encode($result));
+    
+    // Async backup
     sendAsyncToGoogleSheets($useStaffId, $useStaffName, $method, $token, $expires);
+    error_log("📤 Async send triggered");
     
     unset($_SESSION['qr_scan']);
+    
+    error_log("✅ Scan complete, redirecting to dashboard");
     
     // Redirect back to staff dashboard with success message
     header('Location: ' . route_url('/staff-dashboard') . '?scan=success');
     exit;
 }
-
-================
-File: frontend/public/test-sheets.php
-================
-<?php
-// frontend/public/test-sheets.php
-// Debug Google Sheets Connection
-
-require_once __DIR__ . '/../data/functions.php';
-
-echo "<h1>🔍 Google Sheets Debug</h1>";
-
-// 1. Check APP_SCRIPT_URL
-echo "<h2>1. APP_SCRIPT_URL</h2>";
-if (defined('APP_SCRIPT_URL')) {
-    echo "<p style='background:#eee; padding:10px; word-break:break-all;'>" . APP_SCRIPT_URL . "</p>";
-} else {
-    echo "<p style='color:red;'>❌ APP_SCRIPT_URL is not defined!</p>";
-}
-
-// 2. Test file_get_contents directly
-echo "<h2>2. Testing file_get_contents()</h2>";
-$start = microtime(true);
-$response = @file_get_contents(APP_SCRIPT_URL);
-$time = round((microtime(true) - $start) * 1000, 2);
-
-if ($response === false) {
-    echo "<p style='color:red;'>❌ Failed to connect! (${time}ms)</p>";
-    echo "<p>Possible reasons:</p>";
-    echo "<ul>";
-    echo "<li>URL is incorrect or missing /exec</li>";
-    echo "<li>Apps Script is not published</li>";
-    echo "<li>Your PHP cannot make outgoing HTTPS requests</li>";
-    echo "<li>Firewall or network issue</li>";
-    echo "</ul>";
-    
-    // Show error details
-    $error = error_get_last();
-    if ($error) {
-        echo "<p style='color:red;'>Error: " . htmlspecialchars($error['message']) . "</p>";
-    }
-} else {
-    echo "<p style='color:green;'>✅ Connected successfully! (${time}ms)</p>";
-    
-    $data = json_decode($response, true);
-    if ($data && isset($data['success']) && $data['success']) {
-        echo "<p style='color:green;'>✅ Data retrieved! Rows: " . count($data['rows'] ?? []) . "</p>";
-        echo "<pre>" . htmlspecialchars(substr($response, 0, 1000)) . "</pre>";
-    } else {
-        echo "<p style='color:orange;'>⚠️ Response received but not valid JSON or success=false</p>";
-        echo "<pre>" . htmlspecialchars(substr($response, 0, 500)) . "</pre>";
-    }
-}
-
-// 3. Test with CURL (if available)
-echo "<h2>3. Testing with CURL</h2>";
-if (function_exists('curl_init')) {
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, APP_SCRIPT_URL);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    $curlResponse = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-    
-    echo "<p>HTTP Status Code: <strong>{$httpCode}</strong></p>";
-    
-    if ($curlResponse !== false && $httpCode === 200) {
-        echo "<p style='color:green;'>✅ CURL successful!</p>";
-        $data = json_decode($curlResponse, true);
-        if ($data && isset($data['success']) && $data['success']) {
-            echo "<p style='color:green;'>✅ Valid response! Rows: " . count($data['rows'] ?? []) . "</p>";
-        }
-    } else {
-        echo "<p style='color:red;'>❌ CURL failed: " . $curlError . "</p>";
-    }
-} else {
-    echo "<p style='color:orange;'>⚠️ CURL not available</p>";
-}
-
-// 4. Show the cached data (if any)
-echo "<h2>4. Cached Data</h2>";
-$cached = getCachedData();
-if ($cached && isset($cached['rows'])) {
-    echo "<p style='color:green;'>✅ Cache exists with " . count($cached['rows']) . " rows.</p>";
-    echo "<pre>";
-    print_r(array_slice($cached['rows'], 0, 5));
-    echo "</pre>";
-} else {
-    echo "<p style='color:orange;'>⚠️ No cache found.</p>";
-}
-?>
 
 ================
 File: .github/TECH_STACK.md
@@ -2409,7 +2364,7 @@ title SpySee - Attendance System
 color 0A
 
 echo ============================================
-echo  🚀 SPYSEE - OPTIMIZED START
+echo  🚀 SPYSEE - OPTIMIZED START (FIXED)
 echo ============================================
 echo.
 
@@ -2442,7 +2397,7 @@ if %errorlevel% equ 0 (
 )
 
 :: ============================================================
-:: STEP 2: START PHP SERVER WITH ROUTER (Optimized!)
+:: STEP 2: START PHP SERVER WITH ROUTER (FIXED - Binds to ALL interfaces!)
 :: ============================================================
 echo.
 echo [2/4] Starting PHP server on port 8000...
@@ -2450,10 +2405,10 @@ echo [2/4] Starting PHP server on port 8000...
 :: Check if router.php exists
 if exist "frontend\public\router.php" (
     echo 📡 Using optimized router with gzip compression
-    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S localhost:8000 frontend/public/router.php"
+    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S 0.0.0.0:8000 frontend/public/router.php"
 ) else (
     echo 📡 Using standard server
-    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S localhost:8000 -t frontend/public"
+    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S 0.0.0.0:8000 -t frontend/public"
 )
 
 :: Wait for server to start
@@ -3192,10 +3147,10 @@ File: backend/src/config/GoogleSheets.php
 <?php
 // ============================================================
 // FILE: backend/src/config/GoogleSheets.php
-// OPTIMIZED - Faster timeouts & immediate cache updates
+// FIXED - Using CURL for reliable connections
 // ============================================================
 
-define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbz5r1-cfdlPAK7eFOdf4OcDi764oVx_Uh54Uo32x-UPQHD7IMJrnwcpp3mAZ7ycVIpB/exec');
+define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbyFHp5ETpwFXVwyvxQNj1izgYkqOXsqsRCQS77wdT-qVwklILGSHmZbZHwZXRDeKOgT/exec');
 define('CACHE_FILE', __DIR__ . '/../../storage/cache/sheets_cache.json');
 
 // ============================================================
@@ -3219,26 +3174,35 @@ function getUserRole() {
 }
 
 // ============================================================
-// HTTP HELPER - OPTIMIZED WITH SHORT TIMEOUTS
+// HTTP HELPERS - FIXED WITH CURL
 // ============================================================
 
 function httpGet($url) {
-    // Try cURL first (faster)
+    error_log("🌐 HTTP GET: " . $url);
+    
+    // Try CURL first (more reliable)
     if (function_exists('curl_init')) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0');
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
         curl_close($ch);
         
+        error_log("🌐 HTTP GET response code: " . $httpCode);
+        if ($error) {
+            error_log("🌐 HTTP GET error: " . $error);
+        }
+        
         if ($response !== false && $httpCode === 200) {
+            error_log("🌐 HTTP GET success, response length: " . strlen($response));
             return $response;
         }
     }
@@ -3246,24 +3210,96 @@ function httpGet($url) {
     // Fallback to file_get_contents
     $context = stream_context_create([
         'http' => [
-            'timeout' => 5,
+            'timeout' => 15,
             'header' => "User-Agent: Mozilla/5.0\r\n"
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false
         ]
     ]);
-    return @file_get_contents($url, false, $context);
+    $response = @file_get_contents($url, false, $context);
+    if ($response === false) {
+        error_log("🌐 HTTP GET failed with file_get_contents");
+        $error = error_get_last();
+        if ($error) {
+            error_log("🌐 Error: " . json_encode($error));
+        }
+    }
+    return $response;
 }
 
 function httpPost($url, $payload) {
-    $options = [
-        'http' => [
-            'header'  => "Content-Type: text/plain;charset=utf-8\r\n",
-            'method'  => 'POST',
-            'content' => $payload,
-            'timeout' => 2
-        ]
+    error_log("📤 HTTP POST: " . $url);
+    error_log("📤 Payload: " . $payload);
+    
+    $headers = [
+        'Content-Type: text/plain;charset=utf-8',
+        'Content-Length: ' . strlen($payload),
+        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     ];
-    $context = stream_context_create($options);
-    return @file_get_contents($url, false, $context);
+    
+    // Try CURL first (more reliable for POST)
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        
+        error_log("📤 HTTP POST response code: " . $httpCode);
+        if ($error) {
+            error_log("📤 HTTP POST error: " . $error);
+        }
+        
+        if ($response !== false && $httpCode === 200) {
+            error_log("📤 HTTP POST success, response: " . $response);
+            return $response;
+        } else if ($response !== false) {
+            error_log("📤 HTTP POST got response with code " . $httpCode . ": " . $response);
+            return $response;
+        }
+    }
+    
+    // Fallback to file_get_contents with stream context
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => implode("\r\n", $headers) . "\r\n",
+            'content' => $payload,
+            'timeout' => 15
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false
+        ]
+    ]);
+    
+    $response = @file_get_contents($url, false, $context);
+    
+    if ($response === false) {
+        error_log("📤 HTTP POST failed with file_get_contents");
+        $error = error_get_last();
+        if ($error) {
+            error_log("📤 Error: " . json_encode($error));
+        }
+        return false;
+    }
+    
+    error_log("📤 HTTP POST success (fallback), response: " . $response);
+    return $response;
 }
 
 // ============================================================
@@ -3271,6 +3307,7 @@ function httpPost($url, $payload) {
 // ============================================================
 
 function getCredentialsFromSheets() {
+    error_log("🔑 Getting credentials from sheets");
     $response = httpGet(APP_SCRIPT_URL . '?action=getCredentials');
     if ($response === false) {
         $response = httpGet(APP_SCRIPT_URL);
@@ -3286,52 +3323,57 @@ function getCredentialsFromSheets() {
 }
 
 function fetchSheetsData() {
+    error_log("📥 Fetching sheets data");
     $response = httpGet(APP_SCRIPT_URL);
-    if ($response === false) return ['success' => false, 'error' => 'Failed to fetch'];
+    if ($response === false) {
+        error_log("📥 Fetch failed");
+        return ['success' => false, 'error' => 'Failed to fetch'];
+    }
     $data = json_decode($response, true);
     if (!$data) {
+        error_log("📥 Invalid JSON response");
         return ['success' => false, 'error' => 'Invalid JSON response'];
     }
+    error_log("📥 Fetch success, rows: " . count($data['rows'] ?? []));
     return $data;
 }
 
 function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
+    error_log("📤 SEND TO GOOGLE SHEETS");
+    error_log("📤 Staff: {$staffId}, Name: {$name}, Method: {$method}");
+    
     $payload = ['staff_id' => $staffId, 'name' => $name, 'method' => $method];
     if ($token) $payload['token'] = $token;
     if ($expires) $payload['expires'] = $expires;
-
-    $response = httpPost(APP_SCRIPT_URL, json_encode($payload));
-    if ($response === false) return ['success' => false, 'error' => 'Failed to connect'];
-    return json_decode($response, true);
+    
+    $jsonPayload = json_encode($payload);
+    error_log("📤 JSON Payload: " . $jsonPayload);
+    
+    $response = httpPost(APP_SCRIPT_URL, $jsonPayload);
+    
+    if ($response === false) {
+        error_log("❌ Google Sheets connection failed!");
+        return ['success' => false, 'error' => 'Failed to connect'];
+    }
+    
+    $result = json_decode($response, true);
+    if (!$result) {
+        error_log("❌ Invalid response from Google Sheets: " . $response);
+        return ['success' => false, 'error' => 'Invalid response from server'];
+    }
+    
+    error_log("📥 Google Sheets response: " . json_encode($result));
+    return $result;
 }
 
 function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
-    $url = APP_SCRIPT_URL;
-    $payload = json_encode([
-        'staff_id' => $staffId,
-        'name' => $name,
-        'method' => $method,
-        'token' => $token,
-        'expires' => $expires
-    ]);
-    
-    if (PHP_OS_FAMILY === 'Windows') {
-        $cmd = 'start /B C:\xampp\php\php.exe -r "' . 
-               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
-               '$context = stream_context_create($options);' .
-               '@file_get_contents(\'' . $url . '\', false, $context);" 2>nul';
-        pclose(popen($cmd, 'r'));
-    } else {
-        $cmd = 'php -r "' .
-               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
-               '$context = stream_context_create($options);' .
-               '@file_get_contents(\'' . $url . '\', false, $context);" > /dev/null 2>&1 &';
-        exec($cmd);
-    }
+    error_log("📤 Async send to Google Sheets: {$staffId} ({$name})");
+    // For now, just call sync version (since curl is reliable)
+    return sendToGoogleSheets($staffId, $name, $method, $token, $expires);
 }
 
 // ============================================================
-// CACHE FUNCTIONS - WITH IMMEDIATE UPDATE
+// CACHE FUNCTIONS
 // ============================================================
 
 function getCachedData() {
@@ -3343,6 +3385,7 @@ function getCachedData() {
 }
 
 function updateCache() {
+    error_log("🔄 Updating cache");
     $data = fetchSheetsData();
     if ($data && isset($data['success']) && $data['success']) {
         $dir = dirname(CACHE_FILE);
@@ -3351,13 +3394,15 @@ function updateCache() {
             'data' => $data,
             'fetched_at' => time()
         ]));
+        error_log("🔄 Cache updated successfully");
         return true;
     }
+    error_log("🔄 Cache update failed");
     return false;
 }
 
 // ============================================================
-// STATUS FUNCTIONS - WITH INSTANT LOCAL UPDATE
+// STATUS FUNCTIONS
 // ============================================================
 
 function getStatusFromCache($staffId) {
@@ -3385,6 +3430,8 @@ function getStatusFromCache($staffId) {
 }
 
 function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
+    error_log("🔄 Updating local status: {$staffId} -> {$newStatus}");
+    
     $data = getCachedData();
     
     if (!$data) {
@@ -3430,6 +3477,8 @@ function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
         'data' => $data,
         'fetched_at' => time()
     ]));
+    
+    error_log("🔄 Local status updated, rows: " . count($rows));
 }
 
 function getStaffListFromCache() {
@@ -3641,11 +3690,6 @@ class AttendanceRules
         }
     }
 }
-
-================
-File: backend/storage/cache/sheets_cache.json
-================
-{"data":{"success":true,"rows":[["2026-08-14 12:46:27","STF-001","Big Boy","Check-Check-out","QR","STF-001_20260727","Test"],["2026-07-27T09:55:42.567Z","STF-001","Big Boy","Check-out","QR","STF-001_20260727","Test"],["2026-07-27T09:57:26.023Z","STF-002","Small Man","Check-in","QR","STF-002_20260727","Test"],["2026-07-27T10:08:40.400Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-27T10:08:44.004Z","STF-003","Small Man","Check-out","QR","STF-003_20260727","Test"],["2026-07-27T10:08:55.682Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-29T06:29:52.013Z","STF-002","Small Man","Check-out","QR","STF-002_20260729","Test"],["2026-07-29T06:38:57.548Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:40:06.491Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T06:40:45.160Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:49:35.113Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T06:49:58.671Z","STF-003","Test User","Check-in","QR","STF-003_20260729","Test"],["2026-07-29T06:52:01.932Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T07:21:50.462Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T07:24:05.023Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T08:22:35.865Z","STF-001","Big Boy","Check-out","web","STF-001_20260729","Test"],["2026-07-29T13:41:20.780Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260729","Test"],["2026-07-29T13:41:33.380Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:41:42.777Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:42:21.956Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:43:25.180Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:43:37.180Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-30T12:57:54.863Z","STF-001","Big Boy","Check-in","QR","STF-001_20260730","Test"],["2026-07-30T12:58:10.055Z","STF-001","Big Boy","Check-out","QR","STF-001_20260730","Test"],["2026-07-30T12:58:14.620Z","STF-001","Big Boy","Check-in","web","STF-001_20260730","Test"],["2026-07-30T12:58:34.589Z","STF-001","Big Boy","Check-out","web","STF-001_20260730","Test"],["2026-07-31T06:35:36.175Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T06:36:09.550Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:50:41.769Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:59:01.269Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:01:39.482Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:32.564Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:44.604Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:03:10.498Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:37:49.569Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:50:47.619Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T09:51:30.162Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T09:56:02.831Z","TEST-001","Test User","Check-in","test","TEST-001_20260731","Test"],["2026-07-31T10:07:42.550Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:08:11.385Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:11:14.753Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:13:21.655Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:27:08.452Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:30:33.256Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:15:17.731Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:15:58.241Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:17:09.402Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:17:48.989Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:02:56.074Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:09:12.041Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:09:43.409Z","STF-003","Test User","Check-out","QR","STF-003_20260731","Test"],["2026-07-31T13:13:07.696Z","STF-002","Small Man","Check-in","web","STF-002_20260731","Test"],["2026-07-31T13:13:15.824Z","STF-002","Small Man","Check-out","web","STF-002_20260731","Test"],["2026-07-31T13:14:06.525Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:14:25.910Z","STF-003","Test User","Check-out","web","STF-003_20260731","Test"],["2026-07-31T13:15:41.363Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:16:35.467Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T13:30:21.363Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:32:25.578Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260731","Test"],["2026-07-31T13:34:00.112Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:34:31.345Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:53:43.736Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:53:59.639Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:55:02.288Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:55:16.043Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:57:24.001Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:57:43.727Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T14:01:03.370Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T14:01:16.018Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-08-05T13:55:45.172Z","STF-001","Big Boy","Check-in","web","STF-001_20260805","Test"],["2026-08-05T13:55:56.094Z","STF-001","Big Boy","Check-out","web","STF-001_20260805","Test"],["2026-08-06T10:16:26.866Z","STF-001","Big Boy","Check-in","web","STF-001_20260806","Test"],["2026-08-06T12:44:13.606Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:06:38.289Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:07:49.099Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:08:37.666Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:25:27.703Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:42:03.545Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:43:28.620Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:58:04.229Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-11T07:23:55.927Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:24:31.612Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:33:14.807Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:34:04.768Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:40:34.909Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T10:27:57.193Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T10:51:38.209Z","STF-003","Test User","Check-in","QR","STF-003_20260811","Test"],["2026-08-12T06:34:25.608Z","STF-001","Big Boy","Check-out","QR","STF-001_20260812","Test"],["2026-08-12T12:42:37.061Z","STF-001","Big Boy","Check-in","QR","STF-001_20260812","Test"],["2026-08-12T12:45:17.734Z","STF-001","Big Boy","Check-out","QR","STF-001_20260812","Test"],["2026-08-12T14:22:19.045Z","STF-001","Big Boy","Check-in","QR","STF-001_20260812","Test"],["2026-08-13T08:29:08.441Z","STF-002","Small Man","Check-in","QR","STF-002_20260813","Test"],["2026-08-13T08:29:44.590Z","STF-002","Small Man","Check-out","QR","STF-002_20260813","Test"],["2026-08-13T08:30:20.470Z","STF-002","Small Man","Check-in","QR","STF-002_20260813","Test"]]},"fetched_at":1786704387}
 
 ================
 File: frontend/data/attendance.json
@@ -4253,6 +4297,11 @@ $activePage = $activePage ?? 'dashboard';
     </div>
 </aside>
 <div id="sidebarOverlay" class="sidebar-overlay" :class="{ 'show': sidebarOpen }" @click="sidebarOpen = false"></div>
+
+================
+File: backend/storage/cache/sheets_cache.json
+================
+{"data":{"success":true,"rows":[["2026-08-20 14:04:30","STF-001","Big Boy","Check-Check-in","QR","STF-001_20260727","Test"],["2026-07-27T09:55:42.567Z","STF-001","Big Boy","Check-out","QR","STF-001_20260727","Test"],["2026-07-27T09:57:26.023Z","STF-002","Small Man","Check-in","QR","STF-002_20260727","Test"],["2026-07-27T10:08:40.400Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-27T10:08:44.004Z","STF-003","Small Man","Check-out","QR","STF-003_20260727","Test"],["2026-07-27T10:08:55.682Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-29T06:29:52.013Z","STF-002","Small Man","Check-out","QR","STF-002_20260729","Test"],["2026-07-29T06:38:57.548Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:40:06.491Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T06:40:45.160Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:49:35.113Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T06:49:58.671Z","STF-003","Test User","Check-in","QR","STF-003_20260729","Test"],["2026-07-29T06:52:01.932Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T07:21:50.462Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T07:24:05.023Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T08:22:35.865Z","STF-001","Big Boy","Check-out","web","STF-001_20260729","Test"],["2026-07-29T13:41:20.780Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260729","Test"],["2026-07-29T13:41:33.380Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:41:42.777Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:42:21.956Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:43:25.180Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:43:37.180Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-30T12:57:54.863Z","STF-001","Big Boy","Check-in","QR","STF-001_20260730","Test"],["2026-07-30T12:58:10.055Z","STF-001","Big Boy","Check-out","QR","STF-001_20260730","Test"],["2026-07-30T12:58:14.620Z","STF-001","Big Boy","Check-in","web","STF-001_20260730","Test"],["2026-07-30T12:58:34.589Z","STF-001","Big Boy","Check-out","web","STF-001_20260730","Test"],["2026-07-31T06:35:36.175Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T06:36:09.550Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:50:41.769Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:59:01.269Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:01:39.482Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:32.564Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:44.604Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:03:10.498Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:37:49.569Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:50:47.619Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T09:51:30.162Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T09:56:02.831Z","TEST-001","Test User","Check-in","test","TEST-001_20260731","Test"],["2026-07-31T10:07:42.550Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:08:11.385Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:11:14.753Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:13:21.655Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:27:08.452Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:30:33.256Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:15:17.731Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:15:58.241Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:17:09.402Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:17:48.989Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:02:56.074Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:09:12.041Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:09:43.409Z","STF-003","Test User","Check-out","QR","STF-003_20260731","Test"],["2026-07-31T13:13:07.696Z","STF-002","Small Man","Check-in","web","STF-002_20260731","Test"],["2026-07-31T13:13:15.824Z","STF-002","Small Man","Check-out","web","STF-002_20260731","Test"],["2026-07-31T13:14:06.525Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:14:25.910Z","STF-003","Test User","Check-out","web","STF-003_20260731","Test"],["2026-07-31T13:15:41.363Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:16:35.467Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T13:30:21.363Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:32:25.578Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260731","Test"],["2026-07-31T13:34:00.112Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:34:31.345Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:53:43.736Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:53:59.639Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:55:02.288Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:55:16.043Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:57:24.001Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:57:43.727Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T14:01:03.370Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T14:01:16.018Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-08-05T13:55:45.172Z","STF-001","Big Boy","Check-in","web","STF-001_20260805","Test"],["2026-08-05T13:55:56.094Z","STF-001","Big Boy","Check-out","web","STF-001_20260805","Test"],["2026-08-06T10:16:26.866Z","STF-001","Big Boy","Check-in","web","STF-001_20260806","Test"],["2026-08-06T12:44:13.606Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:06:38.289Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:07:49.099Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:08:37.666Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:25:27.703Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:42:03.545Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:43:28.620Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:58:04.229Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-11T07:23:55.927Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:24:31.612Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:33:14.807Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:34:04.768Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:40:34.909Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T10:27:57.193Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T10:51:38.209Z","STF-003","Test User","Check-in","QR","STF-003_20260811","Test"],["2026-08-12T06:34:25.608Z","STF-001","Big Boy","Check-out","QR","STF-001_20260812","Test"],["2026-08-12T12:42:37.061Z","STF-001","Big Boy","Check-in","QR","STF-001_20260812","Test"],["2026-08-12T12:45:17.734Z","STF-001","Big Boy","Check-out","QR","STF-001_20260812","Test"],["2026-08-12T14:22:19.045Z","STF-001","Big Boy","Check-in","QR","STF-001_20260812","Test"],["2026-08-13T08:29:08.441Z","STF-002","Small Man","Check-in","QR","STF-002_20260813","Test"],["2026-08-13T08:29:44.590Z","STF-002","Small Man","Check-out","QR","STF-002_20260813","Test"],["2026-08-13T08:30:20.470Z","STF-002","Small Man","Check-in","QR","STF-002_20260813","Test"],["2026-08-14T10:46:32.186Z","STF-001","Big Boy","Check-out","QR","STF-001_20260814","Test"],["2026-08-17T11:00:08.250Z","STF-007","Bames Jond","Check-in","QR","STF-007_20260817","Test"]]},"fetched_at":1787227470}
 
 ================
 File: frontend/public/assets/css/style.css
@@ -10798,7 +10847,7 @@ File: frontend/src/views/admin/qr.php
 ================
 <?php
 // frontend/src/views/admin/qr.php
-// Fullscreen QR Display for wall-mounted tablets
+// Dynamic QR Terminal - Ephemeral QR codes, auto-refreshing
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 $role = $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
 if ($role !== 'admin') {
@@ -10969,6 +11018,16 @@ if ($role !== 'admin') {
             to { transform: rotate(360deg); }
         }
         
+        .info-text {
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+        }
+        .info-text strong {
+            color: var(--accent);
+        }
+        
         @media (max-width: 600px) {
             .qr-page-content { padding: 16px; }
             .qr-card { padding: 20px; }
@@ -11013,8 +11072,12 @@ if ($role !== 'admin') {
                     <div class="refresh-hint">👆 Tap the QR code to refresh</div>
                 </div>
 
+                <div class="info-text">
+                    🔄 <strong>Dynamic QR</strong> • Refreshes every 30s • <strong>No token storage</strong> • Uses your logged-in session
+                </div>
+
                 <div class="staff-card">
-                    <div class="title">👥 Staff Status</div>
+                    <div class="title">👥 Staff Online</div>
                     <div id="staffList">
                         <div class="staff-empty">Loading staff...</div>
                     </div>
@@ -11032,24 +11095,42 @@ if ($role !== 'admin') {
 let timer = null;
 let secondsLeft = 30;
 let qrCodeInstance = null;
+let refreshTimeout = null;
 
 const LOCATIONS = ['HQ Entrance', 'HQ Exit', 'Lobby', 'Office A', 'Office B'];
 let currentLocation = LOCATIONS[0];
 let locationIndex = 0;
 
 function getBaseUrl() {
-    const isLocalhost = window.location.hostname === 'localhost' || 
-                        window.location.hostname === '127.0.0.1' ||
-                        window.location.hostname === '0.0.0.0';
+    const host = window.location.host;
+    const isLocalhost = host === 'localhost' || 
+                        host === '127.0.0.1' || 
+                        host === '0.0.0.0' ||
+                        host.startsWith('192.168.') ||
+                        host.startsWith('10.') ||
+                        host.startsWith('172.') ||
+                        host.includes('localhost');
+    
     if (isLocalhost) {
-        return 'https://glance-rancidity-level.ngrok-free.dev';
+        return 'http://' + host;
     }
+    
+    if (host.includes('ngrok-free.dev') || host.includes('grrok-free.dev')) {
+        return 'http://' + host;
+    }
+    
     return window.location.origin;
 }
 
 async function generateQR() {
     const box = document.getElementById('qrbox');
     if (!box) return;
+    
+    // Clear any existing QR code instance
+    if (qrCodeInstance) {
+        qrCodeInstance.clear();
+        qrCodeInstance = null;
+    }
     
     box.innerHTML = `
         <div class="qr-loading">
@@ -11059,10 +11140,13 @@ async function generateQR() {
     `;
     
     try {
+        // Generate a fresh token - completely random, not stored anywhere
         const token = Math.random().toString(36).substring(2, 10);
         const expires = new Date(Date.now() + 30000).toISOString();
         
         const baseUrl = getBaseUrl();
+        
+        // Ephemeral QR - token only exists in this URL, never stored
         const qrUrl = baseUrl + '/scan.php?' + 
             'token=' + encodeURIComponent(token) +
             '&expires=' + encodeURIComponent(expires) +
@@ -11071,7 +11155,10 @@ async function generateQR() {
             '&method=QR' +
             '&location=' + encodeURIComponent(currentLocation);
         
-        console.log('QR URL:', qrUrl);
+        console.log('📱 QR Generated at ' + new Date().toLocaleTimeString());
+        console.log('📍 Location:', currentLocation);
+        console.log('🔑 Token:', token);
+        console.log('⏰ Expires:', expires);
         
         box.innerHTML = '';
         const div = document.createElement('div');
@@ -11088,8 +11175,10 @@ async function generateQR() {
         
         document.getElementById('locationBadge').textContent = '📍 ' + currentLocation;
         
+        // Reset and start countdown
         startCountdown(30);
         
+        // Rotate location for next QR
         locationIndex = (locationIndex + 1) % LOCATIONS.length;
         currentLocation = LOCATIONS[locationIndex];
         
@@ -11100,7 +11189,10 @@ async function generateQR() {
 }
 
 function startCountdown(seconds) {
+    // Clear any existing timers
     if (timer) clearInterval(timer);
+    if (refreshTimeout) clearTimeout(refreshTimeout);
+    
     secondsLeft = seconds;
     const el = document.getElementById('countdown');
     if (el) el.textContent = secondsLeft;
@@ -11108,7 +11200,12 @@ function startCountdown(seconds) {
     timer = setInterval(() => {
         secondsLeft -= 1;
         if (secondsLeft <= 0) {
-            generateQR();
+            clearInterval(timer);
+            timer = null;
+            // Auto-refresh when countdown reaches 0
+            refreshTimeout = setTimeout(() => {
+                generateQR();
+            }, 100);
         } else {
             const e = document.getElementById('countdown');
             if (e) e.textContent = secondsLeft;
@@ -11118,7 +11215,7 @@ function startCountdown(seconds) {
 
 async function loadStaff() {
     try {
-        const response = await fetch('/index.php/api/onsite-staff');
+        const response = await fetch('/index.php/api/onsite-staff?_=' + Date.now());
         const data = await response.json();
         const staff = data.data || [];
         const container = document.getElementById('staffList');
@@ -11141,7 +11238,7 @@ async function loadStaff() {
         }
     } catch (err) {
         console.error('Error loading staff:', err);
-        document.getElementById('staffList').innerHTML = '<div style="color:#EF4444;font-size:13px;">❌ Error loading staff</div>';
+        document.getElementById('staffList').innerHTML = '<div style="color:#EF4444;font-size:13px;">❌ Error loading staff: ' + err.message + '</div>';
     }
 }
 

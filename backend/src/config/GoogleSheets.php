@@ -1,10 +1,10 @@
 <?php
 // ============================================================
 // FILE: backend/src/config/GoogleSheets.php
-// OPTIMIZED - Faster timeouts & immediate cache updates
+// FIXED - Using CURL for reliable connections
 // ============================================================
 
-define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbz5r1-cfdlPAK7eFOdf4OcDi764oVx_Uh54Uo32x-UPQHD7IMJrnwcpp3mAZ7ycVIpB/exec');
+define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbyFHp5ETpwFXVwyvxQNj1izgYkqOXsqsRCQS77wdT-qVwklILGSHmZbZHwZXRDeKOgT/exec');
 define('CACHE_FILE', __DIR__ . '/../../storage/cache/sheets_cache.json');
 
 // ============================================================
@@ -28,26 +28,35 @@ function getUserRole() {
 }
 
 // ============================================================
-// HTTP HELPER - OPTIMIZED WITH SHORT TIMEOUTS
+// HTTP HELPERS - FIXED WITH CURL
 // ============================================================
 
 function httpGet($url) {
-    // Try cURL first (faster)
+    error_log("🌐 HTTP GET: " . $url);
+    
+    // Try CURL first (more reliable)
     if (function_exists('curl_init')) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0');
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
         curl_close($ch);
         
+        error_log("🌐 HTTP GET response code: " . $httpCode);
+        if ($error) {
+            error_log("🌐 HTTP GET error: " . $error);
+        }
+        
         if ($response !== false && $httpCode === 200) {
+            error_log("🌐 HTTP GET success, response length: " . strlen($response));
             return $response;
         }
     }
@@ -55,24 +64,96 @@ function httpGet($url) {
     // Fallback to file_get_contents
     $context = stream_context_create([
         'http' => [
-            'timeout' => 5,
+            'timeout' => 15,
             'header' => "User-Agent: Mozilla/5.0\r\n"
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false
         ]
     ]);
-    return @file_get_contents($url, false, $context);
+    $response = @file_get_contents($url, false, $context);
+    if ($response === false) {
+        error_log("🌐 HTTP GET failed with file_get_contents");
+        $error = error_get_last();
+        if ($error) {
+            error_log("🌐 Error: " . json_encode($error));
+        }
+    }
+    return $response;
 }
 
 function httpPost($url, $payload) {
-    $options = [
-        'http' => [
-            'header'  => "Content-Type: text/plain;charset=utf-8\r\n",
-            'method'  => 'POST',
-            'content' => $payload,
-            'timeout' => 2
-        ]
+    error_log("📤 HTTP POST: " . $url);
+    error_log("📤 Payload: " . $payload);
+    
+    $headers = [
+        'Content-Type: text/plain;charset=utf-8',
+        'Content-Length: ' . strlen($payload),
+        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     ];
-    $context = stream_context_create($options);
-    return @file_get_contents($url, false, $context);
+    
+    // Try CURL first (more reliable for POST)
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        
+        error_log("📤 HTTP POST response code: " . $httpCode);
+        if ($error) {
+            error_log("📤 HTTP POST error: " . $error);
+        }
+        
+        if ($response !== false && $httpCode === 200) {
+            error_log("📤 HTTP POST success, response: " . $response);
+            return $response;
+        } else if ($response !== false) {
+            error_log("📤 HTTP POST got response with code " . $httpCode . ": " . $response);
+            return $response;
+        }
+    }
+    
+    // Fallback to file_get_contents with stream context
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => implode("\r\n", $headers) . "\r\n",
+            'content' => $payload,
+            'timeout' => 15
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false
+        ]
+    ]);
+    
+    $response = @file_get_contents($url, false, $context);
+    
+    if ($response === false) {
+        error_log("📤 HTTP POST failed with file_get_contents");
+        $error = error_get_last();
+        if ($error) {
+            error_log("📤 Error: " . json_encode($error));
+        }
+        return false;
+    }
+    
+    error_log("📤 HTTP POST success (fallback), response: " . $response);
+    return $response;
 }
 
 // ============================================================
@@ -80,6 +161,7 @@ function httpPost($url, $payload) {
 // ============================================================
 
 function getCredentialsFromSheets() {
+    error_log("🔑 Getting credentials from sheets");
     $response = httpGet(APP_SCRIPT_URL . '?action=getCredentials');
     if ($response === false) {
         $response = httpGet(APP_SCRIPT_URL);
@@ -95,52 +177,57 @@ function getCredentialsFromSheets() {
 }
 
 function fetchSheetsData() {
+    error_log("📥 Fetching sheets data");
     $response = httpGet(APP_SCRIPT_URL);
-    if ($response === false) return ['success' => false, 'error' => 'Failed to fetch'];
+    if ($response === false) {
+        error_log("📥 Fetch failed");
+        return ['success' => false, 'error' => 'Failed to fetch'];
+    }
     $data = json_decode($response, true);
     if (!$data) {
+        error_log("📥 Invalid JSON response");
         return ['success' => false, 'error' => 'Invalid JSON response'];
     }
+    error_log("📥 Fetch success, rows: " . count($data['rows'] ?? []));
     return $data;
 }
 
 function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
+    error_log("📤 SEND TO GOOGLE SHEETS");
+    error_log("📤 Staff: {$staffId}, Name: {$name}, Method: {$method}");
+    
     $payload = ['staff_id' => $staffId, 'name' => $name, 'method' => $method];
     if ($token) $payload['token'] = $token;
     if ($expires) $payload['expires'] = $expires;
-
-    $response = httpPost(APP_SCRIPT_URL, json_encode($payload));
-    if ($response === false) return ['success' => false, 'error' => 'Failed to connect'];
-    return json_decode($response, true);
+    
+    $jsonPayload = json_encode($payload);
+    error_log("📤 JSON Payload: " . $jsonPayload);
+    
+    $response = httpPost(APP_SCRIPT_URL, $jsonPayload);
+    
+    if ($response === false) {
+        error_log("❌ Google Sheets connection failed!");
+        return ['success' => false, 'error' => 'Failed to connect'];
+    }
+    
+    $result = json_decode($response, true);
+    if (!$result) {
+        error_log("❌ Invalid response from Google Sheets: " . $response);
+        return ['success' => false, 'error' => 'Invalid response from server'];
+    }
+    
+    error_log("📥 Google Sheets response: " . json_encode($result));
+    return $result;
 }
 
 function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
-    $url = APP_SCRIPT_URL;
-    $payload = json_encode([
-        'staff_id' => $staffId,
-        'name' => $name,
-        'method' => $method,
-        'token' => $token,
-        'expires' => $expires
-    ]);
-    
-    if (PHP_OS_FAMILY === 'Windows') {
-        $cmd = 'start /B C:\xampp\php\php.exe -r "' . 
-               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
-               '$context = stream_context_create($options);' .
-               '@file_get_contents(\'' . $url . '\', false, $context);" 2>nul';
-        pclose(popen($cmd, 'r'));
-    } else {
-        $cmd = 'php -r "' .
-               '$options = [\'http\' => [\'header\' => \'Content-Type: text/plain;charset=utf-8\\r\\n\', \'method\' => \'POST\', \'content\' => \'' . addslashes($payload) . '\', \'timeout\' => 2]];' .
-               '$context = stream_context_create($options);' .
-               '@file_get_contents(\'' . $url . '\', false, $context);" > /dev/null 2>&1 &';
-        exec($cmd);
-    }
+    error_log("📤 Async send to Google Sheets: {$staffId} ({$name})");
+    // For now, just call sync version (since curl is reliable)
+    return sendToGoogleSheets($staffId, $name, $method, $token, $expires);
 }
 
 // ============================================================
-// CACHE FUNCTIONS - WITH IMMEDIATE UPDATE
+// CACHE FUNCTIONS
 // ============================================================
 
 function getCachedData() {
@@ -152,6 +239,7 @@ function getCachedData() {
 }
 
 function updateCache() {
+    error_log("🔄 Updating cache");
     $data = fetchSheetsData();
     if ($data && isset($data['success']) && $data['success']) {
         $dir = dirname(CACHE_FILE);
@@ -160,13 +248,15 @@ function updateCache() {
             'data' => $data,
             'fetched_at' => time()
         ]));
+        error_log("🔄 Cache updated successfully");
         return true;
     }
+    error_log("🔄 Cache update failed");
     return false;
 }
 
 // ============================================================
-// STATUS FUNCTIONS - WITH INSTANT LOCAL UPDATE
+// STATUS FUNCTIONS
 // ============================================================
 
 function getStatusFromCache($staffId) {
@@ -194,6 +284,8 @@ function getStatusFromCache($staffId) {
 }
 
 function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
+    error_log("🔄 Updating local status: {$staffId} -> {$newStatus}");
+    
     $data = getCachedData();
     
     if (!$data) {
@@ -239,6 +331,8 @@ function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
         'data' => $data,
         'fetched_at' => time()
     ]));
+    
+    error_log("🔄 Local status updated, rows: " . count($rows));
 }
 
 function getStaffListFromCache() {

@@ -1,6 +1,6 @@
 <?php
 // frontend/src/views/admin/qr.php
-// Fullscreen QR Display for wall-mounted tablets
+// Dynamic QR Terminal - Ephemeral QR codes, auto-refreshing
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 $role = $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
 if ($role !== 'admin') {
@@ -171,6 +171,16 @@ if ($role !== 'admin') {
             to { transform: rotate(360deg); }
         }
         
+        .info-text {
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+        }
+        .info-text strong {
+            color: var(--accent);
+        }
+        
         @media (max-width: 600px) {
             .qr-page-content { padding: 16px; }
             .qr-card { padding: 20px; }
@@ -215,8 +225,12 @@ if ($role !== 'admin') {
                     <div class="refresh-hint">👆 Tap the QR code to refresh</div>
                 </div>
 
+                <div class="info-text">
+                    🔄 <strong>Dynamic QR</strong> • Refreshes every 30s • <strong>No token storage</strong> • Uses your logged-in session
+                </div>
+
                 <div class="staff-card">
-                    <div class="title">👥 Staff Status</div>
+                    <div class="title">👥 Staff Online</div>
                     <div id="staffList">
                         <div class="staff-empty">Loading staff...</div>
                     </div>
@@ -234,24 +248,59 @@ if ($role !== 'admin') {
 let timer = null;
 let secondsLeft = 30;
 let qrCodeInstance = null;
+let refreshTimeout = null;
 
 const LOCATIONS = ['HQ Entrance', 'HQ Exit', 'Lobby', 'Office A', 'Office B'];
 let currentLocation = LOCATIONS[0];
 let locationIndex = 0;
 
 function getBaseUrl() {
-    const isLocalhost = window.location.hostname === 'localhost' || 
-                        window.location.hostname === '127.0.0.1' ||
-                        window.location.hostname === '0.0.0.0';
+    // Get the current host
+    const host = window.location.host;
+    
+    // Check if we're on localhost
+    const isLocalhost = host === 'localhost' || 
+                        host === '127.0.0.1' || 
+                        host === '0.0.0.0' ||
+                        host.startsWith('192.168.') ||
+                        host.startsWith('10.') ||
+                        host.startsWith('172.') ||
+                        host.includes('localhost');
+    
     if (isLocalhost) {
+        // Try to get the ngrok URL from the page
+        // If the page was loaded via ngrok, use that
+        // Otherwise, use a hardcoded fallback
+        
+        // Check if there's a meta tag with the ngrok URL
+        const metaNgrok = document.querySelector('meta[name="ngrok-url"]');
+        if (metaNgrok) {
+            return metaNgrok.getAttribute('content');
+        }
+        
+        // Fallback to hardcoded URL - update this when ngrok restarts
+        // You can also set this via an environment variable or config
         return 'https://glance-rancidity-level.ngrok-free.dev';
     }
+    
+    // If we're already on ngrok, use the current host
+    if (host.includes('ngrok-free.dev') || host.includes('grrok-free.dev')) {
+        return 'https://' + host;
+    }
+    
+    // Fallback
     return window.location.origin;
 }
 
 async function generateQR() {
     const box = document.getElementById('qrbox');
     if (!box) return;
+    
+    // Clear any existing QR code instance
+    if (qrCodeInstance) {
+        qrCodeInstance.clear();
+        qrCodeInstance = null;
+    }
     
     box.innerHTML = `
         <div class="qr-loading">
@@ -261,10 +310,13 @@ async function generateQR() {
     `;
     
     try {
+        // Generate a fresh token - completely random, not stored anywhere
         const token = Math.random().toString(36).substring(2, 10);
         const expires = new Date(Date.now() + 30000).toISOString();
         
         const baseUrl = getBaseUrl();
+        
+        // Ephemeral QR - token only exists in this URL, never stored
         const qrUrl = baseUrl + '/scan.php?' + 
             'token=' + encodeURIComponent(token) +
             '&expires=' + encodeURIComponent(expires) +
@@ -273,7 +325,10 @@ async function generateQR() {
             '&method=QR' +
             '&location=' + encodeURIComponent(currentLocation);
         
-        console.log('QR URL:', qrUrl);
+        console.log('📱 QR Generated at ' + new Date().toLocaleTimeString());
+        console.log('📍 Location:', currentLocation);
+        console.log('🔑 Token:', token);
+        console.log('⏰ Expires:', expires);
         
         box.innerHTML = '';
         const div = document.createElement('div');
@@ -290,8 +345,10 @@ async function generateQR() {
         
         document.getElementById('locationBadge').textContent = '📍 ' + currentLocation;
         
+        // Reset and start countdown
         startCountdown(30);
         
+        // Rotate location for next QR
         locationIndex = (locationIndex + 1) % LOCATIONS.length;
         currentLocation = LOCATIONS[locationIndex];
         
@@ -302,7 +359,10 @@ async function generateQR() {
 }
 
 function startCountdown(seconds) {
+    // Clear any existing timers
     if (timer) clearInterval(timer);
+    if (refreshTimeout) clearTimeout(refreshTimeout);
+    
     secondsLeft = seconds;
     const el = document.getElementById('countdown');
     if (el) el.textContent = secondsLeft;
@@ -310,7 +370,12 @@ function startCountdown(seconds) {
     timer = setInterval(() => {
         secondsLeft -= 1;
         if (secondsLeft <= 0) {
-            generateQR();
+            clearInterval(timer);
+            timer = null;
+            // Auto-refresh when countdown reaches 0
+            refreshTimeout = setTimeout(() => {
+                generateQR();
+            }, 100);
         } else {
             const e = document.getElementById('countdown');
             if (e) e.textContent = secondsLeft;
@@ -320,7 +385,7 @@ function startCountdown(seconds) {
 
 async function loadStaff() {
     try {
-        const response = await fetch('/index.php/api/onsite-staff');
+        const response = await fetch('/index.php/api/onsite-staff?_=' + Date.now());
         const data = await response.json();
         const staff = data.data || [];
         const container = document.getElementById('staffList');
@@ -343,7 +408,7 @@ async function loadStaff() {
         }
     } catch (err) {
         console.error('Error loading staff:', err);
-        document.getElementById('staffList').innerHTML = '<div style="color:#EF4444;font-size:13px;">❌ Error loading staff</div>';
+        document.getElementById('staffList').innerHTML = '<div style="color:#EF4444;font-size:13px;">❌ Error loading staff: ' + err.message + '</div>';
     }
 }
 

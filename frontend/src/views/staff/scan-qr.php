@@ -65,8 +65,8 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
         .camera-btn {
             width: 100%;
             padding: 16px;
-            background: var(--sidebar-blue);
-            color: white;
+            background: var(--accent);
+            color: #202020;
             border: none;
             border-radius: 12px;
             font-weight: 600;
@@ -75,10 +75,12 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
             transition: 0.2s;
         }
         .camera-btn:hover {
-            background: var(--sidebar-hover);
+            background: var(--primary-green-dark);
+            color: #f8f8f8;
         }
         .camera-btn.stop {
             background: #ef4444;
+            color: white;
         }
         .camera-btn.stop:hover {
             background: #dc2626;
@@ -98,40 +100,100 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
             object-fit: cover;
         }
         
-        .zoom-controls {
+        /* Camera switch button */
+        .camera-switch-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .camera-switch-btn:hover {
+            border-color: var(--accent);
+            color: var(--heading);
+        }
+        
+        /* ===== RESULT OVERLAY ===== */
+        .result-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 16px;
-            margin-top: 12px;
-            padding: 8px;
-            background: var(--background);
-            border-radius: 12px;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(8px);
+            animation: fadeIn 0.3s ease-out;
         }
-        .zoom-controls button {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: none;
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            60% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+        .result-card {
             background: var(--card-bg);
-            color: var(--heading);
+            border-radius: 24px;
+            padding: 40px 48px;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            animation: bounceIn 0.4s ease-out;
+        }
+        .result-card .icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+        .result-card .title {
             font-size: 24px;
             font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: 0.2s;
-            touch-action: manipulation;
+            color: var(--heading);
+            margin-bottom: 8px;
         }
-        .zoom-controls button:active {
-            transform: scale(0.9);
-        }
-        .zoom-controls .zoom-level {
+        .result-card .subtitle {
             font-size: 14px;
-            font-weight: 600;
             color: var(--text);
-            min-width: 50px;
-            text-align: center;
+            margin-bottom: 4px;
         }
+        .result-card .detail {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+        .result-card .btn-close-result {
+            margin-top: 20px;
+            padding: 12px 32px;
+            background: var(--accent);
+            color: #202020;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 15px;
+        }
+        .result-card .btn-close-result:hover {
+            background: var(--primary-green-dark);
+            color: #f8f8f8;
+        }
+        .result-card.success .icon { color: var(--accent); }
+        .result-card.success .title { color: var(--accent); }
+        .result-card.error .icon { color: #EF4444; }
+        .result-card.error .title { color: #EF4444; }
         
         .result-message {
             margin-top: 16px;
@@ -150,11 +212,6 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
             display: block;
             background: rgba(220, 38, 38, 0.1);
             color: #DC2626;
-        }
-        .result-message.info {
-            display: block;
-            background: #f0f0ed;
-            color: var(--muted);
         }
         
         .scan-instructions {
@@ -175,6 +232,8 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
             .scanner-card { padding: 16px; }
             #reader { min-height: 250px; }
             #reader video { min-height: 250px; }
+            .result-card { padding: 28px 20px; }
+            .result-card .icon { font-size: 48px; }
         }
     </style>
 </head>
@@ -188,7 +247,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
             <?php include __DIR__ . '/../partials/top-nav.php'; ?>
             
             <div class="scan-container">
-                <h1>Scan QR Code</h1>
+                <h1>📷 Scan QR Code</h1>
                 <p>Point your camera at the workplace QR code to sign in or out.</p>
 
                 <div class="scanner-card">
@@ -200,28 +259,38 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
 
                     <div class="camera-section">
                         <button class="camera-btn" @click="startScanner()" x-show="!scannerActive">
-                            📷 Open Camera to Scan
+                            📷 Open Camera
                         </button>
                         <button class="camera-btn stop" @click="stopScanner()" x-show="scannerActive" x-cloak>
                             ⏹️ Stop Camera
                         </button>
                         <div id="reader" x-show="scannerActive" x-cloak></div>
                         
-                        <div class="zoom-controls" x-show="scannerActive" x-cloak>
-                            <button @click="zoomOut()" title="Zoom Out">−</button>
-                            <span class="zoom-level" x-text="Math.round(zoomLevel * 100) + '%'"></span>
-                            <button @click="zoomIn()" title="Zoom In">+</button>
-                        </div>
+                        <!-- Camera Switch Button -->
+                        <button class="camera-switch-btn" @click="switchCamera()" x-show="scannerActive" x-cloak>
+                            🔄 Switch Camera
+                        </button>
                     </div>
 
                     <div class="result-message" :class="resultType" x-show="resultMessage" x-text="resultMessage"></div>
                     
                     <div class="scan-instructions">
-                        💡 <strong>Tip:</strong> If the camera won't focus, tap the screen to adjust.
+                        💡 <strong>Tip:</strong> Make sure the QR code is well-lit and centered.
                     </div>
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- ===== RESULT OVERLAY ===== -->
+    <div class="result-overlay" x-show="showResult" x-cloak @click.away="closeResult()">
+        <div class="result-card" :class="resultType">
+            <div class="icon" x-text="resultType === 'success' ? '✅' : '❌'"></div>
+            <div class="title" x-text="resultTitle"></div>
+            <div class="subtitle" x-text="resultSubtitle"></div>
+            <div class="detail" x-text="resultDetail"></div>
+            <button class="btn-close-result" @click="closeResult()">OK, Got it!</button>
+        </div>
     </div>
 </div>
 
@@ -234,13 +303,43 @@ function scanApp() {
         resultType: '',
         scannerActive: false,
         html5QrCode: null,
-        zoomLevel: 1.0,
         isProcessing: false,
+        cameraFacing: 'environment', // 'environment' or 'user'
+        // Result overlay
+        showResult: false,
+        resultTitle: '',
+        resultSubtitle: '',
+        resultDetail: '',
         
         async init() {
             const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff', 'email' => 'staff@spysee.app']); ?>;
             this.user = userData;
             window.themeManager.initTheme();
+            
+            // Check for scan result from redirect
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('scan') === 'success') {
+                this.showResultOverlay('success', '✅ Scan Successful!', 'You have been signed in/out', 'Redirecting to dashboard...');
+                setTimeout(() => {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    this.closeResult();
+                }, 3000);
+            }
+        },
+
+        showResultOverlay(type, title, subtitle, detail) {
+            this.resultType = type;
+            this.resultTitle = title;
+            this.resultSubtitle = subtitle;
+            this.resultDetail = detail;
+            this.showResult = true;
+        },
+
+        closeResult() {
+            this.showResult = false;
+            if (this.resultType === 'success') {
+                window.location.href = '/index.php/staff-dashboard';
+            }
         },
 
         async startScanner() {
@@ -257,7 +356,8 @@ function scanApp() {
                     aspectRatio: 1.0
                 };
                 
-                const cameraId = { facingMode: "environment" };
+                // Try environment camera first (rear on phone), fallback to user
+                const cameraId = { facingMode: this.cameraFacing };
                 
                 await this.html5QrCode.start(
                     cameraId,
@@ -270,12 +370,26 @@ function scanApp() {
                     }
                 );
                 
-                this.applyZoom();
-                
             } catch (err) {
                 console.error("Camera error:", err);
-                this.scannerActive = false;
                 
+                // If environment fails, try user camera
+                if (this.cameraFacing === 'environment') {
+                    this.cameraFacing = 'user';
+                    try {
+                        await this.html5QrCode.start(
+                            { facingMode: 'user' },
+                            { fps: 15, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
+                            (decodedText) => { this.handleScan(decodedText); },
+                            () => {}
+                        );
+                        return;
+                    } catch (secondErr) {
+                        console.error("Both cameras failed:", secondErr);
+                    }
+                }
+                
+                this.scannerActive = false;
                 let errorMsg = '❌ Camera access denied. ';
                 if (err.name === 'NotAllowedError') {
                     errorMsg += 'Please allow camera access in your browser settings.';
@@ -286,6 +400,18 @@ function scanApp() {
                 }
                 this.resultMessage = errorMsg;
                 this.resultType = 'error';
+                this.showResultOverlay('error', '❌ Camera Error', errorMsg, 'Please allow camera access and try again');
+            }
+        },
+
+        async switchCamera() {
+            // Toggle between front and back camera
+            this.cameraFacing = this.cameraFacing === 'environment' ? 'user' : 'environment';
+            
+            // Restart scanner with new camera
+            if (this.html5QrCode) {
+                await this.stopScanner();
+                setTimeout(() => this.startScanner(), 500);
             }
         },
 
@@ -293,28 +419,11 @@ function scanApp() {
             if (this.html5QrCode) {
                 try {
                     await this.html5QrCode.stop();
+                    this.html5QrCode.clear();
                 } catch (err) {
                     // ignore
                 }
                 this.scannerActive = false;
-            }
-        },
-        
-        zoomIn() {
-            this.zoomLevel = Math.min(this.zoomLevel + 0.1, 3.0);
-            this.applyZoom();
-        },
-        
-        zoomOut() {
-            this.zoomLevel = Math.max(this.zoomLevel - 0.1, 0.5);
-            this.applyZoom();
-        },
-        
-        applyZoom() {
-            const video = document.querySelector('#reader video');
-            if (video) {
-                video.style.transform = `scale(${this.zoomLevel})`;
-                video.style.transformOrigin = 'center center';
             }
         },
 
@@ -322,61 +431,76 @@ function scanApp() {
             if (this.isProcessing) return;
             this.isProcessing = true;
             
-            console.log('QR Code detected:', decodedText);
+            console.log('📱 QR Code detected:', decodedText);
             
             try {
+                let staffId = this.user.id;
+                let location = 'HQ';
+                let name = this.user.name;
+                
+                // Parse QR URL if it's a full URL
                 if (decodedText.includes('scan.php?')) {
                     const url = new URL(decodedText);
-                    const staffId = url.searchParams.get('staff_id') || this.user.id;
-                    const location = url.searchParams.get('location') || 'HQ';
-                    const name = url.searchParams.get('name') || this.user.name;
+                    staffId = url.searchParams.get('staff_id') || this.user.id;
+                    location = url.searchParams.get('location') || 'HQ';
+                    name = url.searchParams.get('name') || this.user.name;
                     
-                    const response = await fetch('/scan.php?' + url.searchParams.toString());
-                    
-                    if (response.redirected) {
-                        window.location.href = response.url;
-                        return;
-                    }
-                    
-                    const result = await this.recordScan(staffId, name, location);
-                    if (result && result.success) {
-                        this.resultMessage = result.message || '✅ Sign in/out successful!';
-                        this.resultType = 'success';
-                        this.stopScanner();
-                        setTimeout(() => {
-                            window.location.href = '/index.php/staff-dashboard';
-                        }, 1500);
-                        return;
+                    // If QR has QR_SCAN, use logged-in user
+                    if (staffId === 'QR_SCAN' || staffId === 'QR_Scan') {
+                        staffId = this.user.id;
+                        name = this.user.name;
                     }
                 }
                 
-                const result = await this.recordScan(this.user.id, this.user.name, 'HQ');
+                // Record the scan
+                const result = await this.recordScan(staffId, name, location);
+                
                 if (result && result.success) {
-                    this.resultMessage = result.message || '✅ Sign in/out successful!';
-                    this.resultType = 'success';
+                    this.showResultOverlay(
+                        'success',
+                        '✅ ' + (result.message || 'Scan Successful!'),
+                        'You have been ' + (result.status === 'in' ? 'signed in' : 'signed out'),
+                        'Staff: ' + name + ' | Location: ' + location
+                    );
                     this.stopScanner();
                     setTimeout(() => {
-                        window.location.href = '/index.php/staff-dashboard';
-                    }, 1500);
-                    return;
+                        this.closeResult();
+                    }, 3000);
+                } else {
+                    this.showResultOverlay(
+                        'error',
+                        '❌ Scan Failed',
+                        result.message || 'Could not process scan',
+                        'Please try again'
+                    );
                 }
                 
             } catch (err) {
                 console.error('Error processing scan:', err);
-                this.resultMessage = '❌ Failed to process QR code. Please try again.';
-                this.resultType = 'error';
+                this.showResultOverlay(
+                    'error',
+                    '❌ Error',
+                    'Failed to process QR code',
+                    err.message || 'Please try again'
+                );
             }
             
             this.isProcessing = false;
-            
-            if (this.resultType === 'success') {
-                this.stopScanner();
-            }
         },
 
         async recordScan(staffId, name, location) {
             try {
-                const response = await fetch('/api/sign-in', {
+                // First check current status
+                const statusResponse = await fetch('/index.php/api/onsite-staff?_=' + Date.now());
+                const statusData = await statusResponse.json();
+                const onsite = statusData.data || [];
+                const isClockedIn = onsite.some(s => s.id === staffId || s.staff_id === staffId);
+                
+                // Determine action
+                const action = isClockedIn ? 'sign-out' : 'sign-in';
+                const endpoint = action === 'sign-in' ? '/index.php/api/sign-in' : '/index.php/api/sign-out';
+                
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -387,28 +511,16 @@ function scanApp() {
                 });
                 
                 const result = await response.json();
-                
-                if (result.message === 'Already Signed in') {
-                    const outResponse = await fetch('/api/sign-out', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            user_id: staffId,
-                            name: name,
-                            location: location
-                        })
-                    });
-                    return await outResponse.json();
-                }
-                
                 return result;
+                
             } catch (err) {
                 console.error('API Error:', err);
-                return { success: false, message: 'Connection error' };
+                return { success: false, message: 'Connection error. Please try again.' };
             }
         }
     }
 }
 </script>
+
 </body>
 </html>

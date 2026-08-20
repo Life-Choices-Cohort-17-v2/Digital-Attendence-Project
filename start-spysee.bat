@@ -3,7 +3,7 @@ title SpySee - Attendance System
 color 0A
 
 echo ============================================
-echo  🚀 SPYSEE - OPTIMIZED START
+echo  🚀 SPYSEE - OPTIMIZED START (FIXED)
 echo ============================================
 echo.
 
@@ -36,7 +36,7 @@ if %errorlevel% equ 0 (
 )
 
 :: ============================================================
-:: STEP 2: START PHP SERVER WITH ROUTER (Optimized!)
+:: STEP 2: START PHP SERVER WITH ROUTER (FIXED - Binds to ALL interfaces!)
 :: ============================================================
 echo.
 echo [2/4] Starting PHP server on port 8000...
@@ -44,10 +44,10 @@ echo [2/4] Starting PHP server on port 8000...
 :: Check if router.php exists
 if exist "frontend\public\router.php" (
     echo 📡 Using optimized router with gzip compression
-    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S localhost:8000 frontend/public/router.php"
+    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S 0.0.0.0:8000 frontend/public/router.php"
 ) else (
     echo 📡 Using standard server
-    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S localhost:8000 -t frontend/public"
+    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S 0.0.0.0:8000 -t frontend/public"
 )
 
 :: Wait for server to start
