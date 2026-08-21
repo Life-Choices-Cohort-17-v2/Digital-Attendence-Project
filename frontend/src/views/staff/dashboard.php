@@ -259,7 +259,7 @@ function dashboardApp() {
                 const url = 'http://localhost:8000/dashboard/stats';
                 const response = await fetch(url);
                 const data = await response.json();
-                const onsiteStaff = data.data || [];
+                const onsiteStaff = data.data.clocked_in || [];
                 this.isClockedIn = onsiteStaff.some(s => s.name === this.user.name);
             } catch (err) {
                 console.error('Error checking status:', err);
