@@ -256,7 +256,7 @@ function dashboardApp() {
 
         async updateStatus() {
             try {
-                const url = '<?= route_url('/api/onsite-staff.php') ?>';
+                const url = 'http://localhost:8000/dashboard/stats';
                 const response = await fetch(url);
                 const data = await response.json();
                 const onsiteStaff = data.data || [];
