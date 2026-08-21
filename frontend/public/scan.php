@@ -1,26 +1,40 @@
 <?php
 // ============================================================
 // FILE: frontend/public/scan.php
-// QR SCAN PROCESSOR - DEBUG VERSION
+// QR SCAN PROCESSOR - WITH PROPER SESSION LOCKING
 // ============================================================
 
-// Force error logging
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// Log every request
-error_log("========================================");
-error_log("📱 SCAN.PHP CALLED at " . date('Y-m-d H:i:s'));
-error_log("📱 GET params: " . json_encode($_GET));
-
-// Load Google Sheets functions
 require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
+
+// ============================================================
+// 🛡️ CRITICAL FIX: SESSION LOCKING
+// ============================================================
 session_start();
 
-error_log("📱 Session data: " . json_encode($_SESSION));
+// Use a separate lock file for atomic operations
+$lockFile = sys_get_temp_dir() . '/spysee_scan_lock_' . md5($_SESSION['staff_id'] ?? 'unknown');
 
-// --- Helper Functions ---
+// Acquire exclusive lock
+$fp = fopen($lockFile, 'c+');
+if (!flock($fp, LOCK_EX)) {
+    error_log("❌ Could not acquire lock for scan processing");
+    if (isset($_SESSION['scan_processing']) && $_SESSION['scan_processing'] === true) {
+        usleep(100000);
+        if (isset($_SESSION['scan_processing']) && $_SESSION['scan_processing'] === true) {
+            header('Location: ' . route_url('/staff-dashboard') . '?scan=success');
+            exit;
+        }
+    }
+    $_SESSION['scan_processing'] = true;
+}
+
+error_log("========================================");
+error_log("📱 SCAN.PHP CALLED at " . date('Y-m-d H:i:s'));
+
 function redirect_to($path) {
     header('Location: ' . $path);
     exit;
@@ -37,8 +51,80 @@ $staffId = $_GET['staff_id'] ?? '';
 $name = $_GET['name'] ?? '';
 $method = $_GET['method'] ?? 'QR';
 $location = $_GET['location'] ?? 'HQ Entrance';
+$scanId = $_GET['scan_id'] ?? '';
 
-error_log("📱 QR Params - token: {$token}, staffId: {$staffId}, name: {$name}, location: {$location}");
+// ============================================================
+// 🛡️ SERVER-SIDE COOLDOWN - Atomic with locking
+// ============================================================
+
+$useStaffId = $_SESSION['staff_id'] ?? '';
+$cooldownKey = 'scan_cooldown_' . $useStaffId;
+
+// Check 1: No scan_id = reject
+if (empty($scanId)) {
+    error_log("❌ No scan_id provided");
+    $_SESSION['message'] = '❌ Invalid scan request.';
+    header('Location: ' . route_url('/staff-dashboard'));
+    exit;
+}
+
+// 🛡️ Check 2: Atomic duplicate check using the lock file
+$processedScans = [];
+if (file_exists($lockFile . '.processed')) {
+    $processedScans = json_decode(file_get_contents($lockFile . '.processed'), true) ?: [];
+}
+if (in_array($scanId, $processedScans)) {
+    error_log("⚠️ DUPLICATE SCAN (atomic lock): scan_id={$scanId}");
+    $_SESSION['qr_result'] = [
+        'success' => true,
+        'action' => 'already_processed',
+        'name' => $_SESSION['staff_name'] ?? 'Staff',
+        'staff_id' => $useStaffId,
+        'location' => $location,
+        'timestamp' => date('Y-m-d H:i:s')
+    ];
+    header('Location: ' . route_url('/staff-dashboard') . '?scan=success');
+    exit;
+}
+
+// 🛡️ Check 3: COOLDOWN - Prevent multiple scans within 10 seconds
+if (!empty($useStaffId) && isset($_SESSION[$cooldownKey])) {
+    $timeSinceLastScan = time() - $_SESSION[$cooldownKey];
+    if ($timeSinceLastScan < 10) {
+        error_log("⏳ COOLDOWN: Staff {$useStaffId} scanned {$timeSinceLastScan}s ago - REJECTING");
+
+        $processedScans[] = $scanId;
+        file_put_contents($lockFile . '.processed', json_encode($processedScans));
+
+        $_SESSION['qr_result'] = [
+            'success' => true,
+            'action' => 'cooldown',
+            'name' => $_SESSION['staff_name'] ?? 'Staff',
+            'staff_id' => $useStaffId,
+            'location' => $location,
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+        header('Location: ' . route_url('/staff-dashboard') . '?scan=success');
+        exit;
+    }
+}
+
+// 🛡️ Set cooldown timestamp
+if (!empty($useStaffId)) {
+    $_SESSION[$cooldownKey] = time();
+}
+
+// Store this scan_id as processed (atomic)
+$processedScans[] = $scanId;
+file_put_contents($lockFile . '.processed', json_encode($processedScans));
+
+// Keep the list manageable
+if (count($processedScans) > 100) {
+    $processedScans = array_slice($processedScans, -50);
+    file_put_contents($lockFile . '.processed', json_encode($processedScans));
+}
+
+error_log("📱 scan_id {$scanId} processed, cooldown set for {$useStaffId}");
 
 // --- Validate Token ---
 if (empty($token) || empty($expires)) {
@@ -73,7 +159,7 @@ if ($expireTime < time()) {
         .btn{display:inline-block;padding:10px 20px;background:#2f6f4f;color:#fff;text-decoration:none;border-radius:8px;margin-top:16px;border:none;cursor:pointer;}
         .btn:hover{background:#3a8a5f;}
     </style>
-    </head><body><div class="card"><div class="error">⏰</div><h2>QR Code Expired</h2><p style="color:#6b6f76;">This QR code has expired. Please request a new one from the admin screen.</p>
+    </head><body><div class="card"><div class="error">⏰</div><h2>QR Code Expired</h2><p style="color:#6b6f76;">This QR code has expired. Please request a new one.</p>
     <a href="' . route_url('/staff-dashboard') . '" class="btn">Return to Dashboard</a>
     </div></body></html>');
     exit;
@@ -81,6 +167,7 @@ if ($expireTime < time()) {
 
 // --- Store QR data in session ---
 $_SESSION['qr_scan'] = [
+    'scan_id' => $scanId,
     'token' => $token,
     'expires' => $expires,
     'staff_id' => $staffId,
@@ -89,19 +176,13 @@ $_SESSION['qr_scan'] = [
     'location' => $location
 ];
 
-error_log("📱 QR data stored in session");
-
 // --- Check Login Status ---
-error_log("📱 Checking login status - isStaff(): " . (isStaff() ? 'true' : 'false'));
-
 if (isStaff()) {
-    error_log("📱 User is staff, processing scan...");
     processScan();
     exit;
 }
 
 if (isAdmin()) {
-    error_log("📱 User is admin, redirecting...");
     $_SESSION['message'] = '❌ Admins cannot clock in/out via QR.';
     $_SESSION['message_type'] = 'error';
     header('Location: ' . route_url('/admin-dashboard'));
@@ -109,8 +190,8 @@ if (isAdmin()) {
 }
 
 // --- Not logged in → redirect to login ---
-error_log("📱 User not logged in, redirecting to login...");
 $_SESSION['redirect_after_login'] = '/scan.php?' . http_build_query([
+    'scan_id' => $scanId,
     'token' => $token,
     'expires' => $expires,
     'staff_id' => $staffId,
@@ -122,70 +203,58 @@ header('Location: ' . route_url('/login'));
 exit;
 
 // ============================================================
-// PROCESS SCAN - Uses logged-in user
+// PROCESS SCAN
 // ============================================================
 function processScan() {
-    global $token, $expires, $staffId, $name, $method, $location;
-    
-    error_log("========================================");
-    error_log("📱 PROCESSING SCAN");
-    error_log("📱 Session: " . json_encode($_SESSION));
-    
-    // Use the LOGGED-IN user's ID
+    global $token, $expires, $staffId, $name, $method, $location, $scanId, $fp, $lockFile;
+
     $useStaffId = $_SESSION['staff_id'] ?? '';
     $useStaffName = $_SESSION['staff_name'] ?? '';
-    
-    error_log("📱 Using staff: {$useStaffId} ({$useStaffName})");
-    
-    // If user isn't properly logged in, redirect
+
     if (empty($useStaffId)) {
-        error_log("❌ No staff ID in session!");
         $_SESSION['message'] = '❌ Please log in first.';
-        $_SESSION['message_type'] = 'error';
         header('Location: ' . route_url('/login'));
         exit;
     }
-    
-    // --- STEP 1: Get current status from CACHE ---
+
+    // --- Get current status from CACHE ---
     $currentStatus = getStatusFromCache($useStaffId);
-    error_log("📱 Current status from cache: {$currentStatus}");
-    
+
     // Determine new status
     $newStatusDisplay = $currentStatus === 'in' ? 'Check-out' : 'Check-in';
     $actionDisplay = $currentStatus === 'in' ? 'Sign out' : 'Sign in';
-    
-    error_log("📱 New status: {$newStatusDisplay}, Action: {$actionDisplay}");
-    
-    // --- STEP 2: Update LOCAL CACHE immediately ---
+
+    // --- Update LOCAL CACHE ---
     updateLocalStatus($useStaffId, $newStatusDisplay, $useStaffName);
-    error_log("📱 Local cache updated");
-    
-    // --- STEP 3: Send success message to user ---
+
+    // --- Send success message ---
     $_SESSION['qr_result'] = [
         'success' => true,
         'action' => $actionDisplay,
         'name' => $useStaffName,
         'staff_id' => $useStaffId,
         'location' => $location,
-        'timestamp' => date('Y-m-d H:i:s')
+        'timestamp' => date('Y-m-d H:i:s'),
+        'scan_id' => $scanId
     ];
-    
-    // --- STEP 4: Send to Google Sheets ---
-    error_log("📤 Sending to Google Sheets: {$useStaffId} ({$useStaffName})");
-    error_log("📤 Method: {$method}, Location: {$location}");
-    
-    $result = sendToGoogleSheets($useStaffId, $useStaffName, $method, $token, $expires);
-    
-    error_log("📤 Google Sheets response: " . json_encode($result));
-    
-    // Async backup
-    sendAsyncToGoogleSheets($useStaffId, $useStaffName, $method, $token, $expires);
-    error_log("📤 Async send triggered");
-    
+
+    // --- Send to Google Sheets (ONLY ONCE!) ---
+    sendToGoogleSheets($useStaffId, $useStaffName, $method, $token, $expires);
+
     unset($_SESSION['qr_scan']);
     
+    // 🛡️ Release the lock
+    $_SESSION['scan_processing'] = false;
+    if ($fp) {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    }
+    // Clean up lock files
+    @unlink($lockFile);
+    @unlink($lockFile . '.processed');
+
     error_log("✅ Scan complete, redirecting to dashboard");
-    
+
     // Redirect back to staff dashboard with success message
     header('Location: ' . route_url('/staff-dashboard') . '?scan=success');
     exit;

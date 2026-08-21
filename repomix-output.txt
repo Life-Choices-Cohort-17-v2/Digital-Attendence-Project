@@ -90,6 +90,7 @@ backend/
       AttendanceValidator.php
   storage/
     cache/
+      credentials_cache.json
       sheets_cache.json
   tests/
     attendance/
@@ -123,6 +124,7 @@ frontend/
     check-php.php
     index.php
     scan.php
+    test-sheets-debug.php
   src/
     views/
       admin/
@@ -163,12 +165,9 @@ Files
 ================================================================
 
 ================
-File: frontend/public/check-php.php
+File: backend/storage/cache/credentials_cache.json
 ================
-// Create: frontend/public/check-php.php
-<?php
-phpinfo();
-?>
+{"data":{"success":true,"staff":[{"staff_id":"STF-001","name":"Big Boy","pin":"1234","active":"YES"},{"staff_id":"STF-002","name":"Small Man","pin":"1234","active":"YES"},{"staff_id":"STF-003","name":"Test User","pin":"1234","active":"YES"},{"staff_id":"STF-004","name":"Alice Wonder","pin":"5678","active":"YES"},{"staff_id":"STF-005","name":"Bob Builder","pin":"5678","active":"YES"}],"admins":[{"admin_id":"ADMIN_001","name":"Boss Man","password":"admin123"},{"admin_id":"ADMIN_002","name":"Supervisor","password":"securePass456"}]},"fetched_at":1787306341}
 
 ================
 File: .github/ISSUE_TEMPLATE/bug_report.md
@@ -797,200 +796,58 @@ echo json_encode([
 ]);
 
 ================
-File: frontend/public/scan.php
+File: frontend/public/check-php.php
+================
+// Create: frontend/public/check-php.php
+<?php
+phpinfo();
+?>
+
+================
+File: frontend/public/test-sheets-debug.php
 ================
 <?php
-// ============================================================
-// FILE: frontend/public/scan.php
-// QR SCAN PROCESSOR - DEBUG VERSION
-// ============================================================
-
-// Force error logging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-// Log every request
-error_log("========================================");
-error_log("📱 SCAN.PHP CALLED at " . date('Y-m-d H:i:s'));
-error_log("📱 GET params: " . json_encode($_GET));
-
-// Load Google Sheets functions
 require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
-session_start();
 
-error_log("📱 Session data: " . json_encode($_SESSION));
+echo "<h1>🔍 Google Sheets Debug</h1>";
 
-// --- Helper Functions ---
-function redirect_to($path) {
-    header('Location: ' . $path);
-    exit;
+// 1. Check APP_SCRIPT_URL
+echo "<h2>1. APP_SCRIPT_URL</h2>";
+echo "<pre>" . APP_SCRIPT_URL . "</pre>";
+
+// 2. Test fetch
+echo "<h2>2. Testing fetchSheetsData()</h2>";
+$data = fetchSheetsData();
+echo "<pre>";
+print_r($data);
+echo "</pre>";
+
+// 3. Test sending a record
+echo "<h2>3. Testing sendToGoogleSheets()</h2>";
+$result = sendToGoogleSheets('TEST-' . time(), 'Debug Test', 'web', 'debug_' . time(), date('Y-m-d H:i:s'));
+echo "<pre>";
+print_r($result);
+echo "</pre>";
+
+// 4. Check cache file
+echo "<h2>4. Cache file</h2>";
+if (file_exists(CACHE_FILE)) {
+    echo "✅ Cache exists at: " . CACHE_FILE . "<br>";
+    $cache = json_decode(file_get_contents(CACHE_FILE), true);
+    echo "Last fetched: " . date('Y-m-d H:i:s', $cache['fetched_at'] ?? time()) . "<br>";
+    echo "Rows in cache: " . count($cache['data']['rows'] ?? []) . "<br>";
+    echo "Last 2 rows:<br>";
+    $rows = array_slice($cache['data']['rows'] ?? [], -2);
+    echo "<pre>";
+    print_r($rows);
+    echo "</pre>";
+} else {
+    echo "❌ No cache file at: " . CACHE_FILE . "<br>";
 }
 
-function route_url($path) {
-    return '/index.php' . ($path === '/' ? '' : $path);
-}
-
-// --- QR Code Parameters ---
-$token = $_GET['token'] ?? '';
-$expires = $_GET['expires'] ?? '';
-$staffId = $_GET['staff_id'] ?? '';
-$name = $_GET['name'] ?? '';
-$method = $_GET['method'] ?? 'QR';
-$location = $_GET['location'] ?? 'HQ Entrance';
-
-error_log("📱 QR Params - token: {$token}, staffId: {$staffId}, name: {$name}, location: {$location}");
-
-// --- Validate Token ---
-if (empty($token) || empty($expires)) {
-    error_log("❌ Invalid QR - missing token or expires");
-    die('<!DOCTYPE html>
-    <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Invalid QR</title>
-    <style>
-        body{font-family:sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fafaf8;margin:0;}
-        .card{background:#fff;padding:40px;border-radius:12px;border:1px solid #dcdcd6;text-align:center;max-width:400px;}
-        .error{color:#a3432f;font-size:48px;margin-bottom:12px;}
-        .btn{display:inline-block;padding:10px 20px;background:#2f6f4f;color:#fff;text-decoration:none;border-radius:8px;margin-top:16px;border:none;cursor:pointer;}
-        .btn:hover{background:#3a8a5f;}
-    </style>
-    </head><body><div class="card"><div class="error">❌</div><h2>Invalid QR Code</h2><p style="color:#6b6f76;">This QR code is missing required data. Please try again.</p>
-    <a href="' . route_url('/staff-dashboard') . '" class="btn">Return to Dashboard</a>
-    </div></body></html>');
-    exit;
-}
-
-// --- Check Expiry ---
-$expireTime = strtotime($expires);
-if ($expireTime < time()) {
-    error_log("❌ QR expired - expireTime: {$expireTime}, now: " . time());
-    die('<!DOCTYPE html>
-    <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>QR Expired</title>
-    <style>
-        body{font-family:sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fafaf8;margin:0;}
-        .card{background:#fff;padding:40px;border-radius:12px;border:1px solid #dcdcd6;text-align:center;max-width:400px;}
-        .error{color:#a3432f;font-size:48px;margin-bottom:12px;}
-        .btn{display:inline-block;padding:10px 20px;background:#2f6f4f;color:#fff;text-decoration:none;border-radius:8px;margin-top:16px;border:none;cursor:pointer;}
-        .btn:hover{background:#3a8a5f;}
-    </style>
-    </head><body><div class="card"><div class="error">⏰</div><h2>QR Code Expired</h2><p style="color:#6b6f76;">This QR code has expired. Please request a new one from the admin screen.</p>
-    <a href="' . route_url('/staff-dashboard') . '" class="btn">Return to Dashboard</a>
-    </div></body></html>');
-    exit;
-}
-
-// --- Store QR data in session ---
-$_SESSION['qr_scan'] = [
-    'token' => $token,
-    'expires' => $expires,
-    'staff_id' => $staffId,
-    'name' => $name,
-    'method' => $method,
-    'location' => $location
-];
-
-error_log("📱 QR data stored in session");
-
-// --- Check Login Status ---
-error_log("📱 Checking login status - isStaff(): " . (isStaff() ? 'true' : 'false'));
-
-if (isStaff()) {
-    error_log("📱 User is staff, processing scan...");
-    processScan();
-    exit;
-}
-
-if (isAdmin()) {
-    error_log("📱 User is admin, redirecting...");
-    $_SESSION['message'] = '❌ Admins cannot clock in/out via QR.';
-    $_SESSION['message_type'] = 'error';
-    header('Location: ' . route_url('/admin-dashboard'));
-    exit;
-}
-
-// --- Not logged in → redirect to login ---
-error_log("📱 User not logged in, redirecting to login...");
-$_SESSION['redirect_after_login'] = '/scan.php?' . http_build_query([
-    'token' => $token,
-    'expires' => $expires,
-    'staff_id' => $staffId,
-    'name' => $name,
-    'method' => $method,
-    'location' => $location
-]);
-header('Location: ' . route_url('/login'));
-exit;
-
-// ============================================================
-// PROCESS SCAN - Uses logged-in user
-// ============================================================
-function processScan() {
-    global $token, $expires, $staffId, $name, $method, $location;
-    
-    error_log("========================================");
-    error_log("📱 PROCESSING SCAN");
-    error_log("📱 Session: " . json_encode($_SESSION));
-    
-    // Use the LOGGED-IN user's ID
-    $useStaffId = $_SESSION['staff_id'] ?? '';
-    $useStaffName = $_SESSION['staff_name'] ?? '';
-    
-    error_log("📱 Using staff: {$useStaffId} ({$useStaffName})");
-    
-    // If user isn't properly logged in, redirect
-    if (empty($useStaffId)) {
-        error_log("❌ No staff ID in session!");
-        $_SESSION['message'] = '❌ Please log in first.';
-        $_SESSION['message_type'] = 'error';
-        header('Location: ' . route_url('/login'));
-        exit;
-    }
-    
-    // --- STEP 1: Get current status from CACHE ---
-    $currentStatus = getStatusFromCache($useStaffId);
-    error_log("📱 Current status from cache: {$currentStatus}");
-    
-    // Determine new status
-    $newStatusDisplay = $currentStatus === 'in' ? 'Check-out' : 'Check-in';
-    $actionDisplay = $currentStatus === 'in' ? 'Sign out' : 'Sign in';
-    
-    error_log("📱 New status: {$newStatusDisplay}, Action: {$actionDisplay}");
-    
-    // --- STEP 2: Update LOCAL CACHE immediately ---
-    updateLocalStatus($useStaffId, $newStatusDisplay, $useStaffName);
-    error_log("📱 Local cache updated");
-    
-    // --- STEP 3: Send success message to user ---
-    $_SESSION['qr_result'] = [
-        'success' => true,
-        'action' => $actionDisplay,
-        'name' => $useStaffName,
-        'staff_id' => $useStaffId,
-        'location' => $location,
-        'timestamp' => date('Y-m-d H:i:s')
-    ];
-    
-    // --- STEP 4: Send to Google Sheets ---
-    error_log("📤 Sending to Google Sheets: {$useStaffId} ({$useStaffName})");
-    error_log("📤 Method: {$method}, Location: {$location}");
-    
-    $result = sendToGoogleSheets($useStaffId, $useStaffName, $method, $token, $expires);
-    
-    error_log("📤 Google Sheets response: " . json_encode($result));
-    
-    // Async backup
-    sendAsyncToGoogleSheets($useStaffId, $useStaffName, $method, $token, $expires);
-    error_log("📤 Async send triggered");
-    
-    unset($_SESSION['qr_scan']);
-    
-    error_log("✅ Scan complete, redirecting to dashboard");
-    
-    // Redirect back to staff dashboard with success message
-    header('Location: ' . route_url('/staff-dashboard') . '?scan=success');
-    exit;
-}
+// 5. Check PHP error log path
+echo "<h2>5. PHP Error Log</h2>";
+echo "<p>Check: C:\xampp\php\logs\php_error_log</p>";
 
 ================
 File: .github/TECH_STACK.md
@@ -2101,6 +1958,271 @@ php -S localhost:8000
 8. External integrations must be isolated inside dedicated services.
 
 ================
+File: frontend/public/scan.php
+================
+<?php
+// ============================================================
+// FILE: frontend/public/scan.php
+// QR SCAN PROCESSOR - WITH PROPER SESSION LOCKING
+// ============================================================
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
+
+// ============================================================
+// 🛡️ CRITICAL FIX: SESSION LOCKING
+// ============================================================
+session_start();
+
+// Use a separate lock file for atomic operations
+$lockFile = sys_get_temp_dir() . '/spysee_scan_lock_' . md5($_SESSION['staff_id'] ?? 'unknown');
+
+// Acquire exclusive lock
+$fp = fopen($lockFile, 'c+');
+if (!flock($fp, LOCK_EX)) {
+    error_log("❌ Could not acquire lock for scan processing");
+    if (isset($_SESSION['scan_processing']) && $_SESSION['scan_processing'] === true) {
+        usleep(100000);
+        if (isset($_SESSION['scan_processing']) && $_SESSION['scan_processing'] === true) {
+            header('Location: ' . route_url('/staff-dashboard') . '?scan=success');
+            exit;
+        }
+    }
+    $_SESSION['scan_processing'] = true;
+}
+
+error_log("========================================");
+error_log("📱 SCAN.PHP CALLED at " . date('Y-m-d H:i:s'));
+
+function redirect_to($path) {
+    header('Location: ' . $path);
+    exit;
+}
+
+function route_url($path) {
+    return '/index.php' . ($path === '/' ? '' : $path);
+}
+
+// --- QR Code Parameters ---
+$token = $_GET['token'] ?? '';
+$expires = $_GET['expires'] ?? '';
+$staffId = $_GET['staff_id'] ?? '';
+$name = $_GET['name'] ?? '';
+$method = $_GET['method'] ?? 'QR';
+$location = $_GET['location'] ?? 'HQ Entrance';
+$scanId = $_GET['scan_id'] ?? '';
+
+// ============================================================
+// 🛡️ SERVER-SIDE COOLDOWN - Atomic with locking
+// ============================================================
+
+$useStaffId = $_SESSION['staff_id'] ?? '';
+$cooldownKey = 'scan_cooldown_' . $useStaffId;
+
+// Check 1: No scan_id = reject
+if (empty($scanId)) {
+    error_log("❌ No scan_id provided");
+    $_SESSION['message'] = '❌ Invalid scan request.';
+    header('Location: ' . route_url('/staff-dashboard'));
+    exit;
+}
+
+// 🛡️ Check 2: Atomic duplicate check using the lock file
+$processedScans = [];
+if (file_exists($lockFile . '.processed')) {
+    $processedScans = json_decode(file_get_contents($lockFile . '.processed'), true) ?: [];
+}
+if (in_array($scanId, $processedScans)) {
+    error_log("⚠️ DUPLICATE SCAN (atomic lock): scan_id={$scanId}");
+    $_SESSION['qr_result'] = [
+        'success' => true,
+        'action' => 'already_processed',
+        'name' => $_SESSION['staff_name'] ?? 'Staff',
+        'staff_id' => $useStaffId,
+        'location' => $location,
+        'timestamp' => date('Y-m-d H:i:s')
+    ];
+    header('Location: ' . route_url('/staff-dashboard') . '?scan=success');
+    exit;
+}
+
+// 🛡️ Check 3: COOLDOWN - Prevent multiple scans within 10 seconds
+if (!empty($useStaffId) && isset($_SESSION[$cooldownKey])) {
+    $timeSinceLastScan = time() - $_SESSION[$cooldownKey];
+    if ($timeSinceLastScan < 10) {
+        error_log("⏳ COOLDOWN: Staff {$useStaffId} scanned {$timeSinceLastScan}s ago - REJECTING");
+
+        $processedScans[] = $scanId;
+        file_put_contents($lockFile . '.processed', json_encode($processedScans));
+
+        $_SESSION['qr_result'] = [
+            'success' => true,
+            'action' => 'cooldown',
+            'name' => $_SESSION['staff_name'] ?? 'Staff',
+            'staff_id' => $useStaffId,
+            'location' => $location,
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+        header('Location: ' . route_url('/staff-dashboard') . '?scan=success');
+        exit;
+    }
+}
+
+// 🛡️ Set cooldown timestamp
+if (!empty($useStaffId)) {
+    $_SESSION[$cooldownKey] = time();
+}
+
+// Store this scan_id as processed (atomic)
+$processedScans[] = $scanId;
+file_put_contents($lockFile . '.processed', json_encode($processedScans));
+
+// Keep the list manageable
+if (count($processedScans) > 100) {
+    $processedScans = array_slice($processedScans, -50);
+    file_put_contents($lockFile . '.processed', json_encode($processedScans));
+}
+
+error_log("📱 scan_id {$scanId} processed, cooldown set for {$useStaffId}");
+
+// --- Validate Token ---
+if (empty($token) || empty($expires)) {
+    error_log("❌ Invalid QR - missing token or expires");
+    die('<!DOCTYPE html>
+    <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Invalid QR</title>
+    <style>
+        body{font-family:sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fafaf8;margin:0;}
+        .card{background:#fff;padding:40px;border-radius:12px;border:1px solid #dcdcd6;text-align:center;max-width:400px;}
+        .error{color:#a3432f;font-size:48px;margin-bottom:12px;}
+        .btn{display:inline-block;padding:10px 20px;background:#2f6f4f;color:#fff;text-decoration:none;border-radius:8px;margin-top:16px;border:none;cursor:pointer;}
+        .btn:hover{background:#3a8a5f;}
+    </style>
+    </head><body><div class="card"><div class="error">❌</div><h2>Invalid QR Code</h2><p style="color:#6b6f76;">This QR code is missing required data. Please try again.</p>
+    <a href="' . route_url('/staff-dashboard') . '" class="btn">Return to Dashboard</a>
+    </div></body></html>');
+    exit;
+}
+
+// --- Check Expiry ---
+$expireTime = strtotime($expires);
+if ($expireTime < time()) {
+    error_log("❌ QR expired - expireTime: {$expireTime}, now: " . time());
+    die('<!DOCTYPE html>
+    <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>QR Expired</title>
+    <style>
+        body{font-family:sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fafaf8;margin:0;}
+        .card{background:#fff;padding:40px;border-radius:12px;border:1px solid #dcdcd6;text-align:center;max-width:400px;}
+        .error{color:#a3432f;font-size:48px;margin-bottom:12px;}
+        .btn{display:inline-block;padding:10px 20px;background:#2f6f4f;color:#fff;text-decoration:none;border-radius:8px;margin-top:16px;border:none;cursor:pointer;}
+        .btn:hover{background:#3a8a5f;}
+    </style>
+    </head><body><div class="card"><div class="error">⏰</div><h2>QR Code Expired</h2><p style="color:#6b6f76;">This QR code has expired. Please request a new one.</p>
+    <a href="' . route_url('/staff-dashboard') . '" class="btn">Return to Dashboard</a>
+    </div></body></html>');
+    exit;
+}
+
+// --- Store QR data in session ---
+$_SESSION['qr_scan'] = [
+    'scan_id' => $scanId,
+    'token' => $token,
+    'expires' => $expires,
+    'staff_id' => $staffId,
+    'name' => $name,
+    'method' => $method,
+    'location' => $location
+];
+
+// --- Check Login Status ---
+if (isStaff()) {
+    processScan();
+    exit;
+}
+
+if (isAdmin()) {
+    $_SESSION['message'] = '❌ Admins cannot clock in/out via QR.';
+    $_SESSION['message_type'] = 'error';
+    header('Location: ' . route_url('/admin-dashboard'));
+    exit;
+}
+
+// --- Not logged in → redirect to login ---
+$_SESSION['redirect_after_login'] = '/scan.php?' . http_build_query([
+    'scan_id' => $scanId,
+    'token' => $token,
+    'expires' => $expires,
+    'staff_id' => $staffId,
+    'name' => $name,
+    'method' => $method,
+    'location' => $location
+]);
+header('Location: ' . route_url('/login'));
+exit;
+
+// ============================================================
+// PROCESS SCAN
+// ============================================================
+function processScan() {
+    global $token, $expires, $staffId, $name, $method, $location, $scanId, $fp, $lockFile;
+
+    $useStaffId = $_SESSION['staff_id'] ?? '';
+    $useStaffName = $_SESSION['staff_name'] ?? '';
+
+    if (empty($useStaffId)) {
+        $_SESSION['message'] = '❌ Please log in first.';
+        header('Location: ' . route_url('/login'));
+        exit;
+    }
+
+    // --- Get current status from CACHE ---
+    $currentStatus = getStatusFromCache($useStaffId);
+
+    // Determine new status
+    $newStatusDisplay = $currentStatus === 'in' ? 'Check-out' : 'Check-in';
+    $actionDisplay = $currentStatus === 'in' ? 'Sign out' : 'Sign in';
+
+    // --- Update LOCAL CACHE ---
+    updateLocalStatus($useStaffId, $newStatusDisplay, $useStaffName);
+
+    // --- Send success message ---
+    $_SESSION['qr_result'] = [
+        'success' => true,
+        'action' => $actionDisplay,
+        'name' => $useStaffName,
+        'staff_id' => $useStaffId,
+        'location' => $location,
+        'timestamp' => date('Y-m-d H:i:s'),
+        'scan_id' => $scanId
+    ];
+
+    // --- Send to Google Sheets (ONLY ONCE!) ---
+    sendToGoogleSheets($useStaffId, $useStaffName, $method, $token, $expires);
+
+    unset($_SESSION['qr_scan']);
+    
+    // 🛡️ Release the lock
+    $_SESSION['scan_processing'] = false;
+    if ($fp) {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    }
+    // Clean up lock files
+    @unlink($lockFile);
+    @unlink($lockFile . '.processed');
+
+    error_log("✅ Scan complete, redirecting to dashboard");
+
+    // Redirect back to staff dashboard with success message
+    header('Location: ' . route_url('/staff-dashboard') . '?scan=success');
+    exit;
+}
+
+================
 File: .gitignore
 ================
 # ============================================
@@ -2355,111 +2477,6 @@ yarn-error.log
 # ============================================
 # Delete one of these:
 # PULL_REQUEST_TEMPLATE.md OR pull-request-template.md
-
-================
-File: start-spysee.bat
-================
-@echo off
-title SpySee - Attendance System
-color 0A
-
-echo ============================================
-echo  🚀 SPYSEE - OPTIMIZED START (FIXED)
-echo ============================================
-echo.
-
-:: Check if PHP exists
-where php >nul 2>nul
-if %errorlevel% neq 0 (
-    echo ❌ PHP not found! Please install PHP or add it to PATH.
-    pause
-    exit /b 1
-)
-
-:: Check if ngrok exists (optional)
-where ngrok >nul 2>nul
-if %errorlevel% neq 0 (
-    echo ⚠️  ngrok not found (phone access may not work)
-    set NGROK_AVAILABLE=0
-) else (
-    set NGROK_AVAILABLE=1
-)
-
-:: ============================================================
-:: STEP 1: WARM THE CACHE (First load will be fast!)
-:: ============================================================
-echo [1/4] Warming cache...
-php -r "require_once 'frontend/data/functions.php'; updateCache();" 2>nul
-if %errorlevel% equ 0 (
-    echo ✅ Cache warmed!
-) else (
-    echo ⚠️  Cache warmup skipped (first load may be slower)
-)
-
-:: ============================================================
-:: STEP 2: START PHP SERVER WITH ROUTER (FIXED - Binds to ALL interfaces!)
-:: ============================================================
-echo.
-echo [2/4] Starting PHP server on port 8000...
-
-:: Check if router.php exists
-if exist "frontend\public\router.php" (
-    echo 📡 Using optimized router with gzip compression
-    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S 0.0.0.0:8000 frontend/public/router.php"
-) else (
-    echo 📡 Using standard server
-    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S 0.0.0.0:8000 -t frontend/public"
-)
-
-:: Wait for server to start
-timeout /t 2 /nobreak >nul
-
-:: ============================================================
-:: STEP 3: START NGROK
-:: ============================================================
-echo.
-echo [3/4] Starting ngrok...
-if %NGROK_AVAILABLE% equ 1 (
-    start "SpySee ngrok" cmd /c "ngrok http 8000"
-    timeout /t 2 /nobreak >nul
-) else (
-    echo ⚠️  ngrok skipped (not found in PATH)
-)
-
-:: ============================================================
-:: STEP 4: OPEN BROWSER
-:: ============================================================
-echo.
-echo [4/4] Opening browser...
-start http://localhost:8000/
-
-echo.
-echo ============================================
-echo  ✅ SPYSEE IS RUNNING!
-echo ============================================
-echo  📱 PC:    http://localhost:8000/
-if %NGROK_AVAILABLE% equ 1 (
-    echo  📱 Phone: Check ngrok window for URL
-) else (
-    echo  📱 Phone: Use ngrok manually if needed
-)
-echo ============================================
-echo.
-echo  ⚡ Press any key to STOP all servers
-echo  ⚡ Or close this window to keep them running
-echo.
-pause >nul
-
-:: ============================================================
-:: CLEAN EXIT - Kill all servers
-:: ============================================================
-echo.
-echo 🛑 Stopping all servers...
-taskkill /f /im php.exe 2>nul
-taskkill /f /im ngrok.exe 2>nul
-echo ✅ All stopped!
-echo.
-pause
 
 ================
 File: backend/src/controllers/AuthController.php
@@ -2997,6 +3014,111 @@ To get a local copy up and running, follow these simple steps.
 Lutfeeya Cupido 💚
 
 ================
+File: start-spysee.bat
+================
+@echo off
+title SpySee - Attendance System
+color 0A
+
+echo ============================================
+echo  🚀 SPYSEE - OPTIMIZED START (FIXED)
+echo ============================================
+echo.
+
+:: Check if PHP exists
+where php >nul 2>nul
+if %errorlevel% neq 0 (
+    echo ❌ PHP not found! Please install PHP or add it to PATH.
+    pause
+    exit /b 1
+)
+
+:: Check if ngrok exists (optional)
+where ngrok >nul 2>nul
+if %errorlevel% neq 0 (
+    echo ⚠️  ngrok not found (phone access may not work)
+    set NGROK_AVAILABLE=0
+) else (
+    set NGROK_AVAILABLE=1
+)
+
+:: ============================================================
+:: STEP 1: WARM THE CACHE (First load will be fast!)
+:: ============================================================
+echo [1/4] Warming cache...
+php -r "require_once 'frontend/data/functions.php'; updateCache();" 2>nul
+if %errorlevel% equ 0 (
+    echo ✅ Cache warmed!
+) else (
+    echo ⚠️  Cache warmup skipped (first load may be slower)
+)
+
+:: ============================================================
+:: STEP 2: START PHP SERVER WITH ROUTER (FIXED - Binds to ALL interfaces!)
+:: ============================================================
+echo.
+echo [2/4] Starting PHP server on port 8000...
+
+:: Check if router.php exists
+if exist "frontend\public\router.php" (
+    echo 📡 Using optimized router with gzip compression
+    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S 0.0.0.0:8000 frontend/public/router.php"
+) else (
+    echo 📡 Using standard server
+    start "SpySee PHP" cmd /c "C:/xampp/php/php.exe -S 0.0.0.0:8000 -t frontend/public"
+)
+
+:: Wait for server to start
+timeout /t 2 /nobreak >nul
+
+:: ============================================================
+:: STEP 3: START NGROK
+:: ============================================================
+echo.
+echo [3/4] Starting ngrok...
+if %NGROK_AVAILABLE% equ 1 (
+    start "SpySee ngrok" cmd /c "ngrok http 8000"
+    timeout /t 2 /nobreak >nul
+) else (
+    echo ⚠️  ngrok skipped (not found in PATH)
+)
+
+:: ============================================================
+:: STEP 4: OPEN BROWSER
+:: ============================================================
+echo.
+echo [4/4] Opening browser...
+start http://localhost:8000/
+
+echo.
+echo ============================================
+echo  ✅ SPYSEE IS RUNNING!
+echo ============================================
+echo  📱 PC:    http://localhost:8000/
+if %NGROK_AVAILABLE% equ 1 (
+    echo  📱 Phone: Check ngrok window for URL
+) else (
+    echo  📱 Phone: Use ngrok manually if needed
+)
+echo ============================================
+echo.
+echo  ⚡ Press any key to STOP all servers
+echo  ⚡ Or close this window to keep them running
+echo.
+pause >nul
+
+:: ============================================================
+:: CLEAN EXIT - Kill all servers
+:: ============================================================
+echo.
+echo 🛑 Stopping all servers...
+taskkill /f /im php.exe 2>nul
+taskkill /f /im ngrok.exe 2>nul
+echo ✅ All stopped!
+echo.
+pause
+
+================
 File: backend/src/config/DataBase.php
 ================
 <?php
@@ -3139,371 +3261,6 @@ function generateQRCode(array $data): array {
 }
 function revokeQRCode(array $data): array {
     return ['success' => true, 'message' => 'QR code revoked simulated.'];
-}
-
-================
-File: backend/src/config/GoogleSheets.php
-================
-<?php
-// ============================================================
-// FILE: backend/src/config/GoogleSheets.php
-// FIXED - Using CURL for reliable connections
-// ============================================================
-
-define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbyFHp5ETpwFXVwyvxQNj1izgYkqOXsqsRCQS77wdT-qVwklILGSHmZbZHwZXRDeKOgT/exec');
-define('CACHE_FILE', __DIR__ . '/../../storage/cache/sheets_cache.json');
-
-// ============================================================
-// SESSION HELPERS
-// ============================================================
-
-function isLoggedIn() {
-    return isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true;
-}
-
-function isAdmin() {
-    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin';
-}
-
-function isStaff() {
-    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'staff';
-}
-
-function getUserRole() {
-    return $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
-}
-
-// ============================================================
-// HTTP HELPERS - FIXED WITH CURL
-// ============================================================
-
-function httpGet($url) {
-    error_log("🌐 HTTP GET: " . $url);
-    
-    // Try CURL first (more reliable)
-    if (function_exists('curl_init')) {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
-        
-        error_log("🌐 HTTP GET response code: " . $httpCode);
-        if ($error) {
-            error_log("🌐 HTTP GET error: " . $error);
-        }
-        
-        if ($response !== false && $httpCode === 200) {
-            error_log("🌐 HTTP GET success, response length: " . strlen($response));
-            return $response;
-        }
-    }
-    
-    // Fallback to file_get_contents
-    $context = stream_context_create([
-        'http' => [
-            'timeout' => 15,
-            'header' => "User-Agent: Mozilla/5.0\r\n"
-        ],
-        'ssl' => [
-            'verify_peer' => false,
-            'verify_peer_name' => false
-        ]
-    ]);
-    $response = @file_get_contents($url, false, $context);
-    if ($response === false) {
-        error_log("🌐 HTTP GET failed with file_get_contents");
-        $error = error_get_last();
-        if ($error) {
-            error_log("🌐 Error: " . json_encode($error));
-        }
-    }
-    return $response;
-}
-
-function httpPost($url, $payload) {
-    error_log("📤 HTTP POST: " . $url);
-    error_log("📤 Payload: " . $payload);
-    
-    $headers = [
-        'Content-Type: text/plain;charset=utf-8',
-        'Content-Length: ' . strlen($payload),
-        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    ];
-    
-    // Try CURL first (more reliable for POST)
-    if (function_exists('curl_init')) {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
-        
-        error_log("📤 HTTP POST response code: " . $httpCode);
-        if ($error) {
-            error_log("📤 HTTP POST error: " . $error);
-        }
-        
-        if ($response !== false && $httpCode === 200) {
-            error_log("📤 HTTP POST success, response: " . $response);
-            return $response;
-        } else if ($response !== false) {
-            error_log("📤 HTTP POST got response with code " . $httpCode . ": " . $response);
-            return $response;
-        }
-    }
-    
-    // Fallback to file_get_contents with stream context
-    $context = stream_context_create([
-        'http' => [
-            'method' => 'POST',
-            'header' => implode("\r\n", $headers) . "\r\n",
-            'content' => $payload,
-            'timeout' => 15
-        ],
-        'ssl' => [
-            'verify_peer' => false,
-            'verify_peer_name' => false
-        ]
-    ]);
-    
-    $response = @file_get_contents($url, false, $context);
-    
-    if ($response === false) {
-        error_log("📤 HTTP POST failed with file_get_contents");
-        $error = error_get_last();
-        if ($error) {
-            error_log("📤 Error: " . json_encode($error));
-        }
-        return false;
-    }
-    
-    error_log("📤 HTTP POST success (fallback), response: " . $response);
-    return $response;
-}
-
-// ============================================================
-// GOOGLE SHEETS API
-// ============================================================
-
-function getCredentialsFromSheets() {
-    error_log("🔑 Getting credentials from sheets");
-    $response = httpGet(APP_SCRIPT_URL . '?action=getCredentials');
-    if ($response === false) {
-        $response = httpGet(APP_SCRIPT_URL);
-        if ($response === false) {
-            return ['success' => false, 'error' => 'Failed to fetch credentials'];
-        }
-    }
-    $data = json_decode($response, true);
-    if (!$data) {
-        return ['success' => false, 'error' => 'Invalid JSON response'];
-    }
-    return $data;
-}
-
-function fetchSheetsData() {
-    error_log("📥 Fetching sheets data");
-    $response = httpGet(APP_SCRIPT_URL);
-    if ($response === false) {
-        error_log("📥 Fetch failed");
-        return ['success' => false, 'error' => 'Failed to fetch'];
-    }
-    $data = json_decode($response, true);
-    if (!$data) {
-        error_log("📥 Invalid JSON response");
-        return ['success' => false, 'error' => 'Invalid JSON response'];
-    }
-    error_log("📥 Fetch success, rows: " . count($data['rows'] ?? []));
-    return $data;
-}
-
-function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
-    error_log("📤 SEND TO GOOGLE SHEETS");
-    error_log("📤 Staff: {$staffId}, Name: {$name}, Method: {$method}");
-    
-    $payload = ['staff_id' => $staffId, 'name' => $name, 'method' => $method];
-    if ($token) $payload['token'] = $token;
-    if ($expires) $payload['expires'] = $expires;
-    
-    $jsonPayload = json_encode($payload);
-    error_log("📤 JSON Payload: " . $jsonPayload);
-    
-    $response = httpPost(APP_SCRIPT_URL, $jsonPayload);
-    
-    if ($response === false) {
-        error_log("❌ Google Sheets connection failed!");
-        return ['success' => false, 'error' => 'Failed to connect'];
-    }
-    
-    $result = json_decode($response, true);
-    if (!$result) {
-        error_log("❌ Invalid response from Google Sheets: " . $response);
-        return ['success' => false, 'error' => 'Invalid response from server'];
-    }
-    
-    error_log("📥 Google Sheets response: " . json_encode($result));
-    return $result;
-}
-
-function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
-    error_log("📤 Async send to Google Sheets: {$staffId} ({$name})");
-    // For now, just call sync version (since curl is reliable)
-    return sendToGoogleSheets($staffId, $name, $method, $token, $expires);
-}
-
-// ============================================================
-// CACHE FUNCTIONS
-// ============================================================
-
-function getCachedData() {
-    if (file_exists(CACHE_FILE)) {
-        $cached = json_decode(file_get_contents(CACHE_FILE), true);
-        if ($cached && isset($cached['data'])) return $cached['data'];
-    }
-    return null;
-}
-
-function updateCache() {
-    error_log("🔄 Updating cache");
-    $data = fetchSheetsData();
-    if ($data && isset($data['success']) && $data['success']) {
-        $dir = dirname(CACHE_FILE);
-        if (!is_dir($dir)) mkdir($dir, 0777, true);
-        file_put_contents(CACHE_FILE, json_encode([
-            'data' => $data,
-            'fetched_at' => time()
-        ]));
-        error_log("🔄 Cache updated successfully");
-        return true;
-    }
-    error_log("🔄 Cache update failed");
-    return false;
-}
-
-// ============================================================
-// STATUS FUNCTIONS
-// ============================================================
-
-function getStatusFromCache($staffId) {
-    $data = getCachedData();
-    if (!$data) return 'out';
-    
-    $rows = $data['rows'] ?? [];
-    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
-        array_shift($rows);
-    }
-    
-    $latestStatus = 'out';
-    $latestTimestamp = '';
-    
-    foreach ($rows as $row) {
-        if (isset($row[1]) && $row[1] === $staffId) {
-            if (empty($latestTimestamp) || $row[0] > $latestTimestamp) {
-                $latestTimestamp = $row[0];
-                $status = str_replace('Check-', '', $row[3] ?? '');
-                $latestStatus = strtolower($status);
-            }
-        }
-    }
-    return $latestStatus;
-}
-
-function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
-    error_log("🔄 Updating local status: {$staffId} -> {$newStatus}");
-    
-    $data = getCachedData();
-    
-    if (!$data) {
-        $data = fetchSheetsData();
-        if (!$data || !isset($data['success']) || !$data['success']) {
-            $data = ['rows' => []];
-        }
-    }
-    
-    $rows = $data['rows'] ?? [];
-    
-    if (!empty($rows) && is_array($rows[0])) {
-        $firstRow = array_values($rows[0]);
-        $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
-        if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
-            array_shift($rows);
-        }
-    }
-    
-    $found = false;
-    foreach ($rows as $index => $row) {
-        if (isset($row[1]) && $row[1] === $staffId) {
-            $row[0] = date('Y-m-d H:i:s');
-            $row[3] = 'Check-' . $newStatus;
-            $rows[$index] = $row;
-            $found = true;
-            break;
-        }
-    }
-    
-    if (!$found) {
-        $rows[] = [
-            date('Y-m-d H:i:s'),
-            $staffId,
-            $staffName,
-            'Check-' . $newStatus,
-            'web'
-        ];
-    }
-    
-    $data['rows'] = $rows;
-    file_put_contents(CACHE_FILE, json_encode([
-        'data' => $data,
-        'fetched_at' => time()
-    ]));
-    
-    error_log("🔄 Local status updated, rows: " . count($rows));
-}
-
-function getStaffListFromCache() {
-    $data = getCachedData();
-    if (!$data) return [];
-    
-    $rows = $data['rows'] ?? [];
-    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
-        array_shift($rows);
-    }
-    
-    $staffList = [];
-    $seen = [];
-    
-    foreach ($rows as $row) {
-        if (isset($row[1]) && !isset($seen[$row[1]])) {
-            $seen[$row[1]] = true;
-            $staffList[] = [
-                'staff_id' => $row[1],
-                'name' => $row[2] ?? 'Unknown',
-                'status' => strtolower(str_replace('Check-', '', $row[3] ?? ''))
-            ];
-        }
-    }
-    return $staffList;
 }
 
 ================
@@ -4299,9 +4056,405 @@ $activePage = $activePage ?? 'dashboard';
 <div id="sidebarOverlay" class="sidebar-overlay" :class="{ 'show': sidebarOpen }" @click="sidebarOpen = false"></div>
 
 ================
-File: backend/storage/cache/sheets_cache.json
+File: backend/src/config/GoogleSheets.php
 ================
-{"data":{"success":true,"rows":[["2026-08-20 14:04:30","STF-001","Big Boy","Check-Check-in","QR","STF-001_20260727","Test"],["2026-07-27T09:55:42.567Z","STF-001","Big Boy","Check-out","QR","STF-001_20260727","Test"],["2026-07-27T09:57:26.023Z","STF-002","Small Man","Check-in","QR","STF-002_20260727","Test"],["2026-07-27T10:08:40.400Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-27T10:08:44.004Z","STF-003","Small Man","Check-out","QR","STF-003_20260727","Test"],["2026-07-27T10:08:55.682Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-29T06:29:52.013Z","STF-002","Small Man","Check-out","QR","STF-002_20260729","Test"],["2026-07-29T06:38:57.548Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:40:06.491Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T06:40:45.160Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:49:35.113Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T06:49:58.671Z","STF-003","Test User","Check-in","QR","STF-003_20260729","Test"],["2026-07-29T06:52:01.932Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T07:21:50.462Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T07:24:05.023Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T08:22:35.865Z","STF-001","Big Boy","Check-out","web","STF-001_20260729","Test"],["2026-07-29T13:41:20.780Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260729","Test"],["2026-07-29T13:41:33.380Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:41:42.777Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:42:21.956Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:43:25.180Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:43:37.180Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-30T12:57:54.863Z","STF-001","Big Boy","Check-in","QR","STF-001_20260730","Test"],["2026-07-30T12:58:10.055Z","STF-001","Big Boy","Check-out","QR","STF-001_20260730","Test"],["2026-07-30T12:58:14.620Z","STF-001","Big Boy","Check-in","web","STF-001_20260730","Test"],["2026-07-30T12:58:34.589Z","STF-001","Big Boy","Check-out","web","STF-001_20260730","Test"],["2026-07-31T06:35:36.175Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T06:36:09.550Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:50:41.769Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:59:01.269Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:01:39.482Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:32.564Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:44.604Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:03:10.498Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:37:49.569Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:50:47.619Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T09:51:30.162Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T09:56:02.831Z","TEST-001","Test User","Check-in","test","TEST-001_20260731","Test"],["2026-07-31T10:07:42.550Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:08:11.385Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:11:14.753Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:13:21.655Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:27:08.452Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:30:33.256Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:15:17.731Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:15:58.241Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:17:09.402Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:17:48.989Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:02:56.074Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:09:12.041Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:09:43.409Z","STF-003","Test User","Check-out","QR","STF-003_20260731","Test"],["2026-07-31T13:13:07.696Z","STF-002","Small Man","Check-in","web","STF-002_20260731","Test"],["2026-07-31T13:13:15.824Z","STF-002","Small Man","Check-out","web","STF-002_20260731","Test"],["2026-07-31T13:14:06.525Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:14:25.910Z","STF-003","Test User","Check-out","web","STF-003_20260731","Test"],["2026-07-31T13:15:41.363Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:16:35.467Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T13:30:21.363Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:32:25.578Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260731","Test"],["2026-07-31T13:34:00.112Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:34:31.345Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:53:43.736Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:53:59.639Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:55:02.288Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:55:16.043Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:57:24.001Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:57:43.727Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T14:01:03.370Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T14:01:16.018Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-08-05T13:55:45.172Z","STF-001","Big Boy","Check-in","web","STF-001_20260805","Test"],["2026-08-05T13:55:56.094Z","STF-001","Big Boy","Check-out","web","STF-001_20260805","Test"],["2026-08-06T10:16:26.866Z","STF-001","Big Boy","Check-in","web","STF-001_20260806","Test"],["2026-08-06T12:44:13.606Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:06:38.289Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:07:49.099Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:08:37.666Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:25:27.703Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:42:03.545Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:43:28.620Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:58:04.229Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-11T07:23:55.927Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:24:31.612Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:33:14.807Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:34:04.768Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:40:34.909Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T10:27:57.193Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T10:51:38.209Z","STF-003","Test User","Check-in","QR","STF-003_20260811","Test"],["2026-08-12T06:34:25.608Z","STF-001","Big Boy","Check-out","QR","STF-001_20260812","Test"],["2026-08-12T12:42:37.061Z","STF-001","Big Boy","Check-in","QR","STF-001_20260812","Test"],["2026-08-12T12:45:17.734Z","STF-001","Big Boy","Check-out","QR","STF-001_20260812","Test"],["2026-08-12T14:22:19.045Z","STF-001","Big Boy","Check-in","QR","STF-001_20260812","Test"],["2026-08-13T08:29:08.441Z","STF-002","Small Man","Check-in","QR","STF-002_20260813","Test"],["2026-08-13T08:29:44.590Z","STF-002","Small Man","Check-out","QR","STF-002_20260813","Test"],["2026-08-13T08:30:20.470Z","STF-002","Small Man","Check-in","QR","STF-002_20260813","Test"],["2026-08-14T10:46:32.186Z","STF-001","Big Boy","Check-out","QR","STF-001_20260814","Test"],["2026-08-17T11:00:08.250Z","STF-007","Bames Jond","Check-in","QR","STF-007_20260817","Test"]]},"fetched_at":1787227470}
+<?php
+// ============================================================
+// FILE: backend/src/config/GoogleSheets.php
+// FIXED - With Credential Caching + NO DUPLICATE SEND
+// ============================================================
+
+define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbyFHp5ETpwFXVwyvxQNj1izgYkqOXsqsRCQS77wdT-qVwklILGSHmZbZHwZXRDeKOgT/exec');
+define('CACHE_FILE', __DIR__ . '/../../storage/cache/sheets_cache.json');
+define('CREDENTIALS_CACHE_FILE', __DIR__ . '/../../storage/cache/credentials_cache.json');
+
+// ============================================================
+// SESSION HELPERS
+// ============================================================
+
+function isLoggedIn() {
+    return isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true;
+}
+
+function isAdmin() {
+    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin';
+}
+
+function isStaff() {
+    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'staff';
+}
+
+function getUserRole() {
+    return $_SESSION['user_role'] ?? $_SESSION['user_type'] ?? null;
+}
+
+// ============================================================
+// HTTP HELPERS - FIXED WITH CURL
+// ============================================================
+
+function httpGet($url) {
+    error_log("🌐 HTTP GET: " . $url);
+    
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        
+        error_log("🌐 HTTP GET response code: " . $httpCode);
+        if ($error) {
+            error_log("🌐 HTTP GET error: " . $error);
+        }
+        
+        if ($response !== false && $httpCode === 200) {
+            error_log("🌐 HTTP GET success, response length: " . strlen($response));
+            return $response;
+        }
+    }
+    
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 15,
+            'header' => "User-Agent: Mozilla/5.0\r\n"
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false
+        ]
+    ]);
+    $response = @file_get_contents($url, false, $context);
+    if ($response === false) {
+        error_log("🌐 HTTP GET failed with file_get_contents");
+        $error = error_get_last();
+        if ($error) {
+            error_log("🌐 Error: " . json_encode($error));
+        }
+    }
+    return $response;
+}
+
+function httpPost($url, $payload) {
+    error_log("📤 HTTP POST: " . $url);
+    error_log("📤 Payload: " . $payload);
+    
+    $headers = [
+        'Content-Type: text/plain;charset=utf-8',
+        'Content-Length: ' . strlen($payload),
+        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    ];
+    
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        
+        error_log("📤 HTTP POST response code: " . $httpCode);
+        if ($error) {
+            error_log("📤 HTTP POST error: " . $error);
+        }
+        
+        if ($response !== false && $httpCode === 200) {
+            error_log("📤 HTTP POST success, response: " . $response);
+            return $response;
+        } else if ($response !== false) {
+            error_log("📤 HTTP POST got response with code " . $httpCode . ": " . $response);
+            return $response;
+        }
+    }
+    
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => implode("\r\n", $headers) . "\r\n",
+            'content' => $payload,
+            'timeout' => 15
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false
+        ]
+    ]);
+    
+    $response = @file_get_contents($url, false, $context);
+    
+    if ($response === false) {
+        error_log("📤 HTTP POST failed with file_get_contents");
+        $error = error_get_last();
+        if ($error) {
+            error_log("📤 Error: " . json_encode($error));
+        }
+        return false;
+    }
+    
+    error_log("📤 HTTP POST success (fallback), response: " . $response);
+    return $response;
+}
+
+// ============================================================
+// 🛡️ CREDENTIALS WITH CACHING - Prevents rate limiting
+// ============================================================
+
+function getCredentialsFromSheets($forceRefresh = false) {
+    error_log("🔑 Getting credentials from sheets (forceRefresh: " . ($forceRefresh ? 'true' : 'false') . ")");
+    
+    if (!$forceRefresh && file_exists(CREDENTIALS_CACHE_FILE)) {
+        $cached = json_decode(file_get_contents(CREDENTIALS_CACHE_FILE), true);
+        if ($cached && isset($cached['fetched_at']) && (time() - $cached['fetched_at']) < 300) {
+            error_log("🔑 Using cached credentials (age: " . (time() - $cached['fetched_at']) . "s)");
+            return $cached['data'];
+        }
+    }
+    
+    $response = httpGet(APP_SCRIPT_URL . '?action=getCredentials');
+    if ($response === false) {
+        $response = httpGet(APP_SCRIPT_URL);
+        if ($response === false) {
+            if (file_exists(CREDENTIALS_CACHE_FILE)) {
+                $cached = json_decode(file_get_contents(CREDENTIALS_CACHE_FILE), true);
+                if ($cached && isset($cached['data'])) {
+                    error_log("🔑 Using stale cached credentials as fallback");
+                    return $cached['data'];
+                }
+            }
+            return ['success' => false, 'error' => 'Failed to fetch credentials'];
+        }
+    }
+    
+    $data = json_decode($response, true);
+    if (!$data) {
+        return ['success' => false, 'error' => 'Invalid JSON response'];
+    }
+    
+    $dir = dirname(CREDENTIALS_CACHE_FILE);
+    if (!is_dir($dir)) mkdir($dir, 0777, true);
+    file_put_contents(CREDENTIALS_CACHE_FILE, json_encode([
+        'data' => $data,
+        'fetched_at' => time()
+    ]));
+    
+    error_log("🔑 Credentials cached successfully");
+    return $data;
+}
+
+// ============================================================
+// GOOGLE SHEETS API
+// ============================================================
+
+function fetchSheetsData() {
+    error_log("📥 Fetching sheets data");
+    $response = httpGet(APP_SCRIPT_URL);
+    if ($response === false) {
+        error_log("📥 Fetch failed");
+        return ['success' => false, 'error' => 'Failed to fetch'];
+    }
+    $data = json_decode($response, true);
+    if (!$data) {
+        error_log("📥 Invalid JSON response");
+        return ['success' => false, 'error' => 'Invalid JSON response'];
+    }
+    error_log("📥 Fetch success, rows: " . count($data['rows'] ?? []));
+    return $data;
+}
+
+// ============================================================
+// 🛡️ CRITICAL FIX: sendToGoogleSheets - ONLY ONE CALL PER SCAN
+// ============================================================
+
+function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
+    error_log("📤 SEND TO GOOGLE SHEETS (ONCE)");
+    error_log("📤 Staff: {$staffId}, Name: {$name}, Method: {$method}");
+    
+    $payload = ['staff_id' => $staffId, 'name' => $name, 'method' => $method];
+    if ($token) $payload['token'] = $token;
+    if ($expires) $payload['expires'] = $expires;
+    
+    $jsonPayload = json_encode($payload);
+    error_log("📤 JSON Payload: " . $jsonPayload);
+    
+    $response = httpPost(APP_SCRIPT_URL, $jsonPayload);
+    
+    if ($response === false) {
+        error_log("❌ Google Sheets connection failed!");
+        return ['success' => false, 'error' => 'Failed to connect'];
+    }
+    
+    $result = json_decode($response, true);
+    if (!$result) {
+        error_log("❌ Invalid response from Google Sheets: " . $response);
+        return ['success' => false, 'error' => 'Invalid response from server'];
+    }
+    
+    error_log("📥 Google Sheets response: " . json_encode($result));
+    return $result;
+}
+
+// ============================================================
+// 🛡️ FIXED: sendAsyncToGoogleSheets - DOES NOT DUPLICATE
+// ============================================================
+
+function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
+    error_log("📤 Async send to Google Sheets: {$staffId} ({$name})");
+    // 🛡️ CRITICAL FIX: Do NOT send duplicate - just log and return
+    error_log("📤 Async send skipped - use sendToGoogleSheets() for actual sending");
+    return ['success' => true, 'message' => 'Async send skipped to prevent duplicates'];
+}
+
+// ============================================================
+// CACHE FUNCTIONS
+// ============================================================
+
+function getCachedData() {
+    if (file_exists(CACHE_FILE)) {
+        $cached = json_decode(file_get_contents(CACHE_FILE), true);
+        if ($cached && isset($cached['data'])) return $cached['data'];
+    }
+    return null;
+}
+
+function updateCache() {
+    error_log("🔄 Updating cache");
+    $data = fetchSheetsData();
+    if ($data && isset($data['success']) && $data['success']) {
+        $dir = dirname(CACHE_FILE);
+        if (!is_dir($dir)) mkdir($dir, 0777, true);
+        file_put_contents(CACHE_FILE, json_encode([
+            'data' => $data,
+            'fetched_at' => time()
+        ]));
+        error_log("🔄 Cache updated successfully");
+        return true;
+    }
+    error_log("🔄 Cache update failed");
+    return false;
+}
+
+// ============================================================
+// STATUS FUNCTIONS
+// ============================================================
+
+function getStatusFromCache($staffId) {
+    $data = getCachedData();
+    if (!$data) return 'out';
+    
+    $rows = $data['rows'] ?? [];
+    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
+        array_shift($rows);
+    }
+    
+    $latestStatus = 'out';
+    $latestTimestamp = '';
+    
+    foreach ($rows as $row) {
+        if (isset($row[1]) && $row[1] === $staffId) {
+            if (empty($latestTimestamp) || $row[0] > $latestTimestamp) {
+                $latestTimestamp = $row[0];
+                $status = str_replace('Check-', '', $row[3] ?? '');
+                $latestStatus = strtolower($status);
+            }
+        }
+    }
+    return $latestStatus;
+}
+
+function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
+    error_log("🔄 Updating local status: {$staffId} -> {$newStatus}");
+    
+    $data = getCachedData();
+    
+    if (!$data) {
+        $data = fetchSheetsData();
+        if (!$data || !isset($data['success']) || !$data['success']) {
+            $data = ['rows' => []];
+        }
+    }
+    
+    $rows = $data['rows'] ?? [];
+    
+    if (!empty($rows) && is_array($rows[0])) {
+        $firstRow = array_values($rows[0]);
+        $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
+        if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
+            array_shift($rows);
+        }
+    }
+    
+    $found = false;
+    foreach ($rows as $index => $row) {
+        if (isset($row[1]) && $row[1] === $staffId) {
+            $row[0] = date('Y-m-d H:i:s');
+            $row[3] = 'Check-' . $newStatus;
+            $rows[$index] = $row;
+            $found = true;
+            break;
+        }
+    }
+    
+    if (!$found) {
+        $rows[] = [
+            date('Y-m-d H:i:s'),
+            $staffId,
+            $staffName,
+            'Check-' . $newStatus,
+            'web'
+        ];
+    }
+    
+    $data['rows'] = $rows;
+    file_put_contents(CACHE_FILE, json_encode([
+        'data' => $data,
+        'fetched_at' => time()
+    ]));
+    
+    error_log("🔄 Local status updated, rows: " . count($rows));
+}
+
+function getStaffListFromCache() {
+    $data = getCachedData();
+    if (!$data) return [];
+    
+    $rows = $data['rows'] ?? [];
+    if (!empty($rows) && is_array($rows[0]) && strpos(implode('', $rows[0]), 'Timestamp') !== false) {
+        array_shift($rows);
+    }
+    
+    $staffList = [];
+    $seen = [];
+    
+    foreach ($rows as $row) {
+        if (isset($row[1]) && !isset($seen[$row[1]])) {
+            $seen[$row[1]] = true;
+            $staffList[] = [
+                'staff_id' => $row[1],
+                'name' => $row[2] ?? 'Unknown',
+                'status' => strtolower(str_replace('Check-', '', $row[3] ?? ''))
+            ];
+        }
+    }
+    return $staffList;
+}
 
 ================
 File: frontend/public/assets/css/style.css
@@ -8745,6 +8898,11 @@ public function clockInByQr(
 }
 
 ================
+File: backend/storage/cache/sheets_cache.json
+================
+{"data":{"success":true,"rows":[["2026-08-21 11:57:19","STF-001","Big Boy","Check-Check-in","QR","STF-001_20260727","Test"],["2026-07-27T09:55:42.567Z","STF-001","Big Boy","Check-out","QR","STF-001_20260727","Test"],["2026-07-27T09:57:26.023Z","STF-002","Small Man","Check-in","QR","STF-002_20260727","Test"],["2026-07-27T10:08:40.400Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-27T10:08:44.004Z","STF-003","Small Man","Check-out","QR","STF-003_20260727","Test"],["2026-07-27T10:08:55.682Z","STF-003","Small Man","Check-in","QR","STF-003_20260727","Test"],["2026-07-29T06:29:52.013Z","STF-002","Small Man","Check-out","QR","STF-002_20260729","Test"],["2026-07-29T06:38:57.548Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:40:06.491Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T06:40:45.160Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T06:49:35.113Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T06:49:58.671Z","STF-003","Test User","Check-in","QR","STF-003_20260729","Test"],["2026-07-29T06:52:01.932Z","STF-003","Test User","Check-out","QR","STF-003_20260729","Test"],["2026-07-29T07:21:50.462Z","STF-001","Big Boy","Check-out","QR","STF-001_20260729","Test"],["2026-07-29T07:24:05.023Z","STF-001","Big Boy","Check-in","QR","STF-001_20260729","Test"],["2026-07-29T08:22:35.865Z","STF-001","Big Boy","Check-out","web","STF-001_20260729","Test"],["2026-07-29T13:41:20.780Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260729","Test"],["2026-07-29T13:41:33.380Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:41:42.777Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:42:21.956Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-29T13:43:25.180Z","STF-004","Alice Wonder","Check-in","web","STF-004_20260729","Test"],["2026-07-29T13:43:37.180Z","STF-004","Alice Wonder","Check-out","web","STF-004_20260729","Test"],["2026-07-30T12:57:54.863Z","STF-001","Big Boy","Check-in","QR","STF-001_20260730","Test"],["2026-07-30T12:58:10.055Z","STF-001","Big Boy","Check-out","QR","STF-001_20260730","Test"],["2026-07-30T12:58:14.620Z","STF-001","Big Boy","Check-in","web","STF-001_20260730","Test"],["2026-07-30T12:58:34.589Z","STF-001","Big Boy","Check-out","web","STF-001_20260730","Test"],["2026-07-31T06:35:36.175Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T06:36:09.550Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:50:41.769Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T07:59:01.269Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:01:39.482Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:32.564Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:02:44.604Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T08:03:10.498Z","QR_SCAN","QR_Scan","Check-out","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:37:49.569Z","QR_SCAN","QR_Scan","Check-in","QR","QR_SCAN_20260731","Test"],["2026-07-31T09:50:47.619Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T09:51:30.162Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T09:56:02.831Z","TEST-001","Test User","Check-in","test","TEST-001_20260731","Test"],["2026-07-31T10:07:42.550Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:08:11.385Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:11:14.753Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:13:21.655Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T10:27:08.452Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T10:30:33.256Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:15:17.731Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:15:58.241Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T12:17:09.402Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T12:17:48.989Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:02:56.074Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:09:12.041Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:09:43.409Z","STF-003","Test User","Check-out","QR","STF-003_20260731","Test"],["2026-07-31T13:13:07.696Z","STF-002","Small Man","Check-in","web","STF-002_20260731","Test"],["2026-07-31T13:13:15.824Z","STF-002","Small Man","Check-out","web","STF-002_20260731","Test"],["2026-07-31T13:14:06.525Z","STF-003","Test User","Check-in","QR","STF-003_20260731","Test"],["2026-07-31T13:14:25.910Z","STF-003","Test User","Check-out","web","STF-003_20260731","Test"],["2026-07-31T13:15:41.363Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:16:35.467Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T13:30:21.363Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:32:25.578Z","STF-004","Alice Wonder","Check-in","QR","STF-004_20260731","Test"],["2026-07-31T13:34:00.112Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:34:31.345Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:53:43.736Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:53:59.639Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:55:02.288Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T13:55:16.043Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-07-31T13:57:24.001Z","STF-002","Small Man","Check-in","QR","STF-002_20260731","Test"],["2026-07-31T13:57:43.727Z","STF-002","Small Man","Check-out","QR","STF-002_20260731","Test"],["2026-07-31T14:01:03.370Z","STF-001","Big Boy","Check-in","QR","STF-001_20260731","Test"],["2026-07-31T14:01:16.018Z","STF-001","Big Boy","Check-out","QR","STF-001_20260731","Test"],["2026-08-05T13:55:45.172Z","STF-001","Big Boy","Check-in","web","STF-001_20260805","Test"],["2026-08-05T13:55:56.094Z","STF-001","Big Boy","Check-out","web","STF-001_20260805","Test"],["2026-08-06T10:16:26.866Z","STF-001","Big Boy","Check-in","web","STF-001_20260806","Test"],["2026-08-06T12:44:13.606Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:06:38.289Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:07:49.099Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:08:37.666Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:25:27.703Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:42:03.545Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-06T13:43:28.620Z","STF-001","Big Boy","Check-out","QR","STF-001_20260806","Test"],["2026-08-06T13:58:04.229Z","STF-001","Big Boy","Check-in","QR","STF-001_20260806","Test"],["2026-08-11T07:23:55.927Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:24:31.612Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:33:14.807Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T07:34:04.768Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T07:40:34.909Z","STF-001","Big Boy","Check-out","QR","STF-001_20260811","Test"],["2026-08-11T10:27:57.193Z","STF-001","Big Boy","Check-in","QR","STF-001_20260811","Test"],["2026-08-11T10:51:38.209Z","STF-003","Test User","Check-in","QR","STF-003_20260811","Test"],["2026-08-12T06:34:25.608Z","STF-001","Big Boy","Check-out","QR","STF-001_20260812","Test"],["2026-08-12T12:42:37.061Z","STF-001","Big Boy","Check-in","QR","STF-001_20260812","Test"],["2026-08-12T12:45:17.734Z","STF-001","Big Boy","Check-out","QR","STF-001_20260812","Test"],["2026-08-12T14:22:19.045Z","STF-001","Big Boy","Check-in","QR","STF-001_20260812","Test"],["2026-08-13T08:29:08.441Z","STF-002","Small Man","Check-in","QR","STF-002_20260813","Test"],["2026-08-13T08:29:44.590Z","STF-002","Small Man","Check-out","QR","STF-002_20260813","Test"],["2026-08-13T08:30:20.470Z","STF-002","Small Man","Check-in","QR","STF-002_20260813","Test"],["2026-08-14T10:46:32.186Z","STF-001","Big Boy","Check-out","QR","STF-001_20260814","Test"],["2026-08-17T11:00:08.250Z","STF-007","Bames Jond","Check-in","QR","STF-007_20260817","Test"],["2026-08-20T12:04:31.929Z","STF-001","Big Boy","Check-in","QR","STF-001_20260820","Test"],["2026-08-20T12:04:50.860Z","STF-001","Big Boy","Check-out","QR","STF-001_20260820","Test"],["2026-08-20T12:21:34.442Z","STF-001","Big Boy","Check-in","QR","STF-001_20260820","Web"],["2026-08-20T12:21:52.713Z","STF-001","Big Boy","Check-out","QR","STF-001_20260820","Web"],["2026-08-20T12:32:57.749Z","STF-001","Big Boy","Check-in","QR","STF-001_20260820","Web"],["2026-08-20T12:33:15.423Z","STF-001","Big Boy","Check-out","QR","STF-001_20260820","Web"],["2026-08-20T12:34:35.050Z","STF-001","Big Boy","Check-in","web","STF-001_20260820","Web"],["2026-08-21T08:05:10.639Z","STF-001","Big Boy","Check-out","web","STF-001_20260821","Web"],["2026-08-21T08:05:13.500Z","STF-001","Big Boy","Check-in","web","STF-001_20260821","Web"],["2026-08-21T08:05:55.994Z","STF-001","Big Boy","Check-out","web","STF-001_20260821","Web"],["2026-08-21T08:05:58.677Z","STF-001","Big Boy","Check-in","web","STF-001_20260821","Web"],["2026-08-21T08:07:07.698Z","STF-001","Big Boy","Check-out","web","STF-001_20260821","Web"],["2026-08-21T08:07:10.865Z","STF-001","Big Boy","Check-in","web","STF-001_20260821","Web"],["2026-08-21T08:12:28.505Z","STF-001","Big Boy","Check-out","QR","STF-001_20260821","Web"],["2026-08-21T08:12:43.375Z","STF-001","Big Boy","Check-in","QR","STF-001_20260821","Web"],["2026-08-21T08:12:46.753Z","STF-001","Big Boy","Check-out","QR","STF-001_20260821","Web"],["2026-08-21T08:12:48.974Z","STF-001","Big Boy","Check-in","QR","STF-001_20260821","Web"],["2026-08-21T08:16:43.846Z","STF-001","Big Boy","Check-out","QR","STF-001_20260821","Web"],["2026-08-21T08:16:47.643Z","STF-001","Big Boy","Check-in","QR","STF-001_20260821","Web"],["2026-08-21T08:16:51.359Z","STF-001","Big Boy","Check-out","QR","STF-001_20260821","Web"],["2026-08-21T08:16:55.109Z","STF-001","Big Boy","Check-in","QR","STF-001_20260821","Web"],["2026-08-21T08:19:41.640Z","STF-001","Big Boy","Check-out","QR","STF-001_20260821","Web"],["2026-08-21T08:19:45.388Z","STF-001","Big Boy","Check-in","QR","STF-001_20260821","Web"],["2026-08-21T08:19:49.885Z","STF-001","Big Boy","Check-out","QR","STF-001_20260821","Web"],["2026-08-21T08:19:55.497Z","STF-001","Big Boy","Check-in","QR","STF-001_20260821","Web"],["2026-08-21T08:25:00.076Z","STF-001","Big Boy","Check-out","QR","STF-001_20260821","Web"],["2026-08-21T08:25:03.254Z","STF-001","Big Boy","Check-in","QR","STF-001_20260821","Web"],["2026-08-21T08:25:07.225Z","STF-001","Big Boy","Check-out","QR","STF-001_20260821","Web"],["2026-08-21T08:49:03.544Z","STF-001","Big Boy","Check-in","QR","STF-001_20260821","Web"],["2026-08-21T08:49:06.485Z","STF-001","Big Boy","Check-out","QR","STF-001_20260821","Web"],["2026-08-21T08:49:10.283Z","STF-001","Big Boy","Check-in","QR","STF-001_20260821","Web"],["2026-08-21T08:49:13.111Z","STF-001","Big Boy","Check-out","QR","STF-001_20260821","Web"]]},"fetched_at":1787306239}
+
+================
 File: frontend/src/views/admin/settings.php
 ================
 <?php
@@ -9738,424 +9896,6 @@ function historyApp() {
 </html>
 
 ================
-File: frontend/src/views/staff/scan-qr.php
-================
-<?php
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') {
-    header('Location: /index.php/login');
-    exit;
-}
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title><?= $title ?? 'Scan QR Code' ?></title>
-    <link rel="stylesheet" href="/assets/css/style.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="/assets/js/app.js"></script>
-    <style>
-        [x-cloak] { display: none !important; }
-        
-        .scan-container {
-            padding: 28px 32px;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .scan-container h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--heading);
-            margin-bottom: 8px;
-        }
-        .scan-container > p {
-            color: var(--text);
-            font-size: 14px;
-            margin-bottom: 24px;
-        }
-        .scanner-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 24px;
-            margin-top: 0;
-        }
-        .scanner-header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .ready-badge {
-            display: inline-block;
-            background: var(--accent-soft);
-            color: var(--accent);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            margin-bottom: 16px;
-        }
-        .scanner-header p {
-            color: var(--text);
-            font-size: 14px;
-        }
-        
-        .camera-section {
-            margin-bottom: 0;
-        }
-        .camera-btn {
-            width: 100%;
-            padding: 16px;
-            background: var(--sidebar-blue);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 16px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .camera-btn:hover {
-            background: var(--sidebar-hover);
-        }
-        .camera-btn.stop {
-            background: #ef4444;
-        }
-        .camera-btn.stop:hover {
-            background: #dc2626;
-        }
-        
-        #reader {
-            width: 100%;
-            border-radius: 12px;
-            overflow: hidden;
-            margin-top: 15px;
-            min-height: 300px;
-        }
-        #reader video {
-            width: 100%;
-            height: auto;
-            min-height: 300px;
-            object-fit: cover;
-        }
-        
-        .zoom-controls {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            margin-top: 12px;
-            padding: 8px;
-            background: var(--background);
-            border-radius: 12px;
-        }
-        .zoom-controls button {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: none;
-            background: var(--card-bg);
-            color: var(--heading);
-            font-size: 24px;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: 0.2s;
-            touch-action: manipulation;
-        }
-        .zoom-controls button:active {
-            transform: scale(0.9);
-        }
-        .zoom-controls .zoom-level {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text);
-            min-width: 50px;
-            text-align: center;
-        }
-        
-        .result-message {
-            margin-top: 16px;
-            padding: 16px;
-            border-radius: 12px;
-            text-align: center;
-            font-weight: 500;
-            display: none;
-        }
-        .result-message.success {
-            display: block;
-            background: var(--accent-soft);
-            color: var(--accent);
-        }
-        .result-message.error {
-            display: block;
-            background: rgba(220, 38, 38, 0.1);
-            color: #DC2626;
-        }
-        .result-message.info {
-            display: block;
-            background: #f0f0ed;
-            color: var(--muted);
-        }
-        
-        .scan-instructions {
-            margin-top: 16px;
-            padding: 16px;
-            background: var(--background);
-            border-radius: 12px;
-            text-align: center;
-            font-size: 13px;
-            color: var(--text);
-        }
-        .scan-instructions strong {
-            color: var(--heading);
-        }
-        
-        @media (max-width: 480px) {
-            .scan-container { padding: 16px; }
-            .scanner-card { padding: 16px; }
-            #reader { min-height: 250px; }
-            #reader video { min-height: 250px; }
-        }
-    </style>
-</head>
-<body>
-
-<div x-data="scanApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
-    <div class="app-layout">
-        <?php $activePage = 'scan'; include __DIR__ . '/staff-sidebar.php'; ?>
-        
-        <main class="main-content">
-            <?php include __DIR__ . '/../partials/top-nav.php'; ?>
-            
-            <div class="scan-container">
-                <h1>Scan QR Code</h1>
-                <p>Point your camera at the workplace QR code to sign in or out.</p>
-
-                <div class="scanner-card">
-                    <div class="scanner-header">
-                        <span class="ready-badge" x-show="!scannerActive">● Ready to scan</span>
-                        <span class="ready-badge" x-show="scannerActive" style="background: #fef3c7; color: #d97706;" x-cloak>● Scanning...</span>
-                        <p>Hold steady and center the QR code in the frame.</p>
-                    </div>
-
-                    <div class="camera-section">
-                        <button class="camera-btn" @click="startScanner()" x-show="!scannerActive">
-                            📷 Open Camera to Scan
-                        </button>
-                        <button class="camera-btn stop" @click="stopScanner()" x-show="scannerActive" x-cloak>
-                            ⏹️ Stop Camera
-                        </button>
-                        <div id="reader" x-show="scannerActive" x-cloak></div>
-                        
-                        <div class="zoom-controls" x-show="scannerActive" x-cloak>
-                            <button @click="zoomOut()" title="Zoom Out">−</button>
-                            <span class="zoom-level" x-text="Math.round(zoomLevel * 100) + '%'"></span>
-                            <button @click="zoomIn()" title="Zoom In">+</button>
-                        </div>
-                    </div>
-
-                    <div class="result-message" :class="resultType" x-show="resultMessage" x-text="resultMessage"></div>
-                    
-                    <div class="scan-instructions">
-                        💡 <strong>Tip:</strong> If the camera won't focus, tap the screen to adjust.
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-</div>
-
-<script>
-function scanApp() {
-    return {
-        sidebarOpen: false,
-        user: { id: '', name: '', email: '' },
-        resultMessage: '',
-        resultType: '',
-        scannerActive: false,
-        html5QrCode: null,
-        zoomLevel: 1.0,
-        isProcessing: false,
-        
-        async init() {
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff', 'email' => 'staff@spysee.app']); ?>;
-            this.user = userData;
-            window.themeManager.initTheme();
-        },
-
-        async startScanner() {
-            this.scannerActive = true;
-            this.resultMessage = '';
-            this.resultType = '';
-            
-            try {
-                this.html5QrCode = new Html5Qrcode("reader");
-                
-                const config = { 
-                    fps: 15, 
-                    qrbox: { width: 280, height: 280 },
-                    aspectRatio: 1.0
-                };
-                
-                const cameraId = { facingMode: "environment" };
-                
-                await this.html5QrCode.start(
-                    cameraId,
-                    config,
-                    (decodedText) => {
-                        this.handleScan(decodedText);
-                    },
-                    (error) => {
-                        // Ignore errors during scanning
-                    }
-                );
-                
-                this.applyZoom();
-                
-            } catch (err) {
-                console.error("Camera error:", err);
-                this.scannerActive = false;
-                
-                let errorMsg = '❌ Camera access denied. ';
-                if (err.name === 'NotAllowedError') {
-                    errorMsg += 'Please allow camera access in your browser settings.';
-                } else if (err.name === 'NotFoundError') {
-                    errorMsg += 'No camera found on this device.';
-                } else {
-                    errorMsg += 'Please try again.';
-                }
-                this.resultMessage = errorMsg;
-                this.resultType = 'error';
-            }
-        },
-
-        async stopScanner() {
-            if (this.html5QrCode) {
-                try {
-                    await this.html5QrCode.stop();
-                } catch (err) {
-                    // ignore
-                }
-                this.scannerActive = false;
-            }
-        },
-        
-        zoomIn() {
-            this.zoomLevel = Math.min(this.zoomLevel + 0.1, 3.0);
-            this.applyZoom();
-        },
-        
-        zoomOut() {
-            this.zoomLevel = Math.max(this.zoomLevel - 0.1, 0.5);
-            this.applyZoom();
-        },
-        
-        applyZoom() {
-            const video = document.querySelector('#reader video');
-            if (video) {
-                video.style.transform = `scale(${this.zoomLevel})`;
-                video.style.transformOrigin = 'center center';
-            }
-        },
-
-        async handleScan(decodedText) {
-            if (this.isProcessing) return;
-            this.isProcessing = true;
-            
-            console.log('QR Code detected:', decodedText);
-            
-            try {
-                if (decodedText.includes('scan.php?')) {
-                    const url = new URL(decodedText);
-                    const staffId = url.searchParams.get('staff_id') || this.user.id;
-                    const location = url.searchParams.get('location') || 'HQ';
-                    const name = url.searchParams.get('name') || this.user.name;
-                    
-                    const response = await fetch('/scan.php?' + url.searchParams.toString());
-                    
-                    if (response.redirected) {
-                        window.location.href = response.url;
-                        return;
-                    }
-                    
-                    const result = await this.recordScan(staffId, name, location);
-                    if (result && result.success) {
-                        this.resultMessage = result.message || '✅ Sign in/out successful!';
-                        this.resultType = 'success';
-                        this.stopScanner();
-                        setTimeout(() => {
-                            window.location.href = '/index.php/staff-dashboard';
-                        }, 1500);
-                        return;
-                    }
-                }
-                
-                const result = await this.recordScan(this.user.id, this.user.name, 'HQ');
-                if (result && result.success) {
-                    this.resultMessage = result.message || '✅ Sign in/out successful!';
-                    this.resultType = 'success';
-                    this.stopScanner();
-                    setTimeout(() => {
-                        window.location.href = '/index.php/staff-dashboard';
-                    }, 1500);
-                    return;
-                }
-                
-            } catch (err) {
-                console.error('Error processing scan:', err);
-                this.resultMessage = '❌ Failed to process QR code. Please try again.';
-                this.resultType = 'error';
-            }
-            
-            this.isProcessing = false;
-            
-            if (this.resultType === 'success') {
-                this.stopScanner();
-            }
-        },
-
-        async recordScan(staffId, name, location) {
-            try {
-                const response = await fetch('/api/sign-in', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        user_id: staffId,
-                        name: name,
-                        location: location
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.message === 'Already Signed in') {
-                    const outResponse = await fetch('/api/sign-out', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            user_id: staffId,
-                            name: name,
-                            location: location
-                        })
-                    });
-                    return await outResponse.json();
-                }
-                
-                return result;
-            } catch (err) {
-                console.error('API Error:', err);
-                return { success: false, message: 'Connection error' };
-            }
-        }
-    }
-}
-</script>
-</body>
-</html>
-
-================
 File: frontend/src/views/staff/staff-sidebar.php
 ================
 <?php
@@ -10843,6 +10583,380 @@ async function testSheetsConnection() {
 </html>
 
 ================
+File: frontend/src/views/staff/scan-qr.php
+================
+<?php
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') {
+    header('Location: /index.php/login');
+    exit;
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title><?= $title ?? 'Scan QR Code' ?></title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="/assets/js/app.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .scan-container { padding: 28px 32px; max-width: 600px; margin: 0 auto; }
+        .scan-container h1 { font-size: 28px; font-weight: 700; color: var(--heading); margin-bottom: 8px; }
+        .scan-container > p { color: var(--text); font-size: 14px; margin-bottom: 24px; }
+        .scanner-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 20px; padding: 24px; }
+        .scanner-header { text-align: center; margin-bottom: 20px; }
+        .ready-badge { display: inline-block; background: var(--accent-soft); color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-bottom: 16px; }
+        .scanner-header p { color: var(--text); font-size: 14px; }
+        .camera-btn { width: 100%; padding: 16px; background: var(--accent); color: #202020; border: none; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; transition: 0.2s; }
+        .camera-btn:hover { background: var(--primary-green-dark); color: #f8f8f8; }
+        .camera-btn.stop { background: #ef4444; color: white; }
+        .camera-btn.stop:hover { background: #dc2626; }
+        #reader { width: 100%; border-radius: 12px; overflow: hidden; margin-top: 15px; min-height: 300px; }
+        #reader video { width: 100%; height: auto; min-height: 300px; object-fit: cover; }
+        .camera-switch-btn { width: 100%; padding: 10px; margin-top: 10px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; color: var(--text); font-size: 14px; cursor: pointer; }
+        .camera-switch-btn:hover { border-color: var(--accent); color: var(--heading); }
+        .result-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); }
+        .result-card { background: var(--card-bg); border-radius: 24px; padding: 40px 48px; max-width: 420px; width: 90%; text-align: center; border: 1px solid var(--border-color); }
+        .result-card .icon { font-size: 64px; margin-bottom: 16px; }
+        .result-card .title { font-size: 24px; font-weight: 700; color: var(--heading); margin-bottom: 8px; }
+        .result-card .subtitle { font-size: 14px; color: var(--text); margin-bottom: 4px; }
+        .result-card .detail { font-size: 13px; color: var(--muted); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+        .result-card .btn-close-result { margin-top: 20px; padding: 12px 32px; background: var(--accent); color: #202020; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; }
+        .result-card .btn-close-result:hover { background: var(--primary-green-dark); color: #f8f8f8; }
+        .result-card.success .icon { color: var(--accent); }
+        .result-card.success .title { color: var(--accent); }
+        .result-card.error .icon { color: #EF4444; }
+        .result-card.error .title { color: #EF4444; }
+        .scan-instructions { margin-top: 16px; padding: 16px; background: var(--background); border-radius: 12px; text-align: center; font-size: 13px; color: var(--text); }
+        .scan-instructions strong { color: var(--heading); }
+        @media (max-width: 480px) {
+            .scan-container { padding: 16px; }
+            .scanner-card { padding: 16px; }
+            #reader { min-height: 250px; }
+            #reader video { min-height: 250px; }
+            .result-card { padding: 28px 20px; }
+            .result-card .icon { font-size: 48px; }
+        }
+    </style>
+</head>
+<body>
+
+<div x-data="scanApp()" x-init="init()" x-cloak>
+    <div class="app-layout">
+        <?php $activePage = 'scan'; include __DIR__ . '/staff-sidebar.php'; ?>
+        <main class="main-content">
+            <?php include __DIR__ . '/../partials/top-nav.php'; ?>
+            <div class="scan-container">
+                <h1>📷 Scan QR Code</h1>
+                <p>Point your camera at the workplace QR code to sign in or out.</p>
+                <div class="scanner-card">
+                    <div class="scanner-header">
+                        <span class="ready-badge" x-show="!scannerActive">● Ready to scan</span>
+                        <span class="ready-badge" x-show="scannerActive && !_scanDetected" style="background: #fef3c7; color: #d97706;" x-cloak>● Scanning...</span>
+                        <span class="ready-badge" x-show="scannerActive && _scanDetected" style="background: var(--accent-soft); color: var(--accent);" x-cloak>✅ Scan captured</span>
+                        <p x-show="!_scanDetected">Hold steady and center the QR code in the frame.</p>
+                        <p x-show="_scanDetected" style="color: var(--accent);" x-cloak>✓ Scan captured! Redirecting...</p>
+                    </div>
+                    <div class="camera-section">
+                        <button class="camera-btn" @click="startScanner()" x-show="!scannerActive && !_scanDetected">📷 Open Camera</button>
+                        <button class="camera-btn stop" @click="stopScanner()" x-show="scannerActive" x-cloak>⏹️ Stop Camera</button>
+                        <div id="reader" x-show="scannerActive" x-cloak></div>
+                        <button class="camera-switch-btn" @click="switchCamera()" x-show="scannerActive" x-cloak>🔄 Switch Camera</button>
+                    </div>
+                    <div class="scan-instructions">💡 <strong>Tip:</strong> Make sure the QR code is well-lit and centered.</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="result-overlay" x-show="showResult" x-cloak @click.away="closeResult()">
+        <div class="result-card" :class="resultType">
+            <div class="icon" x-text="resultType === 'success' ? '✅' : '❌'"></div>
+            <div class="title" x-text="resultTitle"></div>
+            <div class="subtitle" x-text="resultSubtitle"></div>
+            <div class="detail" x-text="resultDetail"></div>
+            <button class="btn-close-result" @click="closeResult()">OK, Got it!</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function scanApp() {
+    return {
+        sidebarOpen: false,
+        user: { id: '', name: '', email: '' },
+        scannerActive: false,
+        html5QrCode: null,
+        isProcessing: false,
+        cameraFacing: 'environment',
+        showResult: false,
+        resultType: '',
+        resultTitle: '',
+        resultSubtitle: '',
+        resultDetail: '',
+        
+        // 🛡️ SCAN LOCK - PREVENTS DUPLICATE SCANS
+        _scanDetected: false,
+        _lastScanTime: 0,
+        _lockKey: 'spysee_scan_lock',
+        _redirecting: false,
+        _scanId: null,
+        _debounceTimer: null, // 🛡️ NEW: Debounce timer
+        
+        async init() {
+            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff', 'email' => 'staff@spysee.app']); ?>;
+            this.user = userData;
+            window.themeManager.initTheme();
+            
+            const lockData = localStorage.getItem(this._lockKey);
+            if (lockData) {
+                try {
+                    const parsed = JSON.parse(lockData);
+                    if (Date.now() - parsed.timestamp < 5000) {
+                        this._scanDetected = true;
+                        console.log('🔒 Scan lock active (from localStorage)');
+                    } else {
+                        localStorage.removeItem(this._lockKey);
+                    }
+                } catch(e) {
+                    localStorage.removeItem(this._lockKey);
+                }
+            }
+            
+            if (new URLSearchParams(window.location.search).get('scan') === 'success') {
+                localStorage.removeItem(this._lockKey);
+                this.showResultOverlay('success', '✅ Scan Successful!', 'You have been signed in/out', 'Redirecting...');
+                setTimeout(() => { 
+                    window.history.replaceState({}, document.title, window.location.pathname); 
+                    this.closeResult(); 
+                }, 3000);
+                return;
+            }
+            
+            if (!lockData) {
+                this._scanDetected = false;
+                this._redirecting = false;
+                this._lastScanTime = 0;
+                this._scanId = null;
+                this.isProcessing = false;
+            }
+            
+            window.addEventListener('beforeunload', () => {
+                if (this.html5QrCode) {
+                    try { this.html5QrCode.stop(); this.html5QrCode.clear(); } catch(e) {}
+                }
+            });
+        },
+
+        showResultOverlay(type, title, subtitle, detail) {
+            this.resultType = type;
+            this.resultTitle = title;
+            this.resultSubtitle = subtitle;
+            this.resultDetail = detail;
+            this.showResult = true;
+        },
+
+        closeResult() {
+            this.showResult = false;
+            if (this.resultType === 'success') {
+                localStorage.removeItem(this._lockKey);
+                window.location.href = '/index.php/staff-dashboard';
+            }
+        },
+
+        async startScanner() {
+            console.log('📷 startScanner() called');
+            
+            const lockData = localStorage.getItem(this._lockKey);
+            if (lockData) {
+                try {
+                    const parsed = JSON.parse(lockData);
+                    if (Date.now() - parsed.timestamp < 5000) {
+                        this._scanDetected = true;
+                        console.log('🔒 Scan lock active, cannot start scanner');
+                        return;
+                    }
+                } catch(e) {}
+            }
+            
+            if (this._scanDetected || this._redirecting) return;
+            this.scannerActive = true;
+            this._scanDetected = false;
+            this._lastScanTime = 0;
+            this._scanId = null;
+            this.isProcessing = false;
+            
+            try {
+                console.log('📷 Creating HTML5QRCode instance...');
+                this.html5QrCode = new Html5Qrcode("reader");
+                
+                await this.html5QrCode.start(
+                    { facingMode: this.cameraFacing },
+                    { fps: 10, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
+                    (decodedText) => {
+                        console.log('📱 Scanner callback fired at:', Date.now());
+                        console.log('📱 isProcessing:', this.isProcessing, '_scanDetected:', this._scanDetected);
+                        
+                        // 🛡️ IMMEDIATE CHECK - prevents ANY second detection
+                        if (this.isProcessing || this._scanDetected || this._redirecting) {
+                            console.log('⛔ Already processing, ignoring scan');
+                            return;
+                        }
+                        
+                        // 🛡️ IMMEDIATELY lock - BEFORE anything else
+                        this.isProcessing = true;
+                        this._scanDetected = true;
+                        
+                        // 🛡️ Generate unique scan ID
+                        this._scanId = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+                        
+                        console.log('✅ Scan accepted! scanId:', this._scanId);
+                        
+                        // 🛡️ Call handleScan - this will redirect
+                        this.handleScan(decodedText);
+                    },
+                    (error) => {
+                        // Ignore
+                    }
+                );
+                console.log('📷 Scanner started successfully');
+            } catch (err) {
+                console.error('❌ Scanner error:', err);
+                this.scannerActive = false;
+                if (this.cameraFacing === 'environment') {
+                    this.cameraFacing = 'user';
+                    try {
+                        await this.html5QrCode.start(
+                            { facingMode: 'user' },
+                            { fps: 10, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
+                            (decodedText) => {
+                                if (this.isProcessing || this._scanDetected || this._redirecting) {
+                                    console.log('⛔ Already processing, ignoring scan');
+                                    return;
+                                }
+                                this.isProcessing = true;
+                                this._scanDetected = true;
+                                this._scanId = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+                                console.log('✅ Scan accepted! scanId:', this._scanId);
+                                this.handleScan(decodedText);
+                            },
+                            (error) => {}
+                        );
+                        return;
+                    } catch(e) {
+                        console.error('❌ Backup camera error:', e);
+                    }
+                }
+                this.showResultOverlay('error', '❌ Camera Error', 'Camera access denied. Please allow camera access.', '');
+            }
+        },
+
+        async switchCamera() {
+            this.cameraFacing = this.cameraFacing === 'environment' ? 'user' : 'environment';
+            if (this.html5QrCode) {
+                await this.stopScanner();
+                setTimeout(() => this.startScanner(), 500);
+            }
+        },
+
+        async stopScanner() {
+            console.log('⏹️ stopScanner() called');
+            if (this.html5QrCode) {
+                try { 
+                    await this.html5QrCode.stop(); 
+                    this.html5QrCode.clear(); 
+                    this.html5QrCode = null; // 🛡️ NULL IT OUT
+                } catch(e) {
+                    console.log('Scanner stop error:', e);
+                }
+                this.scannerActive = false;
+            }
+        },
+
+        async handleScan(decodedText) {
+            console.log('📱 handleScan() called with:', decodedText);
+            
+            // 🛡️ GUARD: If already redirecting, stop
+            if (this._redirecting) {
+                console.log('⛔ Already redirecting, returning');
+                return;
+            }
+            
+            // 🛡️ Set redirecting flag IMMEDIATELY
+            this._redirecting = true;
+            
+            console.log('📱 Processing scan, scanId:', this._scanId);
+            
+            const scanId = this._scanId || Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+            
+            let staffId = this.user.id;
+            let location = 'HQ';
+            let name = this.user.name;
+            
+            if (decodedText.includes('scan.php?')) {
+                try {
+                    const url = new URL(decodedText);
+                    staffId = url.searchParams.get('staff_id') || this.user.id;
+                    location = url.searchParams.get('location') || 'HQ';
+                    name = url.searchParams.get('name') || this.user.name;
+                    if (staffId === 'QR_SCAN' || staffId === 'QR_Scan') {
+                        staffId = this.user.id;
+                        name = this.user.name;
+                    }
+                } catch(e) {
+                    console.warn('URL parsing failed:', e);
+                }
+            }
+            
+            const scanUrl = '/scan.php?' + new URLSearchParams({
+                scan_id: scanId,
+                token: Math.random().toString(36).substring(2, 10),
+                expires: new Date(Date.now() + 30000).toISOString(),
+                staff_id: staffId,
+                name: name,
+                method: 'QR',
+                location: location
+            });
+            
+            console.log('🚀 Redirecting to:', scanUrl);
+            
+            // 🛡️ KILL THE SCANNER IMMEDIATELY
+            try {
+                if (this.html5QrCode) {
+                    await this.html5QrCode.stop();
+                    this.html5QrCode.clear();
+                    this.html5QrCode = null;
+                }
+            } catch(e) {
+                console.log('Scanner cleanup error:', e);
+            }
+            this.scannerActive = false;
+            
+            // 🛡️ Store in localStorage
+            localStorage.setItem(this._lockKey, JSON.stringify({
+                timestamp: Date.now(),
+                scanned: true,
+                scanId: scanId,
+                processed: true
+            }));
+            
+            console.log('✅ Redirecting NOW...');
+            
+            // 🛡️ Use window.location.replace to prevent back button issues
+            window.location.replace(scanUrl);
+        }
+    }
+}
+</script>
+
+</body>
+</html>
+
+================
 File: frontend/src/views/admin/qr.php
 ================
 <?php
@@ -11102,7 +11216,10 @@ let currentLocation = LOCATIONS[0];
 let locationIndex = 0;
 
 function getBaseUrl() {
+    // Get the current host
     const host = window.location.host;
+    
+    // Check if we're on localhost
     const isLocalhost = host === 'localhost' || 
                         host === '127.0.0.1' || 
                         host === '0.0.0.0' ||
@@ -11112,13 +11229,27 @@ function getBaseUrl() {
                         host.includes('localhost');
     
     if (isLocalhost) {
-        return 'http://' + host;
+        // Try to get the ngrok URL from the page
+        // If the page was loaded via ngrok, use that
+        // Otherwise, use a hardcoded fallback
+        
+        // Check if there's a meta tag with the ngrok URL
+        const metaNgrok = document.querySelector('meta[name="ngrok-url"]');
+        if (metaNgrok) {
+            return metaNgrok.getAttribute('content');
+        }
+        
+        // Fallback to hardcoded URL - update this when ngrok restarts
+        // You can also set this via an environment variable or config
+        return 'https://glance-rancidity-level.ngrok-free.dev';
     }
     
+    // If we're already on ngrok, use the current host
     if (host.includes('ngrok-free.dev') || host.includes('grrok-free.dev')) {
-        return 'http://' + host;
+        return 'https://' + host;
     }
     
+    // Fallback
     return window.location.origin;
 }
 
@@ -12015,7 +12146,7 @@ File: frontend/data/functions.php
 <?php
 // ============================================================
 // FILE: frontend/data/functions.php
-// GOOGLE SHEETS INTEGRATION - NO MOCK DATA
+// GOOGLE SHEETS INTEGRATION - WITH CREDENTIAL CACHING
 // ============================================================
 
 require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
@@ -12073,7 +12204,7 @@ function getAllStaffWithStatus() {
         }
     }
     
-    // Get users from credentials
+    // Get users from cached credentials (no more rate limiting!)
     $allUsers = getAllUsersFromSheets();
     if (!empty($allUsers)) {
         foreach ($allUsers as $user) {
@@ -12142,10 +12273,11 @@ function getStaffStatus($userId) {
 }
 
 // ============================================================
-// GET ALL USERS FROM GOOGLE SHEETS
+// GET ALL USERS FROM CACHED CREDENTIALS
 // ============================================================
 
 function getAllUsersFromSheets() {
+    // Use cached credentials (5 minute cache)
     $creds = getCredentialsFromSheets();
     
     if (!$creds || !is_array($creds) || !isset($creds['success']) || !$creds['success']) {
@@ -12221,7 +12353,7 @@ function handleClockIn($data) {
     }
     
     updateLocalStatus($userId, 'in', $staffName);
-    sendAsyncToGoogleSheets($userId, $staffName, 'web');
+    sendToGoogleSheets($userId, $staffName, 'web');
     
     return [
         'success' => true, 
@@ -12246,7 +12378,7 @@ function handleClockOut($data) {
     }
     
     updateLocalStatus($userId, 'out', $staffName);
-    sendAsyncToGoogleSheets($userId, $staffName, 'web');
+    sendToGoogleSheets($userId, $staffName, 'web');
     
     return [
         'success' => true, 

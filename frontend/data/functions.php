@@ -1,7 +1,7 @@
 <?php
 // ============================================================
 // FILE: frontend/data/functions.php
-// GOOGLE SHEETS INTEGRATION - NO MOCK DATA
+// GOOGLE SHEETS INTEGRATION - WITH CREDENTIAL CACHING
 // ============================================================
 
 require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
@@ -59,7 +59,7 @@ function getAllStaffWithStatus() {
         }
     }
     
-    // Get users from credentials
+    // Get users from cached credentials (no more rate limiting!)
     $allUsers = getAllUsersFromSheets();
     if (!empty($allUsers)) {
         foreach ($allUsers as $user) {
@@ -128,10 +128,11 @@ function getStaffStatus($userId) {
 }
 
 // ============================================================
-// GET ALL USERS FROM GOOGLE SHEETS
+// GET ALL USERS FROM CACHED CREDENTIALS
 // ============================================================
 
 function getAllUsersFromSheets() {
+    // Use cached credentials (5 minute cache)
     $creds = getCredentialsFromSheets();
     
     if (!$creds || !is_array($creds) || !isset($creds['success']) || !$creds['success']) {
@@ -207,7 +208,7 @@ function handleClockIn($data) {
     }
     
     updateLocalStatus($userId, 'in', $staffName);
-    sendAsyncToGoogleSheets($userId, $staffName, 'web');
+    sendToGoogleSheets($userId, $staffName, 'web');
     
     return [
         'success' => true, 
@@ -232,7 +233,7 @@ function handleClockOut($data) {
     }
     
     updateLocalStatus($userId, 'out', $staffName);
-    sendAsyncToGoogleSheets($userId, $staffName, 'web');
+    sendToGoogleSheets($userId, $staffName, 'web');
     
     return [
         'success' => true, 
