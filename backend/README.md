@@ -334,3 +334,5 @@ php -S localhost:8000
 7. Controllers coordinate requests and responses, not business decisions.
 
 8. External integrations must be isolated inside dedicated services.
+
+9. 
