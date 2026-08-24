@@ -1,8 +1,13 @@
 <?php
 declare(strict_types=1);
 /**
- * Main Router – Google Sheets Integration
+ * Main Router – HYBRID SYSTEM
+ * - Login: Database (users table)
+ * - Attendance: Google Sheets (Log tab)
+ * - Dashboard: Google Sheets (cache)
+ * - QR Scanner: Google Sheets
  */
+
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -31,8 +36,10 @@ $path = '/' . ltrim($path, '/');
 $path = $path === '/' ? '/' : rtrim($path, '/');
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-// ---- Load Google Sheets functions ----
+// ---- Load functions ----
 require_once __DIR__ . '/../data/functions.php';
+require_once __DIR__ . '/../../backend/src/config/DataBase.php';
+require_once __DIR__ . '/../../backend/src/models/User.php';
 
 // ---- Helper functions ----
 function route_url(string $path = '/'): string
@@ -61,83 +68,75 @@ function redirect_to(string $path): never
 }
 
 // ============================================================
-// HANDLE LOGIN - GOOGLE SHEETS (WORKING)
+// HANDLE LOGIN - DATABASE (HYBRID)
 // ============================================================
 if ($path === '/login' && $method === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
-    $creds = getCredentialsFromSheets();
     
-    $loggedIn = false;
-    
-    if ($creds && is_array($creds) && isset($creds['success']) && $creds['success'] === true) {
+    try {
+        $pdo = DataBase::getConnection();
+        $userModel = new Models\User($pdo);
         
-        // Check STAFF credentials
-        if (isset($creds['staff']) && is_array($creds['staff'])) {
-            foreach ($creds['staff'] as $staff) {
-                $staffId = $staff['staff_id'] ?? '';
-                $staffPin = $staff['pin'] ?? '';
-                $staffActive = $staff['active'] ?? 'NO';
-                
-                if ($staffId === $username && $staffPin === $password && strtoupper($staffActive) === 'YES') {
-                    $_SESSION['logged_in'] = true;
-                    $_SESSION['user_type'] = 'staff';
-                    $_SESSION['user_role'] = 'staff';
-                    $_SESSION['staff_id'] = $staffId;
-                    $_SESSION['staff_name'] = $staff['name'] ?? 'Staff';
-                    $_SESSION['user_id'] = $staffId;
-                    $_SESSION['user_name'] = $staff['name'] ?? 'Staff';
-                    $_SESSION['employee_id'] = $staffId;
-                    $loggedIn = true;
-                    
-                    if (!empty($_SESSION['redirect_after_login'])) {
-                        $redirectUrl = $_SESSION['redirect_after_login'];
-                        unset($_SESSION['redirect_after_login']);
-                        header('Location: ' . $redirectUrl);
-                        exit;
-                    }
-                    redirect_to('/staff-dashboard');
-                }
-            }
+        // Find user by employee_id (works for both staff and admins)
+        $user = $userModel->findByEmployeeId($username);
+        
+        if (!$user) {
+            $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
+            redirect_to('/login');
         }
         
-        // Check ADMIN credentials
-        if (isset($creds['admins']) && is_array($creds['admins'])) {
-            foreach ($creds['admins'] as $admin) {
-                $adminId = $admin['admin_id'] ?? '';
-                $adminPass = $admin['password'] ?? '';
-                
-                if ($adminId === $username && $adminPass === $password) {
-                    $_SESSION['logged_in'] = true;
-                    $_SESSION['user_type'] = 'admin';
-                    $_SESSION['user_role'] = 'admin';
-                    $_SESSION['staff_id'] = $adminId;
-                    $_SESSION['staff_name'] = $admin['name'] ?? 'Admin';
-                    $_SESSION['user_id'] = $adminId;
-                    $_SESSION['user_name'] = $admin['name'] ?? 'Admin';
-                    $_SESSION['employee_id'] = $adminId;
-                    $loggedIn = true;
-                    
-                    if (!empty($_SESSION['redirect_after_login'])) {
-                        $redirectUrl = $_SESSION['redirect_after_login'];
-                        unset($_SESSION['redirect_after_login']);
-                        header('Location: ' . $redirectUrl);
-                        exit;
-                    }
-                    redirect_to('/admin-dashboard');
-                }
-            }
+        // Check password or PIN
+        $valid = false;
+        
+        // For admins: check password_hash
+        if (isset($user['password_hash']) && password_verify($password, $user['password_hash'])) {
+            $valid = true;
         }
-    } else {
-        $errorMsg = isset($creds['error']) ? $creds['error'] : 'Unknown error';
-        $_SESSION['login_error'] = '❌ Could not connect to Google Sheets: ' . $errorMsg;
+        
+        // For staff: check 'passwords' column (PIN)
+        if (isset($user['passwords']) && $user['passwords'] === $password) {
+            $valid = true;
+        }
+        
+        if (!$valid) {
+            $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
+            redirect_to('/login');
+        }
+        
+        if ($user['status'] !== 'active') {
+            $_SESSION['login_error'] = '❌ Account is inactive. Contact administrator.';
+            redirect_to('/login');
+        }
+        
+        // Set session
+        $_SESSION['logged_in'] = true;
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['user_role'] = $user['role'];
+        $_SESSION['user_type'] = $user['role'];
+        $_SESSION['staff_id'] = $user['employee_id'];
+        $_SESSION['staff_name'] = $user['name'];
+        $_SESSION['user_name'] = $user['name'];
+        $_SESSION['user_email'] = $user['email'];
+        $_SESSION['employee_id'] = $user['employee_id'];
+        
+        if (!empty($_SESSION['redirect_after_login'])) {
+            $redirectUrl = $_SESSION['redirect_after_login'];
+            unset($_SESSION['redirect_after_login']);
+            header('Location: ' . $redirectUrl);
+            exit;
+        }
+        
+        if ($user['role'] === 'admin') {
+            redirect_to('/admin-dashboard');
+        } else {
+            redirect_to('/staff-dashboard');
+        }
+        
+    } catch (Exception $e) {
+        $_SESSION['login_error'] = '❌ Database error: ' . $e->getMessage();
         redirect_to('/login');
     }
-    
-    if (!$loggedIn) {
-        $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
-    }
-    redirect_to('/login');
 }
 
 // ============================================================
@@ -149,7 +148,7 @@ if ($path === '/logout') {
 }
 
 // ============================================================
-// API ROUTES - GOOGLE SHEETS DATA
+// API ROUTES - HYBRID (Database + Google Sheets)
 // ============================================================
 if (str_starts_with($path, '/api/')) {
     header('Content-Type: application/json');
@@ -165,6 +164,12 @@ if (str_starts_with($path, '/api/')) {
     $apiPath = str_replace('.php', '', $path);
     
     $apiMap = [
+        // ---- DATABASE APIS ----
+        '/api/users' => function() {
+            echo json_encode(getAllUsers());
+        },
+        
+        // ---- GOOGLE SHEETS APIS (KEEP THESE) ----
         '/api/dashboard-stats' => function() {
             echo json_encode(getDashboardStats());
         },
@@ -191,9 +196,6 @@ if (str_starts_with($path, '/api/')) {
         },
         '/api/attendance-logs' => function() {
             echo json_encode(getAllAttendanceLogs());
-        },
-        '/api/users' => function() {
-            echo json_encode(getAllUsers());
         },
         '/api/check-scan-result' => function() {
             if (isset($_SESSION['qr_result'])) {
@@ -356,7 +358,6 @@ switch ($path) {
         
     case '/admin-dashboard/qr':
     case '/admin-dashboard/qr-generator':
-    case '/admin-dashboard/qr-display':
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'admin') { redirect_to('/login'); break; }
         $title = 'QR Terminal | SpySee';
         view('admin/qr', compact('title'));

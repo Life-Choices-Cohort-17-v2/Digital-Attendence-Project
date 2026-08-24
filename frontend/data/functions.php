@@ -1,13 +1,38 @@
 <?php
 // ============================================================
 // FILE: frontend/data/functions.php
-// GOOGLE SHEETS INTEGRATION - WITH CREDENTIAL CACHING
+// HYBRID: Database for users + Google Sheets for attendance
 // ============================================================
 
+require_once __DIR__ . '/../../backend/src/config/DataBase.php';
 require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
 
 // ============================================================
-// GET ALL STAFF WITH CURRENT STATUS (FROM CACHE)
+// GET ALL USERS - FROM DATABASE
+// ============================================================
+
+function getAllUsersFromDatabase() {
+    try {
+        $pdo = DataBase::getConnection();
+        $stmt = $pdo->query("
+            SELECT id, employee_id, name, email, role, status, created_at 
+            FROM users 
+            ORDER BY name ASC
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Database error in getAllUsersFromDatabase: " . $e->getMessage());
+        return [];
+    }
+}
+
+function getAllUsers() {
+    $users = getAllUsersFromDatabase();
+    return ['success' => true, 'data' => $users];
+}
+
+// ============================================================
+// STAFF STATUS - FROM GOOGLE SHEETS (CACHE)
 // ============================================================
 
 function getAllStaffWithStatus() {
@@ -59,30 +84,8 @@ function getAllStaffWithStatus() {
         }
     }
     
-    // Get users from cached credentials (no more rate limiting!)
-    $allUsers = getAllUsersFromSheets();
-    if (!empty($allUsers)) {
-        foreach ($allUsers as $user) {
-            $userId = $user['id'] ?? '';
-            if (!empty($userId) && !isset($staffStatus[$userId])) {
-                $staffStatus[$userId] = [
-                    'id' => $userId,
-                    'staff_id' => $userId,
-                    'employee_id' => $userId,
-                    'name' => $user['name'] ?? 'Unknown',
-                    'status' => 'out',
-                    'last_action' => date('Y-m-d H:i:s')
-                ];
-            }
-        }
-    }
-    
     return ['success' => true, 'data' => array_values($staffStatus)];
 }
-
-// ============================================================
-// GET ONSITE STAFF - FROM CACHE
-// ============================================================
 
 function getOnsiteStaff() {
     $allStaff = getAllStaffWithStatus();
@@ -108,10 +111,6 @@ function getOnsiteStaff() {
     return ['success' => true, 'data' => $onsite];
 }
 
-// ============================================================
-// GET STAFF STATUS - FROM CACHE
-// ============================================================
-
 function getStaffStatus($userId) {
     $allStaff = getAllStaffWithStatus();
     if (!$allStaff['success']) {
@@ -125,68 +124,6 @@ function getStaffStatus($userId) {
     }
     
     return 'out';
-}
-
-// ============================================================
-// GET ALL USERS FROM CACHED CREDENTIALS
-// ============================================================
-
-function getAllUsersFromSheets() {
-    // Use cached credentials (5 minute cache)
-    $creds = getCredentialsFromSheets();
-    
-    if (!$creds || !is_array($creds) || !isset($creds['success']) || !$creds['success']) {
-        return [];
-    }
-    
-    $users = [];
-    
-    // Get Staff
-    $staffList = isset($creds['staff']) && is_array($creds['staff']) ? $creds['staff'] : [];
-    foreach ($staffList as $staff) {
-        if (is_array($staff)) {
-            $staffId = $staff['staff_id'] ?? $staff['Staff_ID'] ?? '';
-            if (!empty($staffId)) {
-                $users[] = [
-                    'id' => $staffId,
-                    'name' => $staff['name'] ?? $staff['Name'] ?? 'Unknown',
-                    'email' => strtolower($staffId) . '@spysee.app',
-                    'employee_id' => $staffId,
-                    'role' => 'staff',
-                    'status' => isset($staff['active']) && strtoupper($staff['active']) === 'YES' ? 'active' : 'inactive'
-                ];
-            }
-        }
-    }
-    
-    // Get Admins
-    $adminList = isset($creds['admins']) && is_array($creds['admins']) ? $creds['admins'] : [];
-    foreach ($adminList as $admin) {
-        if (is_array($admin)) {
-            $adminId = $admin['admin_id'] ?? $admin['Admin_ID'] ?? '';
-            if (!empty($adminId)) {
-                $users[] = [
-                    'id' => $adminId,
-                    'name' => $admin['name'] ?? $admin['Name'] ?? 'Unknown',
-                    'email' => strtolower($adminId) . '@spysee.app',
-                    'employee_id' => $adminId,
-                    'role' => 'admin',
-                    'status' => 'active'
-                ];
-            }
-        }
-    }
-    
-    return $users;
-}
-
-// ============================================================
-// GET ALL USERS
-// ============================================================
-
-function getAllUsers() {
-    $users = getAllUsersFromSheets();
-    return ['success' => true, 'data' => $users];
 }
 
 // ============================================================
@@ -244,7 +181,7 @@ function handleClockOut($data) {
 }
 
 // ============================================================
-// DASHBOARD FUNCTIONS
+// DASHBOARD FUNCTIONS - FROM GOOGLE SHEETS (CACHE)
 // ============================================================
 
 function getDashboardStats() {
@@ -312,10 +249,6 @@ function getRecentActivity() {
     return ['success' => true, 'data' => $activities];
 }
 
-// ============================================================
-// USER HISTORY
-// ============================================================
-
 function getUserHistory($userId) {
     $data = getCachedData();
     
@@ -329,7 +262,7 @@ function getUserHistory($userId) {
         $firstRow = array_values($rows[0]);
         $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
         if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
-            array_shift($rows); 
+            array_shift($rows);
         }
     }
     
@@ -368,7 +301,7 @@ function getAllAttendanceLogs() {
         $firstRow = array_values($rows[0]);
         $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
         if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
-            array_shift($rows); 
+            array_shift($rows);
         }
     }
     

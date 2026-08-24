@@ -1,12 +1,12 @@
 <?php
 // ============================================================
 // FILE: backend/src/config/GoogleSheets.php
-// FIXED - With Credential Caching + NO DUPLICATE SEND
+// HYBRID - Attendance only (NO credential functions)
 // ============================================================
 
-define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbyFHp5ETpwFXVwyvxQNj1izgYkqOXsqsRCQS77wdT-qVwklILGSHmZbZHwZXRDeKOgT/exec');
+// ⚠️ IMPORTANT: Replace this with YOUR Apps Script URL after deployment
+define('APP_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbwCzeC8fJTSHxODLm0jvKtLHeT3x5PuJUyl8Pff_GrxxfATzsaLVXAuCPxNr7WCSOxH/exec');
 define('CACHE_FILE', __DIR__ . '/../../storage/cache/sheets_cache.json');
-define('CREDENTIALS_CACHE_FILE', __DIR__ . '/../../storage/cache/credentials_cache.json');
 
 // ============================================================
 // SESSION HELPERS
@@ -29,7 +29,7 @@ function getUserRole() {
 }
 
 // ============================================================
-// HTTP HELPERS - FIXED WITH NO DUPLICATE FALLBACK
+// HTTP HELPERS
 // ============================================================
 
 function httpGet($url) {
@@ -92,7 +92,6 @@ function httpPost($url, $payload) {
         'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     ];
     
-    // 🛡️ FIX: Only try CURL - NO FALLBACK to prevent duplicates
     if (function_exists('curl_init')) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -117,21 +116,16 @@ function httpPost($url, $payload) {
             error_log("📤 HTTP POST error: " . $error);
         }
         
-        // 🛡️ CRITICAL FIX: Even on HTTP error (400, 500), return the response if we got one
-        // Don't fallback to a second request
         if ($response !== false) {
             error_log("📤 HTTP POST got response with code " . $httpCode . ": " . substr($response, 0, 200));
             return $response;
         }
         
-        // Only return false if CURL completely failed (no response at all)
         error_log("📤 HTTP POST: CURL failed completely, no response");
         return false;
     }
     
-    // 🛡️ FIX: Only use fallback if CURL doesn't exist (very rare)
-    error_log("📤 HTTP POST: CURL not available, using fallback (this should not happen in normal environments)");
-    
+    error_log("📤 HTTP POST: CURL not available, using fallback");
     $context = stream_context_create([
         'http' => [
             'method' => 'POST',
@@ -161,52 +155,6 @@ function httpPost($url, $payload) {
 }
 
 // ============================================================
-// 🛡️ CREDENTIALS WITH CACHING - Prevents rate limiting
-// ============================================================
-
-function getCredentialsFromSheets($forceRefresh = false) {
-    error_log("🔑 Getting credentials from sheets (forceRefresh: " . ($forceRefresh ? 'true' : 'false') . ")");
-    
-    if (!$forceRefresh && file_exists(CREDENTIALS_CACHE_FILE)) {
-        $cached = json_decode(file_get_contents(CREDENTIALS_CACHE_FILE), true);
-        if ($cached && isset($cached['fetched_at']) && (time() - $cached['fetched_at']) < 300) {
-            error_log("🔑 Using cached credentials (age: " . (time() - $cached['fetched_at']) . "s)");
-            return $cached['data'];
-        }
-    }
-    
-    $response = httpGet(APP_SCRIPT_URL . '?action=getCredentials');
-    if ($response === false) {
-        $response = httpGet(APP_SCRIPT_URL);
-        if ($response === false) {
-            if (file_exists(CREDENTIALS_CACHE_FILE)) {
-                $cached = json_decode(file_get_contents(CREDENTIALS_CACHE_FILE), true);
-                if ($cached && isset($cached['data'])) {
-                    error_log("🔑 Using stale cached credentials as fallback");
-                    return $cached['data'];
-                }
-            }
-            return ['success' => false, 'error' => 'Failed to fetch credentials'];
-        }
-    }
-    
-    $data = json_decode($response, true);
-    if (!$data) {
-        return ['success' => false, 'error' => 'Invalid JSON response'];
-    }
-    
-    $dir = dirname(CREDENTIALS_CACHE_FILE);
-    if (!is_dir($dir)) mkdir($dir, 0777, true);
-    file_put_contents(CREDENTIALS_CACHE_FILE, json_encode([
-        'data' => $data,
-        'fetched_at' => time()
-    ]));
-    
-    error_log("🔑 Credentials cached successfully");
-    return $data;
-}
-
-// ============================================================
 // GOOGLE SHEETS API
 // ============================================================
 
@@ -227,11 +175,11 @@ function fetchSheetsData() {
 }
 
 // ============================================================
-// 🛡️ CRITICAL FIX: sendToGoogleSheets - ONLY ONE CALL PER SCAN
+// sendToGoogleSheets - ONLY ONE CALL PER SCAN
 // ============================================================
 
 function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
-    error_log("📤 SEND TO GOOGLE SHEETS (ONCE)");
+    error_log("📤 SEND TO GOOGLE SHEETS");
     error_log("📤 Staff: {$staffId}, Name: {$name}, Method: {$method}");
     
     $payload = ['staff_id' => $staffId, 'name' => $name, 'method' => $method];
@@ -241,12 +189,10 @@ function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $exp
     $jsonPayload = json_encode($payload);
     error_log("📤 JSON Payload: " . $jsonPayload);
     
-    // 🛡️ FIX: Only attempt once - no retries
     $response = httpPost(APP_SCRIPT_URL, $jsonPayload);
     
     if ($response === false) {
         error_log("❌ Google Sheets connection failed!");
-        // Don't retry - just log and continue
         return ['success' => false, 'error' => 'Failed to connect'];
     }
     
@@ -258,17 +204,6 @@ function sendToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $exp
     
     error_log("📥 Google Sheets response: " . json_encode($result));
     return $result;
-}
-
-// ============================================================
-// 🛡️ FIXED: sendAsyncToGoogleSheets - DOES NOT DUPLICATE
-// ============================================================
-
-function sendAsyncToGoogleSheets($staffId, $name, $method = 'QR', $token = null, $expires = null) {
-    error_log("📤 Async send to Google Sheets: {$staffId} ({$name})");
-    // 🛡️ CRITICAL FIX: Do NOT send duplicate - just log and return
-    error_log("📤 Async send skipped - use sendToGoogleSheets() for actual sending");
-    return ['success' => true, 'message' => 'Async send skipped to prevent duplicates'];
 }
 
 // ============================================================
@@ -331,6 +266,12 @@ function getStatusFromCache($staffId) {
 function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
     error_log("🔄 Updating local status: {$staffId} -> {$newStatus}");
     
+    // Ensure status is "Check-in" or "Check-out"
+    $cleanStatus = $newStatus;
+    if (strpos($newStatus, 'Check-') === false) {
+        $cleanStatus = $newStatus === 'in' ? 'Check-in' : 'Check-out';
+    }
+    
     $data = getCachedData();
     
     if (!$data) {
@@ -354,7 +295,7 @@ function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
     foreach ($rows as $index => $row) {
         if (isset($row[1]) && $row[1] === $staffId) {
             $row[0] = date('Y-m-d H:i:s');
-            $row[3] = 'Check-' . $newStatus;
+            $row[3] = $cleanStatus;
             $rows[$index] = $row;
             $found = true;
             break;
@@ -366,7 +307,7 @@ function updateLocalStatus($staffId, $newStatus, $staffName = 'Staff') {
             date('Y-m-d H:i:s'),
             $staffId,
             $staffName,
-            'Check-' . $newStatus,
+            $cleanStatus,
             'web'
         ];
     }
@@ -395,10 +336,11 @@ function getStaffListFromCache() {
     foreach ($rows as $row) {
         if (isset($row[1]) && !isset($seen[$row[1]])) {
             $seen[$row[1]] = true;
+            $status = str_replace('Check-', '', $row[3] ?? '');
             $staffList[] = [
                 'staff_id' => $row[1],
                 'name' => $row[2] ?? 'Unknown',
-                'status' => strtolower(str_replace('Check-', '', $row[3] ?? ''))
+                'status' => strtolower($status)
             ];
         }
     }
