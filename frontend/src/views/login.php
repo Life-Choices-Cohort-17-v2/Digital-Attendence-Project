@@ -384,7 +384,7 @@
                 <form method="POST" action="<?= route_url('/login') ?>" @submit="loading = true">
                     <div class="input-group">
                         <label>Staff / Admin ID</label>
-                        <input type="text" name="username" placeholder="e.g. STF-001 or ADMIN_001" required>
+                        <input type="text" name="username" placeholder="e.g. EMP001 or EMP004" required>
                     </div>
                     <div class="input-group">
                         <label>PIN / Password</label>
@@ -400,8 +400,8 @@
                     <p>DEMO ACCOUNTS</p>
                     <div class="demo-items">
                         <div><strong>ADMIN_001</strong> / admin123 <span class="role-badge admin">Admin</span></div>
-                        <div><strong>STF-001</strong> / 1234 <span class="role-badge staff">Staff</span></div>
-                        <div><strong>STF-004</strong> / 5678 <span class="role-badge staff">Staff</span></div>
+                        <div><strong>EMP001</strong> / thina@01 <span class="role-badge staff">Staff</span></div>
+                        <div><strong>EMP004</strong> / jose@04 <span class="role-badge admin">Admin</span></div>
                     </div>
                 </div>
 
