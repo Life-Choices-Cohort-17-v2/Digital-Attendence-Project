@@ -71,7 +71,15 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                     </div>
                     <div class="profile-detail-row">
                         <span class="profile-detail-label">Employee ID</span>
-                        <span class="profile-detail-value" x-text="user.employeeId || 'S-101'"></span>
+                        <span class="profile-detail-value" x-text="user.employeeId || 'N/A'"></span>
+                    </div>
+                    <div class="profile-detail-row">
+                        <span class="profile-detail-label">Department</span>
+                        <span class="profile-detail-value" x-text="user.department || 'Not set'"></span>
+                    </div>
+                    <div class="profile-detail-row">
+                        <span class="profile-detail-label">Position</span>
+                        <span class="profile-detail-value" x-text="user.position || 'Not set'"></span>
                     </div>
                     <div class="profile-detail-row">
                         <span class="profile-detail-label">Role</span>
@@ -105,11 +113,13 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
 function profileApp() {
     return {
         sidebarOpen: false,
-        user: { name: '', email: '', employeeId: '' },
+        user: { name: '', email: '', employeeId: '', department: '', position: '' },
         passwordForm: { current: '', new: '', confirm: '' },
         
         init() {
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Sarah Mthembu', 'email' => 'sarah@spysee.app', 'employeeId' => 'S-101']); ?>;
+            // Always the authenticated session user (see require_auth() in
+            // frontend/public/index.php) — never a hardcoded/mock identity.
+            const userData = <?php echo json_encode($user ?? ['id' => '', 'name' => '', 'email' => '', 'employeeId' => '', 'department' => null, 'position' => null]); ?>;
             this.user = userData;
         },
         

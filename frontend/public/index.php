@@ -76,6 +76,45 @@ function redirect_to(string $path): never
     exit;
 }
 
+/**
+ * Live lookup of optional profile fields (department, position) straight
+ * from the database, keyed off the authenticated session's user id.
+ *
+ * This reuses the backend's existing DataBase config class as-is (read only,
+ * no changes made to it) so the Staff Profile page always reflects the real
+ * users table instead of anything hardcoded. Safe even if the department/
+ * position columns don't exist yet — falls back to null.
+ */
+function get_live_profile_fields(int $userId): array
+{
+    static $cache = [];
+    if (array_key_exists($userId, $cache)) {
+        return $cache[$userId];
+    }
+
+    $fields = ['department' => null, 'position' => null];
+
+    try {
+        $dbConfigPath = dirname(__DIR__, 2) . '/backend/src/config/DataBase.php';
+        if (file_exists($dbConfigPath)) {
+            require_once $dbConfigPath;
+            $pdo = DataBase::getConnection();
+            $stmt = $pdo->prepare('SELECT * FROM users WHERE id = :id LIMIT 1');
+            $stmt->execute(['id' => $userId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                $fields['department'] = $row['department'] ?? null;
+                $fields['position']   = $row['position'] ?? null;
+            }
+        }
+    } catch (\Throwable $e) {
+        // DB unreachable or columns not present yet — keep the null defaults.
+    }
+
+    $cache[$userId] = $fields;
+    return $fields;
+}
+
 function require_auth(?string $role = null): array
 {
     if (!isset($_SESSION['user_id'])) {
@@ -84,12 +123,15 @@ function require_auth(?string $role = null): array
     if ($role !== null && ($_SESSION['user_role'] ?? '') !== $role) {
         redirect_to('/login');
     }
+    $profileExtras = get_live_profile_fields((int) $_SESSION['user_id']);
     return [
         'id'         => $_SESSION['user_id'],
         'name'       => $_SESSION['user_name'] ?? 'User',
         'email'      => $_SESSION['user_email'] ?? '',
         'employeeId' => $_SESSION['employee_id'] ?? '',
         'role'       => $_SESSION['user_role'] ?? 'staff',
+        'department' => $profileExtras['department'],
+        'position'   => $profileExtras['position'],
     ];
 }
 
@@ -160,7 +202,10 @@ if (str_starts_with($path, '/api/')) {
             echo json_encode(handleClockOut($data));
         },
         '/api/user-history.php'    => function () {
-            $userId = $_GET['user_id'] ?? $_SESSION['user_id'] ?? '';
+            // SECURITY: always use the authenticated session's user id.
+            // A user_id passed in the query string is intentionally ignored
+            // so one employee can never request another employee's history.
+            $userId = $_SESSION['user_id'] ?? '';
             echo json_encode(getUserHistory($userId));
         },
         '/api/attendance-logs.php' => function () { echo json_encode(getAllAttendanceLogs()); },

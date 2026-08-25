@@ -100,22 +100,41 @@ function historyApp() {
         },
         
         async init() {
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Staff']); ?>;
+            const userData = <?php echo json_encode($user ?? ['id' => '', 'name' => 'Staff']); ?>;
             this.user = userData;
             await this.loadHistory();
         },
         
         async loadHistory() {
-            const response = await fetch('api/user-history.php?user_id=' + this.user.id);
-            const data = await response.json();
-            const history = data.data || [];
-            this.records = history.map(r => ({
-                id: r.id,
-                date: r.date,
-                time: new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                type: r.type,
-                location: r.location
-            }));
+            // Live attendance data from the backend. No user id is sent in the
+            // request — the backend identifies the logged-in employee from the
+            // shared session cookie ('credentials: include'), so this page can
+            // only ever show the current user's own records.
+            try {
+                const response = await fetch('http://localhost:8000/attendance/history', {
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    this.records = [];
+                    return;
+                }
+
+                const history = data.data || [];
+                this.records = history.map(r => ({
+                    id: r.id,
+                    date: r.date,
+                    time: r.timestamp
+                        ? new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : '',
+                    type: r.type,
+                    location: r.location
+                }));
+            } catch (e) {
+                this.records = [];
+            }
         }
     }
 }

@@ -20,6 +20,18 @@ session_set_cookie_params([
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+// --- CORS (the Staff Portal frontend runs on a different port than this
+// backend, e.g. http://localhost:8001 vs http://localhost:8000, and now
+// calls this API directly using the shared session cookie) ---
+$allowedOrigins = ['http://localhost:8001', 'http://127.0.0.1:8001'];
+$requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($requestOrigin, $allowedOrigins, true)) {
+    header('Access-Control-Allow-Origin: ' . $requestOrigin);
+    header('Access-Control-Allow-Credentials: true');
+    header('Vary: Origin');
+}
+
 /**
  * CENTRAL APPLICATION ROUTER
  * Merged router supporting Auth (Dev 2), Attendance (Dev 3), and Dashboard (Dev 5).
@@ -51,8 +63,8 @@ spl_autoload_register(function (string $class) {
 // --- GLOBAL NON-NAMESPACED DEPENDENCIES ---
 if (file_exists(__DIR__ . '/../config/DataBase.php')) {
     require_once __DIR__ . '/../config/DataBase.php';
-} elseif (file_exists(__DIR__ . '/../config/Database.php')) {
-    require_once __DIR__ . '/../config/Database.php';
+} elseif (file_exists(__DIR__ . '/../config/DataBase.php')) {
+    require_once __DIR__ . '/../config/DataBase.php';
 }
 
 if (file_exists(__DIR__ . '/../exceptions/AuthenticationException.php')) {
@@ -156,6 +168,63 @@ switch ($route) {
         } else {
             http_response_code(405);
             echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    // --- STAFF HISTORY (Staff Portal integration) ---
+    // Self-contained here (does not touch AttendanceController/Service/Model)
+    // so it can't affect any other teammate's files.
+    case '/attendance/history':
+        if ($method !== 'GET') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+            break;
+        }
+
+        // SECURITY: the user is always taken from the server-side session,
+        // never from a query string or request body, so one employee can
+        // never request another employee's history.
+        $historyUserId = $_SESSION['user_id'] ?? null;
+
+        if (!$historyUserId) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Authentication required']);
+            break;
+        }
+
+        if ($pdo === null) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Database unavailable']);
+            break;
+        }
+
+        try {
+            $stmt = $pdo->prepare(
+                "SELECT id, type, timestamp, location
+                 FROM attendance_records
+                 WHERE user_id = :user_id
+                 ORDER BY timestamp DESC"
+            );
+            $stmt->execute([':user_id' => $historyUserId]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            $history = array_map(function (array $row): array {
+                $timestamp = $row['timestamp'] ?? null;
+                return [
+                    'id'        => $row['id'],
+                    'date'      => $timestamp ? date('Y-m-d', strtotime($timestamp)) : null,
+                    'timestamp' => $timestamp,
+                    // DB stores sign_in/sign_out; the Staff History page groups
+                    // records using the hyphenated sign-in/sign-out values.
+                    'type'      => ($row['type'] ?? '') === 'sign_in' ? 'sign-in' : 'sign-out',
+                    'location'  => $row['location'] ?? null,
+                ];
+            }, $rows);
+
+            echo json_encode(['success' => true, 'data' => $history]);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to load attendance history']);
         }
         break;
 
