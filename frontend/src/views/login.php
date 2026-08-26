@@ -5,11 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $title ?? 'SpySee - Login' ?></title>
     <style>
-        /* ================================================================
-           LOGIN PAGE – dark only (no toggle)
-           Left panel gradient untouched.
-           ================================================================ */
-
         * {
             margin: 0;
             padding: 0;
@@ -39,7 +34,7 @@
             height: 100vh;
         }
 
-        /* ---------- LEFT PANEL (gradient) – UNTOUCHED ---------- */
+        /* LEFT PANEL (gradient) */
         .login-left {
             flex: 1;
             background: linear-gradient(145deg, #0A0A0A 0%, #008400 40%, #00B000 70%, #8CDB8C 100%);
@@ -74,15 +69,9 @@
             justify-content: center;
             overflow: hidden;
             cursor: pointer;
-            box-shadow: none;
             user-select: none;
             margin-top: 4px;
-            transition: box-shadow 0.3s ease;
         }
-        .eye-watcher:hover {
-            box-shadow: none;
-        }
-
         .eye-watcher .pupil {
             width: 24px;
             height: 24px;
@@ -102,27 +91,20 @@
             background: #8CDB8C;
             border-radius: 50%;
         }
-
         .eye-watcher.blinking {
             animation: eyeBlink 0.2s ease-in-out;
         }
         @keyframes eyeBlink {
             0%, 100% { transform: scaleY(1) rotate(45deg); }
-            50%      { transform: scaleY(0.05) rotate(45deg); }
+            50% { transform: scaleY(0.05) rotate(45deg); }
         }
         .eye-watcher.sleeping .pupil {
             transform: rotate(-45deg) translate(0px, 8px) !important;
             transition: transform 0.8s ease-in;
         }
-        .eye-watcher.sleeping {
-            opacity: 0.7;
-        }
-        .eye-watcher.awake .pupil {
-            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .eye-watcher.awake {
-            opacity: 1;
-        }
+        .eye-watcher.sleeping { opacity: 0.7; }
+        .eye-watcher.awake .pupil { transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .eye-watcher.awake { opacity: 1; }
 
         .login-left h2 {
             font-size: 42px;
@@ -134,7 +116,6 @@
             color: #fff;
             text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
-
         .login-left p {
             opacity: 0.9;
             line-height: 1.6;
@@ -143,7 +124,6 @@
             font-size: 16px;
             color: #fff;
         }
-
         .feature-badges {
             display: flex;
             gap: 40px;
@@ -162,7 +142,7 @@
             color: #fff;
         }
 
-        /* ---------- RIGHT PANEL (login card) – DARK ONLY ---------- */
+        /* RIGHT PANEL (login card) – DARK ONLY */
         .login-right {
             flex: 1;
             display: flex;
@@ -172,7 +152,6 @@
             height: 100vh;
             overflow-y: auto;
         }
-
         .login-card {
             max-width: 420px;
             width: 100%;
@@ -181,7 +160,6 @@
             border-radius: 24px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-
         .login-header {
             margin-bottom: 32px;
         }
@@ -322,11 +300,11 @@
             border-radius: 12px;
             margin-bottom: 20px;
             font-size: 13px;
+            text-align: center;
         }
 
         [x-cloak] { display: none !important; }
 
-        /* ---------- RESPONSIVE ---------- */
         @media (max-width: 900px) {
             body {
                 overflow: auto;
@@ -343,9 +321,7 @@
                 min-height: 100vh;
                 background: var(--card-bg);
             }
-            .login-left {
-                display: none;
-            }
+            .login-left { display: none; }
             .login-right {
                 height: auto;
                 min-height: 100vh;
@@ -359,27 +335,15 @@
                 background: transparent;
                 box-shadow: none;
             }
-            .login-header h3 {
-                font-size: 24px;
-            }
-            .login-header p {
-                font-size: 13px;
-            }
+            .login-header h3 { font-size: 24px; }
+            .login-header p { font-size: 13px; }
         }
 
         @media (max-width: 480px) {
-            .login-right {
-                padding: 30px 16px;
-            }
-            .login-card {
-                padding: 0;
-            }
-            .input-group input {
-                padding: 12px 14px;
-            }
-            .login-btn {
-                padding: 12px;
-            }
+            .login-right { padding: 30px 16px; }
+            .login-card { padding: 0; }
+            .input-group input { padding: 12px 14px; }
+            .login-btn { padding: 12px; }
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -419,20 +383,14 @@
 
                 <form method="post" action="http://localhost:8000/auth/login" @submit="loading = true">
                     <div class="input-group">
-                        <label>Email</label>
-                        <input type="text" name="identifier" required placeholder="sarah@spysee.app">
+                        <label>Staff / Admin ID</label>
+                        <input type="text" name="username" placeholder="e.g. STF-001 or ADMIN_001" required>
                     </div>
                     <div class="input-group">
-                        <label>Password</label>
-                        <input type="password" name="password" required placeholder="••••••">
+                        <label>PIN / Password</label>
+                        <input type="password" name="password" placeholder="Enter your PIN or password" required>
                     </div>
-                    <div class="login-options">
-                        <label class="checkbox">
-                            <input type="checkbox" name="remember"> Remember me
-                        </label>
-                        <a href="#" class="forgot-link">Forgot password?</a>
-                    </div>
-                    <button type="submit" name="login" class="login-btn" :disabled="loading">
+                    <button type="submit" class="login-btn" :disabled="loading">
                         <span x-show="!loading">Login</span>
                         <span x-show="loading" x-cloak>Signing in...</span>
                     </button>
@@ -441,8 +399,9 @@
                 <div class="demo-accounts">
                     <p>DEMO ACCOUNTS</p>
                     <div class="demo-items">
-                        <div><strong>admin@spysee.app</strong> / admin123 <span class="role-badge admin">Admin</span></div>
-                        <div><strong>sarah@spysee.app</strong> / sarah123 <span class="role-badge staff">Staff</span></div>
+                        <div><strong>ADMIN_001</strong> / admin123 <span class="role-badge admin">Admin</span></div>
+                        <div><strong>STF-001</strong> / 1234 <span class="role-badge staff">Staff</span></div>
+                        <div><strong>STF-004</strong> / 5678 <span class="role-badge staff">Staff</span></div>
                     </div>
                 </div>
 
@@ -454,14 +413,13 @@
     </div>
 </main>
 
-<!-- EYE JAVASCRIPT (unchanged) -->
+<!-- EYE JAVASCRIPT -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const eye = document.getElementById('spyEye');
         const pupil = document.getElementById('eyePupil');
         if (!eye || !pupil) return;
 
-        let lastMoveTime = Date.now();
         let isSleeping = false;
         let sleepTimeout = null;
 
@@ -473,7 +431,6 @@
                 pupil.style.transform = 'rotate(-45deg) translate(0px, 0px)';
                 clearTimeout(sleepTimeout);
             }
-            lastMoveTime = Date.now();
         }
 
         function goToSleep() {
@@ -518,7 +475,7 @@
             }
 
             this.classList.add('blinking');
-            console.log('👁️ SpySee: Eye blink logged (attention check)');
+            console.log('👁️ SpySee: Eye blink logged');
 
             this.addEventListener('animationend', function() {
                 this.classList.remove('blinking');

@@ -1,8 +1,13 @@
 <?php
 declare(strict_types=1);
 /**
- * Main Router – with error reporting & robust base path handling
+ * Main Router – HYBRID SYSTEM
+ * - Login: Database (users table)
+ * - Attendance: Google Sheets (Log tab)
+ * - Dashboard: Google Sheets (cache)
+ * - QR Scanner: Google Sheets
  */
+
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -29,17 +34,13 @@ session_start();
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
 $scriptDir  = rtrim(dirname($scriptName), '/');
-
-// If SCRIPT_NAME is '/index.php', base is empty; else it's the subdirectory.
 $baseUrl = ($scriptDir === '/' || $scriptDir === '\\') ? '' : $scriptDir;
 
 // ---- Parse request path ----
 $path = parse_url($requestUri, PHP_URL_PATH) ?: '/';
-// Remove the base URL prefix if present
 if ($baseUrl !== '' && str_starts_with($path, $baseUrl)) {
     $path = substr($path, strlen($baseUrl)) ?: '/';
 }
-// Remove script name if present
 if (str_starts_with($path, $scriptName)) {
     $path = substr($path, strlen($scriptName)) ?: '/';
 }
@@ -47,8 +48,10 @@ $path = '/' . ltrim($path, '/');
 $path = $path === '/' ? '/' : rtrim($path, '/');
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-// ---- Load mock data functions ----
-require_once __DIR__ . '/../src/views/staff/functions.php';
+// ---- Load functions ----
+require_once __DIR__ . '/../data/functions.php';
+require_once __DIR__ . '/../../backend/src/config/DataBase.php';
+require_once __DIR__ . '/../../backend/src/models/User.php';
 
 // ---- Helper functions ----
 function route_url(string $path = '/'): string
@@ -142,95 +145,222 @@ function get_flash(): ?array
     return $flash;
 }
 
-// ---- Handle POST login ----
+// ============================================================
+// HANDLE LOGIN - DATABASE (HYBRID)
+// ============================================================
 if ($path === '/login' && $method === 'POST') {
-    $identifier = strtolower(trim((string) ($_POST['identifier'] ?? '')));
-    $password   = $_POST['password'] ?? '';
+    $username = trim($_POST['username'] ?? '');
+    $password = trim($_POST['password'] ?? '');
 
-    if (($identifier === 'admin@spysee.app' || $identifier === 'admin') && $password === 'admin123') {
-        $_SESSION['user_id']     = 'admin-001';
-        $_SESSION['user_name']   = 'Admin User';
-        $_SESSION['user_email']  = 'admin@spysee.app';
-        $_SESSION['user_role']   = 'admin';
-        $_SESSION['employee_id'] = 'ADM-001';
-        redirect_to('/admin/loading');
-    } elseif (($identifier === 'sarah@spysee.app' || $identifier === 'sarah') && $password === 'sarah123') {
-        $_SESSION['user_id']     = 'staff-001';
-        $_SESSION['user_name']   = 'Sarah Mthembu';
-        $_SESSION['user_email']  = 'sarah@spysee.app';
-        $_SESSION['user_role']   = 'staff';
-        $_SESSION['employee_id'] = 'S-101';
-        redirect_to('/loading');
-    } elseif (($identifier === 'staff@spysee.app' || $identifier === 'staff') && $password === 'password123') {
-        $_SESSION['user_id']     = 'staff-002';
-        $_SESSION['user_name']   = 'Demo Staff';
-        $_SESSION['user_email']  = 'staff@spysee.app';
-        $_SESSION['user_role']   = 'staff';
-        $_SESSION['employee_id'] = 'EMP-001';
-        redirect_to('/loading');
-    } else {
-        $_SESSION['login_error'] = 'Invalid credentials. Use admin@spysee.app/admin123 or sarah@spysee.app/sarah123';
+    try {
+        $pdo = DataBase::getConnection();
+        $userModel = new Models\User($pdo);
+
+        // Find user by employee_id (works for both staff and admins)
+        $user = $userModel->findByEmployeeId($username);
+
+        if (!$user) {
+            $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
+            redirect_to('/login');
+        }
+
+        // Check password or PIN
+        $valid = false;
+
+        // For admins: check password_hash
+        if (isset($user['password_hash']) && password_verify($password, $user['password_hash'])) {
+            $valid = true;
+        }
+
+        // For staff: check 'passwords' column (PIN)
+        if (isset($user['passwords']) && $user['passwords'] === $password) {
+            $valid = true;
+        }
+
+        if (!$valid) {
+            $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
+            redirect_to('/login');
+        }
+
+        if ($user['status'] !== 'active') {
+            $_SESSION['login_error'] = '❌ Account is inactive. Contact administrator.';
+            redirect_to('/login');
+        }
+
+        // Set session
+        $_SESSION['logged_in'] = true;
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['user_role'] = $user['role'];
+        $_SESSION['user_type'] = $user['role'];
+        $_SESSION['staff_id'] = $user['employee_id'];
+        $_SESSION['staff_name'] = $user['name'];
+        $_SESSION['user_name'] = $user['name'];
+        $_SESSION['user_email'] = $user['email'];
+        $_SESSION['employee_id'] = $user['employee_id'];
+
+        if (!empty($_SESSION['redirect_after_login'])) {
+            $redirectUrl = $_SESSION['redirect_after_login'];
+            unset($_SESSION['redirect_after_login']);
+            header('Location: ' . $redirectUrl);
+            exit;
+        }
+
+        if ($user['role'] === 'admin') {
+            redirect_to('/admin-dashboard');
+        } else {
+            redirect_to('/staff-dashboard');
+        }
+
+    } catch (Exception $e) {
+        $_SESSION['login_error'] = '❌ Database error: ' . $e->getMessage();
         redirect_to('/login');
     }
 }
 
+// ============================================================
+// HANDLE LOGOUT
+// ============================================================
 if ($path === '/logout') {
     session_destroy();
     redirect_to('/login');
 }
 
-// ---- Password update (demo) ----
-if ($path === '/profile/password' && $method === 'POST') {
-    $_SESSION['flash'] = ['valid' => true, 'message' => 'Password updated (demo).'];
-    redirect_to('/profile');
-}
-
-// ---- API routes ----
+// ============================================================
+// API ROUTES - HYBRID (Database + Google Sheets)
+// ============================================================
 if (str_starts_with($path, '/api/')) {
     header('Content-Type: application/json');
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
 
-    $api = [
-        '/api/dashboard-stats.php' => function () { echo json_encode(getDashboardStats()); },
-        '/api/onsite-staff.php'    => function () { echo json_encode(getOnsiteStaff()); },
-        '/api/recent-activity.php' => function () { echo json_encode(getRecentActivity()); },
-        '/api/sign-in.php'         => function () {
-            $data = json_decode(file_get_contents('php://input'), true);
+    if ($method === 'OPTIONS') {
+        http_response_code(200);
+        exit;
+    }
+
+    $apiPath = str_replace('.php', '', $path);
+
+    $apiMap = [
+        // ---- DATABASE APIS ----
+        '/api/users' => function() {
+            echo json_encode(getAllUsers());
+        },
+
+        // ---- GOOGLE SHEETS APIS (KEEP THESE) ----
+        '/api/dashboard-stats' => function() {
+            echo json_encode(getDashboardStats());
+        },
+        '/api/onsite-staff' => function() {
+            echo json_encode(getOnsiteStaff());
+        },
+        '/api/all-staff' => function() {
+            echo json_encode(getAllStaffWithStatus());
+        },
+        '/api/recent-activity' => function() {
+            echo json_encode(getRecentActivity());
+        },
+        '/api/sign-in' => function() {
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
             echo json_encode(handleClockIn($data));
         },
-        '/api/sign-out.php'        => function () {
-            $data = json_decode(file_get_contents('php://input'), true);
+        '/api/sign-out' => function() {
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
             echo json_encode(handleClockOut($data));
         },
-        '/api/user-history.php'    => function () {
+        '/api/user-history' => function () {
             // SECURITY: always use the authenticated session's user id.
             // A user_id passed in the query string is intentionally ignored
             // so one employee can never request another employee's history.
             $userId = $_SESSION['user_id'] ?? '';
             echo json_encode(getUserHistory($userId));
         },
-        '/api/attendance-logs.php' => function () { echo json_encode(getAllAttendanceLogs()); },
-        '/api/users.php'           => function () { echo json_encode(getAllUsers()); },
-        '/api/qr-codes.php'        => function () { echo json_encode(getQRCodes()); },
-        '/api/generate-qr.php'     => function () {
-            $data = json_decode(file_get_contents('php://input'), true);
-            echo json_encode(generateQRCode($data));
+        '/api/attendance-logs' => function() {
+            echo json_encode(getAllAttendanceLogs());
         },
-        '/api/revoke-qr.php'       => function () {
-            $data = json_decode(file_get_contents('php://input'), true);
-            echo json_encode(revokeQRCode($data));
+        '/api/check-scan-result' => function() {
+            if (isset($_SESSION['qr_result'])) {
+                $result = $_SESSION['qr_result'];
+                unset($_SESSION['qr_result']);
+                echo json_encode([
+                    'success' => true,
+                    'name' => $result['name'] ?? '',
+                    'action' => $result['action'] ?? '',
+                    'location' => $result['location'] ?? 'HQ',
+                    'timestamp' => $result['timestamp'] ?? date('Y-m-d H:i:s')
+                ]);
+            } else {
+                echo json_encode(['success' => false]);
+            }
+        },
+        '/api/test-sheets-connection' => function() {
+            $connected = false;
+            $lastSync = '';
+            $cacheAge = 'Unknown';
+            $error = '';
+            try {
+                $data = fetchSheetsData();
+                if ($data && isset($data['success']) && $data['success']) {
+                    $connected = true;
+                    if (file_exists(CACHE_FILE)) {
+                        $cached = json_decode(file_get_contents(CACHE_FILE), true);
+                        if ($cached && isset($cached['fetched_at'])) {
+                            $lastSync = date('Y-m-d H:i:s', $cached['fetched_at']);
+                            $age = time() - $cached['fetched_at'];
+                            if ($age < 60) $cacheAge = $age . ' seconds ago';
+                            elseif ($age < 3600) $cacheAge = round($age / 60) . ' minutes ago';
+                            else $cacheAge = round($age / 3600) . ' hours ago';
+                        }
+                    }
+                } else {
+                    $error = $data['error'] ?? 'Failed to fetch data';
+                }
+            } catch (Exception $e) {
+                $error = $e->getMessage();
+            }
+            echo json_encode([
+                'success' => true,
+                'connected' => $connected,
+                'last_sync' => $lastSync,
+                'cache_age' => $cacheAge,
+                'error' => $error
+            ]);
+        },
+        '/api/clear-cache' => function() {
+            try {
+                if (file_exists(CACHE_FILE)) unlink(CACHE_FILE);
+                updateCache();
+                echo json_encode(['success' => true, 'message' => 'Cache cleared and refreshed']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+        },
+        '/api/refresh-data' => function() {
+            try {
+                $result = updateCache();
+                if ($result) {
+                    echo json_encode(['success' => true, 'message' => 'Data refreshed successfully']);
+                } else {
+                    echo json_encode(['success' => false, 'error' => 'Failed to refresh data']);
+                }
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
         },
     ];
 
-    if (isset($api[$path])) {
-        $api[$path]();
+    if (isset($apiMap[$apiPath])) {
+        $apiMap[$apiPath]();
     } else {
         http_response_code(404);
-        echo json_encode(['success' => false, 'message' => 'API not found']);
+        echo json_encode(['success' => false, 'message' => 'API endpoint not found: ' . $apiPath]);
     }
     exit;
 }
 
-// ---- Page routes ----
+// ============================================================
+// PAGE ROUTES
+// ============================================================
 switch ($path) {
     case '/':
     case '/login':
@@ -240,90 +370,65 @@ switch ($path) {
         view('login', compact('title', 'error'));
         break;
 
-    case '/admin/loading':
-        $title = 'Entering Admin Hub... | SpySee';
-        $user = require_auth('admin');
-        view('admin/loading-dashboard', compact('title', 'user'));
-        break;
-
-    case '/loading':
-    case '/staff/loading.php':
-        $title = 'Entering Hub... | SpySee';
-        $user = require_auth('staff');
-        view('staff/loading', compact('title', 'user'));
-        break;
-
-    // ---- Staff routes ----
     case '/staff-dashboard':
-case '/dashboard.php':
-    $title = 'Staff Dashboard | SpySee';
-
-    $user = require_auth('staff');
-    view('staff/dashboard', compact('title', 'user'));
-    break;
+    case '/dashboard.php':
+        $title = 'Staff Dashboard | SpySee';
+        $user = require_auth('staff');
+        view('staff/dashboard', compact('title', 'user'));
+        break;
 
     case '/scan-qr':
-    case '/scan-qr.php':
         $title = 'Scan QR Code | SpySee';
         $user = require_auth('staff');
         view('staff/scan-qr', compact('title', 'user'));
         break;
 
     case '/history':
-    case '/history.php':
         $title = 'Attendance History | SpySee';
         $user = require_auth('staff');
         view('staff/history', compact('title', 'user'));
         break;
 
     case '/calendar':
-    case '/calendar.php':
         $title = 'Calendar | SpySee';
         $user = require_auth('staff');
         view('staff/calendar', compact('title', 'user'));
         break;
 
     case '/profile':
-    case '/profile.php':
         $title = 'Profile | SpySee';
         $user = require_auth('staff');
-        $flash = get_flash();
-        view('staff/profile', compact('title', 'user', 'flash'));
+        view('staff/profile', compact('title', 'user'));
         break;
 
-    // ---- Admin routes ----
     case '/admin-dashboard':
-    case '/admin/dashboard.php':
-        $title = 'Admin Dashboard | SpySee';
         $user = require_auth('admin');
+        $title = 'Admin Dashboard | SpySee';
         view('admin/dashboard', compact('title', 'user'));
         break;
 
     case '/admin-dashboard/users':
-    case '/admin/users.php':
-        $title = 'User Management | SpySee';
         $user = require_auth('admin');
+        $title = 'User Management | SpySee';
         view('admin/users', compact('title', 'user'));
         break;
 
     case '/admin-dashboard/attendance':
-    case '/admin/attendance.php':
-        $title = 'Attendance Logs | SpySee';
         $user = require_auth('admin');
+        $title = 'Attendance Logs | SpySee';
         view('admin/attendance', compact('title', 'user'));
         break;
 
+    case '/admin-dashboard/qr':
     case '/admin-dashboard/qr-generator':
-    case '/admin/qr.php':
-        $title = 'QR Generator | SpySee';
         $user = require_auth('admin');
+        $title = 'QR Terminal | SpySee';
         view('admin/qr', compact('title', 'user'));
         break;
 
     case '/admin-dashboard/settings':
-    case '/admin/settings.php':
-        $title = 'Settings | SpySee';
         $user = require_auth('admin');
+        $title = 'Settings | SpySee';
         view('admin/settings', compact('title', 'user'));
         break;
 

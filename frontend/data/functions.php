@@ -1,52 +1,203 @@
 <?php
-// Data management functions for SpySee
+// ============================================================
+// FILE: frontend/data/functions.php
+// HYBRID: Database for users + Google Sheets for attendance
+// ============================================================
 
-$dataFile = __DIR__ . '/attendance.json';
+require_once __DIR__ . '/../../backend/src/config/DataBase.php';
+require_once __DIR__ . '/../../backend/src/config/GoogleSheets.php';
 
-function loadData() {
-    global $dataFile;
-    if (!file_exists($dataFile)) {
-        $defaultData = [
-            'users' => [
-                ['id' => 'admin-001', 'name' => 'Admin User', 'email' => 'admin@spysee.app', 'employee_id' => 'ADM-001', 'role' => 'admin', 'status' => 'active'],
-                ['id' => 'staff-001', 'name' => 'Sarah Mthembu', 'email' => 'sarah@spysee.app', 'employee_id' => 'S-101', 'role' => 'staff', 'status' => 'active'],
-                ['id' => 'staff-002', 'name' => 'John Adams', 'email' => 'john@spysee.app', 'employee_id' => 'S-102', 'role' => 'staff', 'status' => 'active'],
-                ['id' => 'staff-003', 'name' => 'Mary Chen', 'email' => 'mary@spysee.app', 'employee_id' => 'S-103', 'role' => 'staff', 'status' => 'active'],
-                ['id' => 'staff-004', 'name' => 'David Okafor', 'email' => 'david@spysee.app', 'employee_id' => 'S-104', 'role' => 'staff', 'status' => 'active'],
-            ],
-            'active_sessions' => [],
-            'attendance_records' => [],
-            'qr_codes' => [
-                ['id' => 'qr1', 'label' => 'HQ Entrance', 'type' => 'sign-in', 'location' => 'Main Entrance', 'created' => date('Y-m-d'), 'status' => 'active'],
-                ['id' => 'qr2', 'label' => 'HQ Exit', 'type' => 'sign-out', 'location' => 'Side Entrance', 'created' => date('Y-m-d'), 'status' => 'active'],
-            ]
-        ];
-        file_put_contents($dataFile, json_encode($defaultData, JSON_PRETTY_PRINT));
-        return $defaultData;
+// ============================================================
+// GET ALL USERS - FROM DATABASE
+// ============================================================
+
+function getAllUsersFromDatabase() {
+    try {
+        $pdo = DataBase::getConnection();
+        $stmt = $pdo->query("
+            SELECT id, employee_id, name, email, role, status, created_at 
+            FROM users 
+            ORDER BY name ASC
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Database error in getAllUsersFromDatabase: " . $e->getMessage());
+        return [];
     }
-    return json_decode(file_get_contents($dataFile), true);
 }
 
-function saveData($data) {
-    global $dataFile;
-    file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
+function getAllUsers() {
+    $users = getAllUsersFromDatabase();
+    return ['success' => true, 'data' => $users];
 }
 
-function getDashboardStats() {
-    $data = loadData();
-    $onsiteCount = 0;
-    $totalEvents = 0;
-    $today = date('Y-m-d');
+// ============================================================
+// STAFF STATUS - FROM GOOGLE SHEETS (CACHE)
+// ============================================================
+
+function getAllStaffWithStatus() {
+    $data = getCachedData();
     
-    foreach ($data['active_sessions'] as $session) {
-        if ($session['status'] === 'signed_in') {
-            $onsiteCount++;
+    if (!$data || !isset($data['rows'])) {
+        return ['success' => true, 'data' => []];
+    }
+    
+    $rows = $data['rows'] ?? [];
+    
+    // Remove header row
+    if (!empty($rows) && is_array($rows[0])) {
+        $firstRow = array_values($rows[0]);
+        $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
+        if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
+            array_shift($rows);
         }
     }
     
-    foreach ($data['attendance_records'] as $record) {
-        if ($record['date'] === $today) {
-            $totalEvents++;
+    // Process rows - get latest status for each staff
+    $staffStatus = [];
+    $latestTimestamp = [];
+    
+    foreach ($rows as $row) {
+        if (isset($row[1]) && !empty($row[1])) {
+            $staffId = trim($row[1]);
+            $timestamp = $row[0] ?? date('Y-m-d H:i:s');
+            
+            if (isset($latestTimestamp[$staffId]) && $timestamp <= $latestTimestamp[$staffId]) {
+                continue;
+            }
+            
+            $statusRaw = $row[3] ?? '';
+            $status = str_replace('Check-', '', $statusRaw);
+            $statusLower = strtolower(trim($status));
+            
+            if ($statusLower === 'in' || $statusLower === 'out') {
+                $staffStatus[$staffId] = [
+                    'id' => $staffId,
+                    'staff_id' => $staffId,
+                    'employee_id' => $staffId,
+                    'name' => $row[2] ?? 'Unknown',
+                    'status' => $statusLower,
+                    'last_action' => $timestamp
+                ];
+                $latestTimestamp[$staffId] = $timestamp;
+            }
+        }
+    }
+    
+    return ['success' => true, 'data' => array_values($staffStatus)];
+}
+
+function getOnsiteStaff() {
+    $allStaff = getAllStaffWithStatus();
+    if (!$allStaff['success']) {
+        return ['success' => true, 'data' => []];
+    }
+    
+    $onsite = [];
+    foreach ($allStaff['data'] as $staff) {
+        if ($staff['status'] === 'in') {
+            $onsite[] = [
+                'id' => $staff['id'],
+                'staff_id' => $staff['staff_id'],
+                'employee_id' => $staff['employee_id'],
+                'name' => $staff['name'],
+                'role' => 'Staff',
+                'sign_in_time' => $staff['last_action'],
+                'status' => 'signed_in'
+            ];
+        }
+    }
+    
+    return ['success' => true, 'data' => $onsite];
+}
+
+function getStaffStatus($userId) {
+    $allStaff = getAllStaffWithStatus();
+    if (!$allStaff['success']) {
+        return 'out';
+    }
+    
+    foreach ($allStaff['data'] as $staff) {
+        if ($staff['id'] === $userId || $staff['staff_id'] === $userId || $staff['employee_id'] === $userId) {
+            return $staff['status'];
+        }
+    }
+    
+    return 'out';
+}
+
+// ============================================================
+// CLOCK IN/OUT - INSTANT STATUS UPDATE
+// ============================================================
+
+function handleClockIn($data) {
+    $userId = $data['user_id'] ?? $_SESSION['user_id'] ?? null;
+    $staffName = $data['name'] ?? $_SESSION['user_name'] ?? 'Staff';
+    
+    if (!$userId) {
+        return ['success' => false, 'message' => 'User not identified'];
+    }
+    
+    $currentStatus = getStaffStatus($userId);
+    
+    if ($currentStatus === 'in') {
+        return ['success' => false, 'message' => 'Already Signed in'];
+    }
+    
+    updateLocalStatus($userId, 'in', $staffName);
+    sendToGoogleSheets($userId, $staffName, 'web');
+    
+    return [
+        'success' => true, 
+        'message' => 'Signed in successfully', 
+        'timestamp' => date('Y-m-d H:i:s'),
+        'status' => 'in'
+    ];
+}
+
+function handleClockOut($data) {
+    $userId = $data['user_id'] ?? $_SESSION['user_id'] ?? null;
+    $staffName = $data['name'] ?? $_SESSION['user_name'] ?? 'Staff';
+    
+    if (!$userId) {
+        return ['success' => false, 'message' => 'User not identified'];
+    }
+    
+    $currentStatus = getStaffStatus($userId);
+    
+    if ($currentStatus === 'out') {
+        return ['success' => false, 'message' => 'Not currently Signed in'];
+    }
+    
+    updateLocalStatus($userId, 'out', $staffName);
+    sendToGoogleSheets($userId, $staffName, 'web');
+    
+    return [
+        'success' => true, 
+        'message' => 'Signed out successfully', 
+        'timestamp' => date('Y-m-d H:i:s'),
+        'status' => 'out'
+    ];
+}
+
+// ============================================================
+// DASHBOARD FUNCTIONS - FROM GOOGLE SHEETS (CACHE)
+// ============================================================
+
+function getDashboardStats() {
+    $allStaff = getAllStaffWithStatus();
+    
+    $onsiteCount = 0;
+    $todayCheckins = 0;
+    $today = date('Y-m-d');
+    
+    foreach ($allStaff['data'] as $staff) {
+        if ($staff['status'] === 'in') {
+            $onsiteCount++;
+        }
+        $datePart = substr($staff['last_action'], 0, 10);
+        if ($datePart === $today && $staff['status'] === 'in') {
+            $todayCheckins++;
         }
     }
     
@@ -54,153 +205,83 @@ function getDashboardStats() {
         'success' => true,
         'data' => [
             'currentlyOnsite' => $onsiteCount,
-            'totalClockedInToday' => $onsiteCount,
+            'totalClockedInToday' => $todayCheckins,
             'pendingSync' => 0,
-            'totalEventsToday' => $totalEvents
+            'totalEventsToday' => $todayCheckins
         ]
     ];
 }
 
-function getOnsiteStaff() {
-    $data = loadData();
-    $onsite = [];
+function getRecentActivity() {
+    $data = getCachedData();
     
-    foreach ($data['active_sessions'] as $session) {
-        if ($session['status'] === 'signed_in') {
-            $user = findUserById($data, $session['user_id']);
-            if ($user) {
-                $onsite[] = [
-                    'id' => $user['id'],
-                    'name' => $user['name'],
-                    'role' => $user['role'],
-                    'employee_id' => $user['employee_id'],
-                    'sign_in_time' => $session['sign_in_time']
-                ];
-            }
+    if (!$data || !isset($data['rows'])) {
+        return ['success' => true, 'data' => []];
+    }
+    
+    $rows = $data['rows'] ?? [];
+    
+    if (!empty($rows) && is_array($rows[0])) {
+        $firstRow = array_values($rows[0]);
+        $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
+        if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
+            array_shift($rows);
         }
     }
     
-    return ['success' => true, 'data' => $onsite];
-}
-
-function getRecentActivity() {
-    $data = loadData();
-    $records = array_slice(array_reverse($data['attendance_records']), 0, 10);
     $activities = [];
+    $count = 0;
     
-    foreach ($records as $record) {
-        $user = findUserById($data, $record['user_id']);
-        if ($user) {
+    foreach (array_reverse($rows) as $row) {
+        if ($count >= 10) break;
+        if (isset($row[1]) && isset($row[2]) && isset($row[3])) {
+            $status = str_replace('Check-', '', $row[3] ?? '');
             $activities[] = [
-                'id' => $record['id'],
-                'name' => $user['name'],
-                'action' => $record['type'],
-                'timestamp' => $record['timestamp']
+                'id' => uniqid(),
+                'name' => $row[2] ?? 'Unknown',
+                'action' => strtolower(trim($status)) === 'in' ? 'sign-in' : 'sign-out',
+                'timestamp' => $row[0] ?? date('Y-m-d H:i:s')
             ];
+            $count++;
         }
     }
     
     return ['success' => true, 'data' => $activities];
 }
 
-function findUserById($data, $userId) {
-    foreach ($data['users'] as $user) {
-        if ($user['id'] === $userId) {
-            return $user;
-        }
-    }
-    return null;
-}
-
-function handleClockIn($data) {
-    $userData = loadData();
-    $userId = $data['user_id'] ?? $_SESSION['user_id'] ?? null;
-    
-    if (!$userId) {
-        return ['success' => false, 'message' => 'User not identified'];
-    }
-    
-    // Check if already Signed in
-    foreach ($userData['active_sessions'] as $session) {
-        if ($session['user_id'] === $userId && $session['status'] === 'signed_in') {
-            return ['success' => false, 'message' => 'Already Signed in'];
-        }
-    }
-    
-    $now = date('Y-m-d H:i:s');
-    $today = date('Y-m-d');
-    
-    // Add to active sessions
-    $userData['active_sessions'][] = [
-        'user_id' => $userId,
-        'status' => 'signed_in',
-        'sign_in_time' => $now
-    ];
-    
-    // Add attendance record
-    $recordId = uniqid();
-    $userData['attendance_records'][] = [
-        'id' => $recordId,
-        'user_id' => $userId,
-        'type' => 'sign-in',
-        'timestamp' => $now,
-        'date' => $today,
-        'location' => $data['location'] ?? 'Office'
-    ];
-    
-    saveData($userData);
-    
-    return ['success' => true, 'message' => 'Signed in successfully', 'timestamp' => $now];
-}
-
-function handleClockOut($data) {
-    $userData = loadData();
-    $userId = $data['user_id'] ?? $_SESSION['user_id'] ?? null;
-    
-    if (!$userId) {
-        return ['success' => false, 'message' => 'User not identified'];
-    }
-    
-    // Find and update active session
-    $sessionFound = false;
-    foreach ($userData['active_sessions'] as $key => $session) {
-        if ($session['user_id'] === $userId && $session['status'] === 'signed_in') {
-            $userData['active_sessions'][$key]['status'] = 'signed_out';
-            $userData['active_sessions'][$key]['sign_out_time'] = date('Y-m-d H:i:s');
-            $sessionFound = true;
-            break;
-        }
-    }
-    
-    if (!$sessionFound) {
-        return ['success' => false, 'message' => 'Not currently Signed in'];
-    }
-    
-    $now = date('Y-m-d H:i:s');
-    $today = date('Y-m-d');
-    
-    // Add attendance record
-    $userData['attendance_records'][] = [
-        'id' => uniqid(),
-        'user_id' => $userId,
-        'type' => 'sign-out',
-        'timestamp' => $now,
-        'date' => $today,
-        'location' => $data['location'] ?? 'Office'
-    ];
-    
-    saveData($userData);
-    
-    return ['success' => true, 'message' => 'Sign Out successfully', 'timestamp' => $now];
-}
-
 function getUserHistory($userId) {
-    $data = loadData();
-    $records = [];
+    $data = getCachedData();
     
-    foreach ($data['attendance_records'] as $record) {
-        if ($record['user_id'] === $userId) {
-            $records[] = $record;
+    if (!$data || !isset($data['rows'])) {
+        return ['success' => true, 'data' => []];
+    }
+    
+    $rows = $data['rows'] ?? [];
+    
+    if (!empty($rows) && is_array($rows[0])) {
+        $firstRow = array_values($rows[0]);
+        $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
+        if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
+            array_shift($rows);
+        }
+    }
+    
+    $records = [];
+    foreach ($rows as $row) {
+        if (isset($row[1]) && $row[1] === $userId) {
+            $status = str_replace('Check-', '', $row[3] ?? '');
+            $type = strtolower(trim($status)) === 'in' ? 'sign-in' : 'sign-out';
+            $method = isset($row[4]) && !empty($row[4]) ? $row[4] : 'QR';
+            
+            $records[] = [
+                'id' => uniqid(),
+                'user_id' => $row[1],
+                'type' => $type,
+                'timestamp' => $row[0] ?? date('Y-m-d H:i:s'),
+                'date' => isset($row[0]) ? substr($row[0], 0, 10) : date('Y-m-d'),
+                'location' => $row[5] ?? 'Office',
+                'method' => $method
+            ];
         }
     }
     
@@ -208,64 +289,37 @@ function getUserHistory($userId) {
 }
 
 function getAllAttendanceLogs() {
-    $data = loadData();
-    $logs = [];
+    $data = getCachedData();
     
-    foreach (array_reverse($data['attendance_records']) as $record) {
-        $user = findUserById($data, $record['user_id']);
-        if ($user) {
+    if (!$data || !isset($data['rows'])) {
+        return ['success' => true, 'data' => []];
+    }
+    
+    $rows = $data['rows'] ?? [];
+    
+    if (!empty($rows) && is_array($rows[0])) {
+        $firstRow = array_values($rows[0]);
+        $headerCheck = implode(' ', array_slice($firstRow, 0, 3));
+        if (stripos($headerCheck, 'Timestamp') !== false || stripos($headerCheck, 'Staff') !== false) {
+            array_shift($rows);
+        }
+    }
+    
+    $logs = [];
+    foreach (array_reverse($rows) as $row) {
+        if (isset($row[1]) && isset($row[2]) && isset($row[3])) {
+            $status = str_replace('Check-', '', $row[3] ?? '');
             $logs[] = [
-                'id' => $record['id'],
-                'staff' => $user['name'],
-                'type' => $record['type'],
-                'timestamp' => $record['timestamp'],
-                'date' => $record['date'],
-                'location' => $record['location'] ?? 'Office',
+                'id' => uniqid(),
+                'staff' => $row[2] ?? 'Unknown',
+                'type' => strtolower(trim($status)) === 'in' ? 'sign-in' : 'sign-out',
+                'timestamp' => $row[0] ?? date('Y-m-d H:i:s'),
+                'date' => isset($row[0]) ? substr($row[0], 0, 10) : date('Y-m-d'),
+                'location' => $row[4] ?? 'Office',
                 'sync' => 'synced'
             ];
         }
     }
     
     return ['success' => true, 'data' => $logs];
-}
-
-function getAllUsers() {
-    $data = loadData();
-    return ['success' => true, 'data' => $data['users']];
-}
-
-function getQRCodes() {
-    $data = loadData();
-    $activeQrs = array_filter($data['qr_codes'], function($qr) {
-        return $qr['status'] === 'active';
-    });
-    return ['success' => true, 'data' => array_values($activeQrs)];
-}
-
-function generateQRCode($data) {
-    $qrData = loadData();
-    $newQR = [
-        'id' => 'qr_' . uniqid(),
-        'label' => $data['label'] ?? 'New QR Code',
-        'type' => $data['type'] ?? 'sign-in',
-        'location' => $data['location'] ?? 'Office',
-        'created' => date('Y-m-d'),
-        'status' => 'active'
-    ];
-    $qrData['qr_codes'][] = $newQR;
-    saveData($qrData);
-    return ['success' => true, 'data' => $newQR];
-}
-
-function revokeQRCode($data) {
-    $qrData = loadData();
-    $qrId = $data['qr_id'] ?? null;
-    foreach ($qrData['qr_codes'] as $key => $qr) {
-        if ($qr['id'] === $qrId) {
-            $qrData['qr_codes'][$key]['status'] = 'revoked';
-            saveData($qrData);
-            return ['success' => true];
-        }
-    }
-    return ['success' => false, 'message' => 'QR code not found'];
 }
