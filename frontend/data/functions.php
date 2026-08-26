@@ -31,6 +31,137 @@ function getAllUsers() {
     return ['success' => true, 'data' => $users];
 }
 
+function createUser(array $input): array {
+    $employeeId = trim($input['employee_id'] ?? '');
+    $name = trim($input['name'] ?? '');
+    $email = trim($input['email'] ?? '');
+    $role = trim($input['role'] ?? 'staff');
+
+    if ($employeeId === '' || $name === '' || $email === '') {
+        return ['success' => false, 'message' => 'Employee ID, name, and email are required'];
+    }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['success' => false, 'message' => 'Enter a valid email address'];
+    }
+    if (!in_array($role, ['staff', 'admin'], true)) {
+        return ['success' => false, 'message' => 'Role must be staff or admin'];
+    }
+
+    try {
+        $userModel = new Models\User(DataBase::getConnection());
+        if ($userModel->findByEmployeeId($employeeId)) {
+            return ['success' => false, 'message' => 'Employee ID already exists'];
+        }
+        if ($userModel->findByEmail($email)) {
+            return ['success' => false, 'message' => 'Email already exists'];
+        }
+
+        $tempPassword = substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 8);
+        if (!$userModel->create([
+            'employee_id' => $employeeId,
+            'name' => $name,
+            'email' => $email,
+            'passwords' => $tempPassword,
+            'password_hash' => password_hash($tempPassword, PASSWORD_DEFAULT),
+            'role' => $role,
+            'status' => 'active',
+        ])) {
+            return ['success' => false, 'message' => 'Failed to create user'];
+        }
+
+        return ['success' => true, 'message' => 'User created', 'temp_password' => $tempPassword];
+    } catch (Throwable $e) {
+        error_log('Database error creating user: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Unable to create user'];
+    }
+}
+
+function updateUser(int $id, array $input): array {
+    $employeeId = trim($input['employee_id'] ?? '');
+    $name = trim($input['name'] ?? '');
+    $email = trim($input['email'] ?? '');
+    $role = trim($input['role'] ?? 'staff');
+
+    if ($employeeId === '' || $name === '' || $email === '') {
+        return ['success' => false, 'message' => 'Employee ID, name, and email are required'];
+    }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['success' => false, 'message' => 'Enter a valid email address'];
+    }
+    if (!in_array($role, ['staff', 'admin'], true)) {
+        return ['success' => false, 'message' => 'Role must be staff or admin'];
+    }
+
+    try {
+        $userModel = new Models\User(DataBase::getConnection());
+        if (!$userModel->findById($id)) {
+            return ['success' => false, 'message' => 'User not found'];
+        }
+        $existingEmployee = $userModel->findByEmployeeId($employeeId);
+        if ($existingEmployee && (int) $existingEmployee['id'] !== $id) {
+            return ['success' => false, 'message' => 'Employee ID already exists'];
+        }
+        $existingEmail = $userModel->findByEmail($email);
+        if ($existingEmail && (int) $existingEmail['id'] !== $id) {
+            return ['success' => false, 'message' => 'Email already exists'];
+        }
+
+        $updated = $userModel->update($id, [
+            'employee_id' => $employeeId,
+            'name' => $name,
+            'email' => $email,
+            'role' => $role,
+        ]);
+        return $updated
+            ? ['success' => true, 'message' => 'User updated']
+            : ['success' => false, 'message' => 'Failed to update user'];
+    } catch (Throwable $e) {
+        error_log('Database error updating user: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Unable to update user'];
+    }
+}
+
+function deleteUser(int $id): array {
+    try {
+        $userModel = new Models\User(DataBase::getConnection());
+        if (!$userModel->findById($id)) {
+            return ['success' => false, 'message' => 'User not found'];
+        }
+        return $userModel->delete($id)
+            ? ['success' => true, 'message' => 'User deleted']
+            : ['success' => false, 'message' => 'Failed to delete user'];
+    } catch (Throwable $e) {
+        error_log('Database error deleting user: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Unable to delete user'];
+    }
+}
+
+function updateOwnPassword(int $id, array $input): array {
+    $currentPassword = (string) ($input['current_password'] ?? '');
+    $newPassword = (string) ($input['new_password'] ?? '');
+
+    if ($currentPassword === '' || $newPassword === '') {
+        return ['success' => false, 'message' => 'Current and new passwords are required'];
+    }
+    if (strlen($newPassword) < 6) {
+        return ['success' => false, 'message' => 'Password must be at least 6 characters'];
+    }
+    if ($currentPassword === $newPassword) {
+        return ['success' => false, 'message' => 'New password must be different from the current password'];
+    }
+
+    try {
+        $userModel = new Models\User(DataBase::getConnection());
+        if (!$userModel->updatePassword($id, $currentPassword, $newPassword)) {
+            return ['success' => false, 'message' => 'Current password is incorrect'];
+        }
+        return ['success' => true, 'message' => 'Password updated successfully'];
+    } catch (Throwable $e) {
+        error_log('Database error updating password: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Unable to update password'];
+    }
+}
+
 // ============================================================
 // STAFF STATUS - FROM GOOGLE SHEETS (CACHE)
 // ============================================================

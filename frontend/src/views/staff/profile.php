@@ -118,7 +118,7 @@ function profileApp() {
             return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
         },
         
-        updatePassword() {
+        async updatePassword() {
             if (!this.passwordForm.current) {
                 window.appUtils.showToast('Please enter your current password', 'error');
                 return;
@@ -131,8 +131,32 @@ function profileApp() {
                 window.appUtils.showToast('Password must be at least 6 characters', 'error');
                 return;
             }
-            window.appUtils.showToast('Password changed successfully!', 'success');
-            this.passwordForm = { current: '', new: '', confirm: '' };
+            if (this.passwordForm.current === this.passwordForm.new) {
+                window.appUtils.showToast('New password must be different from the current password', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(<?= json_encode(route_url('/index.php/api/profile/password')) ?>, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: this.passwordForm.current,
+                        new_password: this.passwordForm.new
+                    })
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    window.appUtils.showToast(data.message || 'Unable to update password', 'error');
+                    return;
+                }
+
+                window.appUtils.showToast('Password changed successfully!', 'success');
+                this.passwordForm = { current: '', new: '', confirm: '' };
+            } catch (error) {
+                console.error('Error updating password:', error);
+                window.appUtils.showToast('Unable to update password', 'error');
+            }
         }
     }
 }

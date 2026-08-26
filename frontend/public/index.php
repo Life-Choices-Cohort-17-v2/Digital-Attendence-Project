@@ -68,7 +68,7 @@ function redirect_to(string $path): never
 }
 
 // ============================================================
-// HANDLE LOGIN - DATABASE (HYBRID)
+// HANDLE LOGIN - DATABASE (HYBRID) - SUPPORTS BOTH ID & EMAIL
 // ============================================================
 if ($path === '/login' && $method === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -78,11 +78,16 @@ if ($path === '/login' && $method === 'POST') {
         $pdo = DataBase::getConnection();
         $userModel = new Models\User($pdo);
         
-        // Find user by employee_id (works for both staff and admins)
+        // FIRST: Try to find by employee_id
         $user = $userModel->findByEmployeeId($username);
         
+        // SECOND: If not found, try by email
         if (!$user) {
-            $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
+            $user = $userModel->findByEmail($username);
+        }
+        
+        if (!$user) {
+            $_SESSION['login_error'] = '❌ Invalid Employee ID/Email or PIN/Password.';
             redirect_to('/login');
         }
         
@@ -100,7 +105,7 @@ if ($path === '/login' && $method === 'POST') {
         }
         
         if (!$valid) {
-            $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
+            $_SESSION['login_error'] = '❌ Invalid Employee ID/Email or PIN/Password.';
             redirect_to('/login');
         }
         
@@ -153,7 +158,7 @@ if ($path === '/logout') {
 if (str_starts_with($path, '/api/')) {
     header('Content-Type: application/json');
     header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type');
     
     if ($method === 'OPTIONS') {
@@ -165,8 +170,46 @@ if (str_starts_with($path, '/api/')) {
     
     $apiMap = [
         // ---- DATABASE APIS ----
-        '/api/users' => function() {
-            echo json_encode(getAllUsers());
+        '/api/users' => function() use ($method) {
+            if ($method === 'GET') {
+                echo json_encode(getAllUsers());
+                return;
+            }
+
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            if ($method === 'POST') {
+                $result = createUser($data);
+                http_response_code($result['success'] ? 201 : 422);
+            } elseif ($method === 'PUT') {
+                $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+                $result = $id ? updateUser($id, $data) : ['success' => false, 'message' => 'A valid user id is required'];
+                http_response_code($result['success'] ? 200 : 422);
+            } elseif ($method === 'DELETE') {
+                $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+                $result = $id ? deleteUser($id) : ['success' => false, 'message' => 'A valid user id is required'];
+                http_response_code($result['success'] ? 200 : 422);
+            } else {
+                http_response_code(405);
+                $result = ['success' => false, 'message' => 'Method Not Allowed'];
+            }
+            echo json_encode($result);
+        },
+        '/api/profile/password' => function() use ($method) {
+            if ($method !== 'POST') {
+                http_response_code(405);
+                echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+                return;
+            }
+            if (!isset($_SESSION['logged_in'], $_SESSION['user_id']) || $_SESSION['logged_in'] !== true) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'message' => 'You must be logged in']);
+                return;
+            }
+
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $result = updateOwnPassword((int) $_SESSION['user_id'], $data);
+            http_response_code($result['success'] ? 200 : 422);
+            echo json_encode($result);
         },
         
         // ---- GOOGLE SHEETS APIS (KEEP THESE) ----
@@ -296,10 +339,10 @@ switch ($path) {
         if ($role !== 'staff') { redirect_to('/login'); break; }
         $title = 'Staff Dashboard | SpySee';
         $user = [
-            'id' => $_SESSION['staff_id'] ?? $_SESSION['user_id'] ?? 'STF-001',
+            'id' => $_SESSION['staff_id'] ?? $_SESSION['user_id'] ?? 'EMP001',
             'name' => $_SESSION['staff_name'] ?? $_SESSION['user_name'] ?? 'Staff',
             'email' => $_SESSION['user_email'] ?? '',
-            'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'STF-001',
+            'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'EMP001',
             'role' => 'staff'
         ];
         view('staff/dashboard', compact('title', 'user'));
@@ -308,21 +351,21 @@ switch ($path) {
     case '/scan-qr':
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
         $title = 'Scan QR Code | SpySee';
-        $user = ['id' => $_SESSION['staff_id'] ?? 'STF-001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
+        $user = ['id' => $_SESSION['staff_id'] ?? 'EMP001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
         view('staff/scan-qr', compact('title', 'user'));
         break;
         
     case '/history':
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
         $title = 'Attendance History | SpySee';
-        $user = ['id' => $_SESSION['staff_id'] ?? 'STF-001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
+        $user = ['id' => $_SESSION['staff_id'] ?? 'EMP001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
         view('staff/history', compact('title', 'user'));
         break;
         
     case '/calendar':
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
         $title = 'Calendar | SpySee';
-        $user = ['id' => $_SESSION['staff_id'] ?? 'STF-001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
+        $user = ['id' => $_SESSION['staff_id'] ?? 'EMP001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
         view('staff/calendar', compact('title', 'user'));
         break;
         
@@ -330,10 +373,10 @@ switch ($path) {
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
         $title = 'Profile | SpySee';
         $user = [
-            'id' => $_SESSION['staff_id'] ?? 'STF-001',
+            'id' => $_SESSION['user_id'] ?? null,
             'name' => $_SESSION['staff_name'] ?? 'Staff',
             'email' => $_SESSION['user_email'] ?? '',
-            'employeeId' => $_SESSION['staff_id'] ?? 'STF-001'
+            'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'EMP001'
         ];
         view('staff/profile', compact('title', 'user'));
         break;
