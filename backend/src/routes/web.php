@@ -166,16 +166,6 @@ switch ($route) {
             echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
         }
         break;
-        case '/users':
-    if ($method === 'GET') {
-        (new Controllers\UserController($pdo))->index();
-    } elseif ($method === 'POST') {
-        (new Controllers\UserController($pdo))->store();
-    } else {
-        http_response_code(405);
-        echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-    }
-    break;
 
         // --- SETTINGS ENDPOINTS ---
     case '/settings':

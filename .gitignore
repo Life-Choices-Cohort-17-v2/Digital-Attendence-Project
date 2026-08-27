@@ -250,3 +250,7 @@ yarn-error.log
 # ============================================
 # Delete one of these:
 # PULL_REQUEST_TEMPLATE.md OR pull-request-template.md
+backend/src/config/DataBase.php
+repomix-output.txt
+index.php
+.htaccess

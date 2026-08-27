@@ -1,4 +1,4 @@
-/** app.js – Dark mode only, no toggle */
+/** app.js – Dark mode only */
 
 // Theme Manager – always dark
 window.themeManager = {
@@ -12,10 +12,9 @@ window.themeManager = {
         document.body.style.setProperty('--text', '#999999');
     },
     initTheme() {
-        // Always set dark theme, ignore localStorage
+        // Always set dark theme
         this._applyTheme();
-    },
-    // No toggle functions
+    }
 };
 
 // Helpers

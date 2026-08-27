@@ -1,4 +1,3 @@
-
 <?php
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'admin') {
@@ -101,9 +100,9 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
     </style>
 </head>
 <body>
- 
+
 <script>window.themeManager.initTheme();</script>
- 
+
 <div x-data="usersApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
     <div class="app-layout">
         <?php $activePage = 'users'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
@@ -117,9 +116,9 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                         <h1>User Management</h1>
                         <p>Add, edit, or disable staff accounts.</p>
                     </div>
-                    <button class="btn-primary" @click="openAddModal()">+ Add User</button>
+                    <button class="btn-primary" @click="showAddModal = true">+ Add User</button>
                 </div>
- 
+
                 <div class="users-table-container">
                     <table class="users-table">
                         <thead>
@@ -159,13 +158,13 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                         </tbody>
                     </table>
                 </div>
- 
+
                 <!-- Add User Modal -->
                 <div class="modal-overlay" x-show="showAddModal" x-cloak @click.away="showAddModal = false">
                     <div class="modal-container">
                         <div class="modal-header">
-                            <h3 x-text="editingUser ? 'Edit User' : 'Add New User'"></h3>
-                            <button class="modal-close" @click="closeModal()">✕</button>
+                            <h3>Add New User</h3>
+                            <button class="modal-close" @click="showAddModal = false">✕</button>
                         </div>
                         <div class="modal-body">
                             <div class="input-group">
@@ -189,8 +188,8 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="btn-cancel" @click="closeModal()">Cancel</button>
-                            <button class="btn-submit" @click="saveUser()" x-text="editingUser ? 'Save Changes' : 'Add User'"></button>
+                            <button class="btn-cancel" @click="showAddModal = false">Cancel</button>
+                            <button class="btn-submit" @click="addUser()">Add User</button>
                         </div>
                     </div>
                 </div>
@@ -198,123 +197,65 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
         </main>
     </div>
 </div>
- 
+
 <script>
 function usersApp() {
     return {
         sidebarOpen: false,
         users: [],
         showAddModal: false,
-        editingUser: null,
         newUser: { name: '', email: '', employee_id: '', role: 'staff' },
-        endpoint: <?= json_encode(route_url('/index.php/api/users')) ?>,
- 
+        
         async init() {
             window.themeManager.initTheme();
             await this.loadUsers();
         },
- 
+        
         async loadUsers() {
             try {
-                const response = await fetch(this.endpoint);
+                const response = await fetch('/api/users');
                 const data = await response.json();
-                if (data.success) {
-                    this.users = data.data || [];
-                } else {
-                    console.error(data.message);
-                    window.appUtils.showToast(data.message || 'Failed to load users', 'error');
-                }
+                this.users = data.data || [];
             } catch (err) {
                 console.error('Error loading users:', err);
                 window.appUtils.showToast('Failed to load users', 'error');
             }
         },
- 
-        openAddModal() {
-            this.editingUser = null;
-            this.newUser = { name: '', email: '', employee_id: '', role: 'staff' };
-            this.showAddModal = true;
-        },
-
-        closeModal() {
-            this.showAddModal = false;
-            this.editingUser = null;
-        },
-
-        async saveUser() {
-            if (!this.newUser.name || !this.newUser.email || !this.newUser.employee_id) {
+        
+        async addUser() {
+            if (!this.newUser.name || !this.newUser.email) {
                 window.appUtils.showToast('Please fill in all fields', 'error');
                 return;
             }
- 
-            try {
-                const isEditing = Boolean(this.editingUser);
-                const url = isEditing ? `${this.endpoint}?id=${encodeURIComponent(this.editingUser.id)}` : this.endpoint;
-                const response = await fetch(url, {
-                    method: isEditing ? 'PUT' : 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(this.newUser)
-                });
-                const data = await response.json();
- 
-                if (data.success) {
-                    this.closeModal();
-                    this.newUser = { name: '', email: '', employee_id: '', role: 'staff' };
-                    await this.loadUsers();
-                    const message = isEditing
-                        ? 'User updated successfully!'
-                        : `User added. Initial PIN: ${data.temp_password}`;
-                    window.appUtils.showToast(message, 'success');
-                } else {
-                    window.appUtils.showToast(data.message || 'Failed to save user', 'error');
-                }
-            } catch (err) {
-                console.error('Error saving user:', err);
-                window.appUtils.showToast('Failed to save user', 'error');
-            }
-        },
- 
-        editUser(user) {
-            this.editingUser = user;
-            this.newUser = {
-                name: user.name || '',
-                email: user.email || '',
-                employee_id: user.employee_id || '',
-                role: user.role || 'staff'
+            
+            const newUser = {
+                id: 'user_' + Date.now(),
+                name: this.newUser.name,
+                email: this.newUser.email,
+                employee_id: this.newUser.employee_id || 'EMP-' + String(Math.floor(Math.random() * 1000)).padStart(3, '0'),
+                role: this.newUser.role,
+                status: 'active'
             };
-            this.showAddModal = true;
+            
+            this.users.push(newUser);
+            this.showAddModal = false;
+            this.newUser = { name: '', email: '', employee_id: '', role: 'staff' };
+            window.appUtils.showToast('User added successfully!', 'success');
         },
- 
-        async deleteUser(id) {
-            if (!confirm('Delete this user?')) return;
-            try {
-                const response = await fetch(`${this.endpoint}?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-                const data = await response.json();
-                if (!data.success) {
-                    window.appUtils.showToast(data.message || 'Failed to delete user', 'error');
-                    return;
-                }
-                await this.loadUsers();
+        
+        editUser(user) {
+            window.appUtils.showToast('Edit user: ' + user.name + ' (Coming soon)', 'info');
+        },
+        
+        deleteUser(id) {
+            if (confirm('Delete this user?')) {
+                this.users = this.users.filter(u => u.id !== id);
                 window.appUtils.showToast('User deleted', 'success');
-            } catch (err) {
-                console.error('Error deleting user:', err);
-                window.appUtils.showToast('Failed to delete user', 'error');
             }
         }
     }
 }
 </script>
- 
+
 </body>
 </html>
- 
-
-
-
-
-
-
-
-
-
-

@@ -142,7 +142,7 @@ class User
         $fields = [];
         $params = ['id' => $id];
         
-        $allowed = ['employee_id', 'name', 'email', 'role', 'status'];
+        $allowed = ['name', 'email', 'role', 'status'];
         foreach ($allowed as $field) {
             if (isset($data[$field])) {
                 $fields[] = "$field = :$field";
@@ -170,32 +170,6 @@ class User
             WHERE id = :id
         ");
         return $stmt->execute($params);
-    }
-
-    public function updatePassword(int $id, string $currentPassword, string $newPassword): bool
-    {
-        $user = $this->findById($id);
-        if (!$user) {
-            return false;
-        }
-
-        $currentMatches = false;
-        if (!empty($user['password_hash'])) {
-            $currentMatches = password_verify($currentPassword, $user['password_hash']);
-        }
-        if (!$currentMatches && isset($user['passwords'])) {
-            $currentMatches = hash_equals((string) $user['passwords'], $currentPassword);
-        }
-        if (!$currentMatches) {
-            return false;
-        }
-
-        $stmt = $this->pdo->prepare('UPDATE users SET passwords = :passwords, password_hash = :password_hash WHERE id = :id');
-        return $stmt->execute([
-            'passwords' => $newPassword,
-            'password_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
-            'id' => $id,
-        ]);
     }
 
     /**

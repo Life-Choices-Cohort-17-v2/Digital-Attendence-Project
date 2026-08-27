@@ -20,7 +20,11 @@ class DataBase {
                     ]
                 );
             } catch (PDOException $e) {
-                die("DataBase connection failed: " . $e->getMessage());
+                // Log the error for debugging
+                error_log("Database connection failed: " . $e->getMessage());
+                
+                // Show a user-friendly message (but hide sensitive details)
+                die("Database connection failed. Please try again later.");
             }
         }
         return self::$connection;

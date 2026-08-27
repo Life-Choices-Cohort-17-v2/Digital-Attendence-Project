@@ -46,13 +46,13 @@ function route_url(string $path = '/'): string
 {
     global $baseUrl;
     $path = '/' . ltrim($path, '/');
+    $path = str_replace('/frontend/public', '', $path);
     return ($baseUrl ?: '') . ($path === '/' ? '' : $path);
 }
 
 function asset_url(string $path): string
 {
-    global $baseUrl;
-    return ($baseUrl ?: '') . '/assets/' . ltrim($path, '/');
+    return '/assets/' . ltrim($path, '/');
 }
 
 function view(string $view, array $data = []): void
@@ -94,12 +94,10 @@ if ($path === '/login' && $method === 'POST') {
         // Check password or PIN
         $valid = false;
         
-        // For admins: check password_hash
         if (isset($user['password_hash']) && password_verify($password, $user['password_hash'])) {
             $valid = true;
         }
         
-        // For staff: check 'passwords' column (PIN)
         if (isset($user['passwords']) && $user['passwords'] === $password) {
             $valid = true;
         }
@@ -114,7 +112,6 @@ if ($path === '/login' && $method === 'POST') {
             redirect_to('/login');
         }
         
-        // Set session
         $_SESSION['logged_in'] = true;
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_role'] = $user['role'];
@@ -153,7 +150,7 @@ if ($path === '/logout') {
 }
 
 // ============================================================
-// API ROUTES - HYBRID (Database + Google Sheets)
+// API ROUTES
 // ============================================================
 if (str_starts_with($path, '/api/')) {
     header('Content-Type: application/json');
@@ -169,13 +166,11 @@ if (str_starts_with($path, '/api/')) {
     $apiPath = str_replace('.php', '', $path);
     
     $apiMap = [
-        // ---- DATABASE APIS ----
         '/api/users' => function() use ($method) {
             if ($method === 'GET') {
                 echo json_encode(getAllUsers());
                 return;
             }
-
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
             if ($method === 'POST') {
                 $result = createUser($data);
@@ -205,14 +200,11 @@ if (str_starts_with($path, '/api/')) {
                 echo json_encode(['success' => false, 'message' => 'You must be logged in']);
                 return;
             }
-
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
             $result = updateOwnPassword((int) $_SESSION['user_id'], $data);
             http_response_code($result['success'] ? 200 : 422);
             echo json_encode($result);
         },
-        
-        // ---- GOOGLE SHEETS APIS (KEEP THESE) ----
         '/api/dashboard-stats' => function() {
             echo json_encode(getDashboardStats());
         },
