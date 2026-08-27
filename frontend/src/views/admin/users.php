@@ -1,4 +1,3 @@
-
 <?php
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'admin') {
@@ -98,6 +97,35 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
         .btn-cancel:hover {
             background: #555;
         }
+
+        /* ---- Alignment fix for user table ---- */
+        .users-table td,
+        .users-table th {
+            vertical-align: middle;
+        }
+        .status-col,
+        .actions-col {
+            text-align: center;
+        }
+
+        /* ---- Action buttons ---- */
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            color: var(--text);
+            transition: color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-btn.edit-btn:hover {
+            color: var(--accent);
+        }
+        .action-btn.delete-btn:hover {
+            color: #EF4444; /* red */
+        }
     </style>
 </head>
 <body>
@@ -127,9 +155,11 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                                 <th>NAME</th>
                                 <th>EMAIL</th>
                                 <th>EMPLOYEE ID</th>
+                                <th>DEPARTMENT</th>
+                                <th>POSITION</th>
                                 <th>ROLE</th>
-                                <th>STATUS</th>
-                                <th>ACTIONS</th>
+                                <th class="status-col">STATUS</th>
+                                <th class="actions-col">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -138,21 +168,32 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                                     <td x-text="user.name"></td>
                                     <td x-text="user.email"></td>
                                     <td x-text="user.employee_id"></td>
+                                    <td x-text="user.department || '-'"></td>
+                                    <td x-text="user.position || '-'"></td>
                                     <td>
                                         <span class="role-badge-admin" x-show="user.role === 'admin'" x-text="user.role"></span>
                                         <span class="role-badge-staff" x-show="user.role === 'staff'" x-text="user.role"></span>
                                     </td>
-                                    <td>
+                                    <td class="status-col">
                                         <span class="status-badge-active" x-text="user.status"></span>
                                     </td>
-                                    <td class="action-icons">
-                                        <button @click="editUser(user)" title="Edit">✏️</button>
-                                        <button @click="deleteUser(user.id)" title="Delete">🗑️</button>
+                                    <td class="actions-col">
+                                        <button @click="editUser(user)" title="Edit" class="action-btn edit-btn">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                            </svg>
+                                        </button>
+                                        <button @click="deleteUser(user.id)" title="Delete" class="action-btn delete-btn">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                                <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+                                            </svg>
+                                        </button>
                                     </td>
                                 </tr>
                             </template>
                             <tr x-show="users.length === 0">
-                                <td colspan="6" style="text-align:center;padding:40px;color:var(--muted);">
+                                <td colspan="8" style="text-align:center;padding:40px;color:var(--muted);">
                                     No users found.
                                 </td>
                             </tr>
@@ -160,8 +201,8 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                     </table>
                 </div>
  
-                <!-- Add User Modal -->
-                <div class="modal-overlay" x-show="showAddModal" x-cloak @click.away="showAddModal = false">
+                <!-- Add / Edit User Modal -->
+                <div class="modal-overlay" x-show="showAddModal" x-cloak @click.away="closeModal()">
                     <div class="modal-container">
                         <div class="modal-header">
                             <h3 x-text="editingUser ? 'Edit User' : 'Add New User'"></h3>
@@ -179,6 +220,24 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                             <div class="input-group">
                                 <label>Employee ID</label>
                                 <input type="text" x-model="newUser.employee_id" placeholder="e.g. STF-001">
+                            </div>
+                            <div class="input-group">
+                                <label>Department</label>
+                                <select x-model="newUser.department">
+                                    <option value="">-- Select Department --</option>
+                                    <template x-for="dept in departments" :key="dept">
+                                        <option x-text="dept" :value="dept"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Position</label>
+                                <select x-model="newUser.position">
+                                    <option value="">-- Select Position --</option>
+                                    <template x-for="pos in positions" :key="pos">
+                                        <option x-text="pos" :value="pos"></option>
+                                    </template>
+                                </select>
                             </div>
                             <div class="input-group">
                                 <label>Role</label>
@@ -206,7 +265,9 @@ function usersApp() {
         users: [],
         showAddModal: false,
         editingUser: null,
-        newUser: { name: '', email: '', employee_id: '', role: 'staff' },
+        departments: ['Sales', 'IT', 'Finance', 'Warehouse', 'HR', 'Operations', 'Marketing', 'Management', 'Other'],
+        positions: ['Sales Rep', 'Developer', 'Accountant', 'Stock Controller', 'HR Officer', 'Supervisor', 'Coordinator', 'Branch Manager', 'Other'],
+        newUser: { name: '', email: '', employee_id: '', role: 'staff', department: '', position: '' },
         endpoint: <?= json_encode(route_url('/index.php/api/users')) ?>,
  
         async init() {
@@ -232,7 +293,7 @@ function usersApp() {
  
         openAddModal() {
             this.editingUser = null;
-            this.newUser = { name: '', email: '', employee_id: '', role: 'staff' };
+            this.newUser = { name: '', email: '', employee_id: '', role: 'staff', department: '', position: '' };
             this.showAddModal = true;
         },
 
@@ -243,7 +304,7 @@ function usersApp() {
 
         async saveUser() {
             if (!this.newUser.name || !this.newUser.email || !this.newUser.employee_id) {
-                window.appUtils.showToast('Please fill in all fields', 'error');
+                window.appUtils.showToast('Please fill in all required fields', 'error');
                 return;
             }
  
@@ -259,7 +320,7 @@ function usersApp() {
  
                 if (data.success) {
                     this.closeModal();
-                    this.newUser = { name: '', email: '', employee_id: '', role: 'staff' };
+                    this.newUser = { name: '', email: '', employee_id: '', role: 'staff', department: '', position: '' };
                     await this.loadUsers();
                     const message = isEditing
                         ? 'User updated successfully!'
@@ -280,7 +341,9 @@ function usersApp() {
                 name: user.name || '',
                 email: user.email || '',
                 employee_id: user.employee_id || '',
-                role: user.role || 'staff'
+                role: user.role || 'staff',
+                department: user.department || '',
+                position: user.position || ''
             };
             this.showAddModal = true;
         },
@@ -307,14 +370,3 @@ function usersApp() {
  
 </body>
 </html>
- 
-
-
-
-
-
-
-
-
-
-

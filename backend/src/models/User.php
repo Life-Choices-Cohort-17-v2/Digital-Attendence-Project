@@ -120,17 +120,19 @@ class User
     public function create(array $data): bool
     {
         $stmt = $this->pdo->prepare('
-            INSERT INTO users (employee_id, name, email, passwords, password_hash, role, status)
-            VALUES (:employee_id, :name, :email, :passwords, :password_hash, :role, :status)
+            INSERT INTO users (employee_id, name, email, passwords, password_hash, role, status, department, position)
+            VALUES (:employee_id, :name, :email, :passwords, :password_hash, :role, :status, :department, :position)
         ');
         return $stmt->execute([
-            'employee_id' => $data['employee_id'],
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'passwords' => $data['passwords'] ?? null,
+            'employee_id'   => $data['employee_id'],
+            'name'          => $data['name'],
+            'email'         => $data['email'],
+            'passwords'     => $data['passwords'] ?? null,
             'password_hash' => $data['password_hash'] ?? null,
-            'role' => $data['role'] ?? 'staff',
-            'status' => $data['status'] ?? 'active'
+            'role'          => $data['role'] ?? 'staff',
+            'status'        => $data['status'] ?? 'active',
+            'department'    => $data['department'] ?? null,
+            'position'      => $data['position'] ?? null,
         ]);
     }
 
@@ -142,9 +144,9 @@ class User
         $fields = [];
         $params = ['id' => $id];
         
-        $allowed = ['employee_id', 'name', 'email', 'role', 'status'];
+        $allowed = ['name', 'email', 'role', 'status', 'department', 'position'];
         foreach ($allowed as $field) {
-            if (isset($data[$field])) {
+            if (array_key_exists($field, $data)) {
                 $fields[] = "$field = :$field";
                 $params[$field] = $data[$field];
             }

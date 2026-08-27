@@ -15,7 +15,7 @@ function getAllUsersFromDatabase() {
     try {
         $pdo = DataBase::getConnection();
         $stmt = $pdo->query("
-            SELECT id, employee_id, name, email, role, status, created_at 
+            SELECT id, employee_id, name, email, role, status, created_at, department, position
             FROM users 
             ORDER BY name ASC
         ");
@@ -36,6 +36,8 @@ function createUser(array $input): array {
     $name = trim($input['name'] ?? '');
     $email = trim($input['email'] ?? '');
     $role = trim($input['role'] ?? 'staff');
+    $department = trim($input['department'] ?? '');
+    $position = trim($input['position'] ?? '');
 
     if ($employeeId === '' || $name === '' || $email === '') {
         return ['success' => false, 'message' => 'Employee ID, name, and email are required'];
@@ -58,13 +60,15 @@ function createUser(array $input): array {
 
         $tempPassword = substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 8);
         if (!$userModel->create([
-            'employee_id' => $employeeId,
-            'name' => $name,
-            'email' => $email,
-            'passwords' => $tempPassword,
+            'employee_id'   => $employeeId,
+            'name'          => $name,
+            'email'         => $email,
+            'passwords'     => $tempPassword,
             'password_hash' => password_hash($tempPassword, PASSWORD_DEFAULT),
-            'role' => $role,
-            'status' => 'active',
+            'role'          => $role,
+            'status'        => 'active',
+            'department'    => $department ?: null,
+            'position'      => $position ?: null,
         ])) {
             return ['success' => false, 'message' => 'Failed to create user'];
         }
@@ -81,6 +85,8 @@ function updateUser(int $id, array $input): array {
     $name = trim($input['name'] ?? '');
     $email = trim($input['email'] ?? '');
     $role = trim($input['role'] ?? 'staff');
+    $department = trim($input['department'] ?? '');
+    $position = trim($input['position'] ?? '');
 
     if ($employeeId === '' || $name === '' || $email === '') {
         return ['success' => false, 'message' => 'Employee ID, name, and email are required'];
@@ -108,9 +114,11 @@ function updateUser(int $id, array $input): array {
 
         $updated = $userModel->update($id, [
             'employee_id' => $employeeId,
-            'name' => $name,
-            'email' => $email,
-            'role' => $role,
+            'name'        => $name,
+            'email'       => $email,
+            'role'        => $role,
+            'department'  => $department ?: null,
+            'position'    => $position ?: null,
         ]);
         return $updated
             ? ['success' => true, 'message' => 'User updated']

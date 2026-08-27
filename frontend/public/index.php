@@ -124,6 +124,8 @@ if ($path === '/login' && $method === 'POST') {
         $_SESSION['user_name'] = $user['name'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['employee_id'] = $user['employee_id'];
+        $_SESSION['department'] = $user['department'] ?? null;
+        $_SESSION['position'] = $user['position'] ?? null;
         
         if (!empty($_SESSION['redirect_after_login'])) {
             $redirectUrl = $_SESSION['redirect_after_login'];
@@ -370,16 +372,21 @@ switch ($path) {
         break;
         
     case '/profile':
-        if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
-        $title = 'Profile | SpySee';
-        $user = [
-            'id' => $_SESSION['user_id'] ?? null,
-            'name' => $_SESSION['staff_name'] ?? 'Staff',
-            'email' => $_SESSION['user_email'] ?? '',
-            'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'EMP001'
-        ];
-        view('staff/profile', compact('title', 'user'));
-        break;
+    if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
+
+    $title = 'Profile | SpySee';
+
+    $user = [
+        'id' => $_SESSION['user_id'] ?? null,
+        'name' => $_SESSION['staff_name'] ?? $_SESSION['user_name'] ?? 'Staff',
+        'email' => $_SESSION['user_email'] ?? '',
+        'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'EMP001',
+        'department' => $_SESSION['department'] ?? 'Not assigned',
+        'position' => $_SESSION['position'] ?? 'Not assigned'
+    ];
+
+    view('staff/profile', compact('title', 'user'));
+    break;
         
     case '/admin-dashboard':
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'admin') { redirect_to('/login'); break; }

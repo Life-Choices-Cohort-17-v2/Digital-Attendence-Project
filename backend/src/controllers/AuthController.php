@@ -47,6 +47,8 @@ class AuthController {
             $_SESSION['name'] = $user['name'];
             $_SESSION['email'] = $user['email'];
             $_SESSION['role'] = $user['role'];
+            $_SESSION['department'] = $user['department'];
+            $_SESSION['position']   = $user['position'];
 
             if (str_contains($contentType, 'application/json')) {
                 header('Content-Type: application/json');
