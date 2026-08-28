@@ -123,6 +123,38 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
             font-size: 13px;
             color: var(--text);
         }
+
+        .offsite-badge,
+        .scan-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .offsite-badge svg {
+            width: 8px;
+            height: 8px;
+            flex-shrink: 0;
+        }
+
+        .scan-btn svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .menu-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .menu-item > svg {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 12px;
+            color: var(--accent);
+        }
     </style>
 </head>
 <body>
@@ -145,24 +177,52 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
 
                 <!-- Status Block -->
                 <div class="status-block">
-                    <div class="offsite-badge" :class="isClockedIn ? 'onsite' : ''" x-text="isClockedIn ? '🟢 ONSITE' : '⚪ OFFSITE'">OFFSITE</div>
+                <div class="offsite-badge" :class="isClockedIn ? 'onsite' : ''">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="8" fill="currentColor"/>
+                    </svg>
+                    <span x-text="isClockedIn ? 'ONSITE' : 'OFFSITE'">OFFSITE</span>
+                </div>
                     <p>You are currently</p>
                     <h2 x-text="isClockedIn ? 'Signed In' : 'Signed Out'">Signed Out</h2>
-                    <a href="/index.php/scan-qr" class="scan-btn">📷 Scan QR</a>
+                    <a href="/index.php/scan-qr" class="scan-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                            <path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 18h2v3h-2z"></path>
+                        </svg>
+                        <span>Scan QR</span>
+                    </a>
                 </div>
 
-                <!-- Quick Actions -->
+                    <!-- quick actions -->
                 <div class="menu-items">
                     <a href="/index.php/calendar" class="menu-item">
-                        <h3>📅 Calendar</h3>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <rect x="3" y="4" width="18" height="17" rx="2"></rect>
+                            <path d="M16 2v4M8 2v4M3 10h18"></path>
+                        </svg>
+                        <h3>Calendar</h3>
                         <p>View your schedule</p>
                     </a>
+
                     <a href="/index.php/history" class="menu-item">
-                        <h3>📊 History</h3>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M4 19V5"></path>
+                            <path d="M4 19h16"></path>
+                            <path d="M7 15l3-4 3 2 5-6"></path>
+                        </svg>
+                        <h3>History</h3>
                         <p>Your attendance records</p>
                     </a>
+
                     <a href="/index.php/profile" class="menu-item">
-                        <h3>👤 Profile</h3>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <circle cx="12" cy="8" r="4"></circle>
+                            <path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"></path>
+                        </svg>
+                        <h3>Profile</h3>
                         <p>Manage your account</p>
                     </a>
                 </div>

@@ -40,7 +40,16 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
                             QR Terminal
                         </a>
-                        <a href="<?= route_url('/logout') ?>" class="btn-outline">🚪 Logout</a>
+                        <a href="<?= route_url('/logout') ?>" class="btn-outline" style="display:inline-flex; align-items:center; gap:8px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                <polyline points="16 17 21 12 16 7"/>
+                                <line x1="21" y1="12" x2="9" y2="12"/>
+                            </svg>
+                            Logout
+                        </a>
                     </div>
                 </div>
 
@@ -141,7 +150,18 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                 <div class="large-card">
                     <div class="section-header">
                         <div class="section-header-left">
-                            <h3>👥 Staff Online</h3>
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round"
+                                style="display:inline-block; vertical-align:middle; margin-right:6px;">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                            Staff Online
+                        </h3>
                             <p>Team members currently signed in</p>
                         </div>
                         <div class="live-indicator">
@@ -178,10 +198,32 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                 <div class="large-card">
                     <div class="section-header">
                         <div class="section-header-left">
-                            <h3>📋 Recent Activity</h3>
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round"
+                                style="display:inline-block; vertical-align:middle; margin-right:6px;">
+                                <rect width="8" height="4" x="8" y="2" rx="1"/>
+                                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                                <path d="M12 11h4"/>
+                                <path d="M12 16h4"/>
+                                <path d="M8 11h.01"/>
+                                <path d="M8 16h.01"/>
+                            </svg>
+                            Recent Activity
+                        </h3>
                             <p>Latest attendance events</p>
                         </div>
-                        <button class="view-all-btn" onclick="window.location.href='<?= route_url('/admin-dashboard/attendance') ?>'">View all →</button>
+                            <button class="view-all-btn" onclick="window.location.href='<?= route_url('/admin-dashboard/attendance') ?>'">
+                                View all
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round"
+                                    style="vertical-align:middle;">
+                                    <line x1="5" y1="12" x2="19" y2="12"/>
+                                    <polyline points="12 5 19 12 12 19"/>
+                                </svg>
+                            </button>
                     </div>
                     <div class="activity-list" x-show="recentActivity.length > 0">
                         <template x-for="activity in recentActivity" :key="activity.id">
@@ -317,7 +359,7 @@ async function testSheetsConnection() {
             if (data.connected) {
                 el.textContent = '● Connected';
                 el.style.color = 'var(--accent)';
-                window.appUtils.showToast('✅ Google Sheets is connected!', 'success');
+                window.appUtils.showToast('Google Sheets is connected!', 'success');
             } else {
                 el.textContent = '● Disconnected';
                 el.style.color = '#EF4444';
@@ -329,7 +371,7 @@ async function testSheetsConnection() {
             el.textContent = '● Error';
             el.style.color = '#EF4444';
         }
-        window.appUtils.showToast('❌ Connection test failed', 'error');
+        window.appUtils.showToast('Connection test failed', 'error');
     }
 }
 </script>

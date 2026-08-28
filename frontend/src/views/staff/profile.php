@@ -1,4 +1,3 @@
-```php
 <?php
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {

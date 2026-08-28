@@ -126,6 +126,33 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
         .action-btn.delete-btn:hover {
             color: #EF4444; /* red */
         }
+
+        /* ---- Table sorting ---- */
+
+        .sort-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0;
+            margin: 0;
+            background: none;
+            border: none;
+            color: inherit;
+            font: inherit;
+            font-weight: inherit;
+            text-transform: inherit;
+            cursor: pointer;
+        }
+
+        .sort-btn:hover {
+            color: var(--accent);
+        }
+
+        .sort-btn span {
+            font-size: 12px;
+            min-width: 12px;
+            color: var(--accent);
+        }
     </style>
 </head>
 <body>
@@ -152,18 +179,60 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                     <table class="users-table">
                         <thead>
                             <tr>
-                                <th>NAME</th>
-                                <th>EMAIL</th>
-                                <th>EMPLOYEE ID</th>
-                                <th>DEPARTMENT</th>
-                                <th>POSITION</th>
-                                <th>ROLE</th>
-                                <th class="status-col">STATUS</th>
+                                <th>
+                                    <button class="sort-btn" @click="sortUsers('name')">
+                                        NAME
+                                        <span class="sort-icon" x-html="getSortIcon('name')"></span>
+                                    </button>
+                                </th>
+
+                                <th>
+                                    <button class="sort-btn" @click="sortUsers('email')">
+                                        EMAIL
+                                        <span class="sort-icon" x-html="getSortIcon('email')"></span>
+                                    </button>
+                                </th>
+
+                                <th>
+                                    <button class="sort-btn" @click="sortUsers('employee_id')">
+                                        EMPLOYEE ID
+                                        <span class="sort-icon" x-html="getSortIcon('employee_id')"></span>
+                                    </button>
+                                </th>
+
+                                <th>
+                                    <button class="sort-btn" @click="sortUsers('department')">
+                                        DEPARTMENT
+                                        <span class="sort-icon" x-html="getSortIcon('department')"></span>
+                                    </button>
+                                </th>
+
+                                <th>
+                                    <button class="sort-btn" @click="sortUsers('position')">
+                                        POSITION
+                                        <span class="sort-icon" x-html="getSortIcon('position')"></span>
+                                    </button>
+                                </th>
+
+                                <th>
+                                    <button class="sort-btn" @click="sortUsers('role')">
+                                        ROLE
+                                        <span class="sort-icon" x-html="getSortIcon('role')"></span>
+                                    </button>
+                                </th>
+
+                                <th class="status-col">
+                                    <button class="sort-btn" @click="sortUsers('status')">
+                                        STATUS
+                                        <<span class="sort-icon" x-html="getSortIcon('status')"></span>
+                                    </button>
+                                </th>
+
                                 <th class="actions-col">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <template x-for="user in users" :key="user.id">
+                            <template x-for="user in sortedUsers" :key="user.id">
                                 <tr>
                                     <td x-text="user.name"></td>
                                     <td x-text="user.email"></td>
@@ -265,35 +334,142 @@ function usersApp() {
         users: [],
         showAddModal: false,
         editingUser: null,
-        departments: ['Sales', 'IT', 'Finance', 'Warehouse', 'HR', 'Operations', 'Marketing', 'Management', 'Other'],
-        positions: ['Sales Rep', 'Developer', 'Accountant', 'Stock Controller', 'HR Officer', 'Supervisor', 'Coordinator', 'Branch Manager', 'Other'],
-        newUser: { name: '', email: '', employee_id: '', role: 'staff', department: '', position: '' },
+
+        sortColumn: null,
+        sortDirection: 'asc',
+
+        departments: [
+            'Sales',
+            'IT',
+            'Finance',
+            'Warehouse',
+            'HR',
+            'Operations',
+            'Marketing',
+            'Management',
+            'Other'
+        ],
+
+        positions: [
+            'Sales Rep',
+            'Developer',
+            'Accountant',
+            'Stock Controller',
+            'HR Officer',
+            'Supervisor',
+            'Coordinator',
+            'Branch Manager',
+            'Other'
+        ],
+
+        newUser: {
+            name: '',
+            email: '',
+            employee_id: '',
+            role: 'staff',
+            department: '',
+            position: ''
+        },
+
         endpoint: <?= json_encode(route_url('/index.php/api/users')) ?>,
- 
+
+        get sortedUsers() {
+            if (!this.sortColumn) {
+                return this.users;
+            }
+
+            return [...this.users].sort((a, b) => {
+                let valueA = a[this.sortColumn] ?? '';
+                let valueB = b[this.sortColumn] ?? '';
+
+                // Employee IDs are sorted numerically.
+                // Example: EMP001, EMP002, EMP010
+                if (this.sortColumn === 'employee_id') {
+                    const numberA =
+                        parseInt(String(valueA).replace(/\D/g, ''), 10) || 0;
+
+                    const numberB =
+                        parseInt(String(valueB).replace(/\D/g, ''), 10) || 0;
+
+                    return this.sortDirection === 'asc'
+                        ? numberA - numberB
+                        : numberB - numberA;
+                }
+
+                // All other columns are sorted alphabetically.
+                valueA = String(valueA).toLowerCase();
+                valueB = String(valueB).toLowerCase();
+
+                const comparison = valueA.localeCompare(valueB);
+
+                return this.sortDirection === 'asc'
+                    ? comparison
+                    : -comparison;
+            });
+        },
+
+        sortUsers(column) {
+            if (this.sortColumn === column) {
+                // Clicking the same column reverses the order.
+                this.sortDirection =
+                    this.sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                // Clicking a new column starts with ascending order.
+                this.sortColumn = column;
+                this.sortDirection = 'asc';
+            }
+        },
+
+        getSortIcon(column) {
+            if (this.sortColumn !== column) {
+                return '↕';
+            }
+
+            return this.sortDirection === 'asc'
+                ? '↑'
+                : '↓';
+        },
+
         async init() {
             window.themeManager.initTheme();
             await this.loadUsers();
         },
- 
+
         async loadUsers() {
             try {
                 const response = await fetch(this.endpoint);
                 const data = await response.json();
+
                 if (data.success) {
                     this.users = data.data || [];
                 } else {
                     console.error(data.message);
-                    window.appUtils.showToast(data.message || 'Failed to load users', 'error');
+                    window.appUtils.showToast(
+                        data.message || 'Failed to load users',
+                        'error'
+                    );
                 }
             } catch (err) {
                 console.error('Error loading users:', err);
-                window.appUtils.showToast('Failed to load users', 'error');
+                window.appUtils.showToast(
+                    'Failed to load users',
+                    'error'
+                );
             }
         },
- 
+
         openAddModal() {
             this.editingUser = null;
-            this.newUser = { name: '', email: '', employee_id: '', role: 'staff', department: '', position: '' };
+
+            this.newUser = {
+                name: '',
+                email: '',
+                employee_id: '',
+                role: 'staff',
+                department: '',
+                position: ''
+            };
+
             this.showAddModal = true;
         },
 
@@ -303,40 +479,76 @@ function usersApp() {
         },
 
         async saveUser() {
-            if (!this.newUser.name || !this.newUser.email || !this.newUser.employee_id) {
-                window.appUtils.showToast('Please fill in all required fields', 'error');
+            if (
+                !this.newUser.name ||
+                !this.newUser.email ||
+                !this.newUser.employee_id
+            ) {
+                window.appUtils.showToast(
+                    'Please fill in all required fields',
+                    'error'
+                );
                 return;
             }
- 
+
             try {
                 const isEditing = Boolean(this.editingUser);
-                const url = isEditing ? `${this.endpoint}?id=${encodeURIComponent(this.editingUser.id)}` : this.endpoint;
+
+                const url = isEditing
+                    ? `${this.endpoint}?id=${encodeURIComponent(this.editingUser.id)}`
+                    : this.endpoint;
+
                 const response = await fetch(url, {
                     method: isEditing ? 'PUT' : 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify(this.newUser)
                 });
+
                 const data = await response.json();
- 
+
                 if (data.success) {
                     this.closeModal();
-                    this.newUser = { name: '', email: '', employee_id: '', role: 'staff', department: '', position: '' };
+
+                    this.newUser = {
+                        name: '',
+                        email: '',
+                        employee_id: '',
+                        role: 'staff',
+                        department: '',
+                        position: ''
+                    };
+
                     await this.loadUsers();
+
                     const message = isEditing
                         ? 'User updated successfully!'
                         : `User added. Initial PIN: ${data.temp_password}`;
-                    window.appUtils.showToast(message, 'success');
+
+                    window.appUtils.showToast(
+                        message,
+                        'success'
+                    );
                 } else {
-                    window.appUtils.showToast(data.message || 'Failed to save user', 'error');
+                    window.appUtils.showToast(
+                        data.message || 'Failed to save user',
+                        'error'
+                    );
                 }
             } catch (err) {
                 console.error('Error saving user:', err);
-                window.appUtils.showToast('Failed to save user', 'error');
+
+                window.appUtils.showToast(
+                    'Failed to save user',
+                    'error'
+                );
             }
         },
- 
+
         editUser(user) {
             this.editingUser = user;
+
             this.newUser = {
                 name: user.name || '',
                 email: user.email || '',
@@ -345,26 +557,49 @@ function usersApp() {
                 department: user.department || '',
                 position: user.position || ''
             };
+
             this.showAddModal = true;
         },
- 
+
         async deleteUser(id) {
-            if (!confirm('Delete this user?')) return;
+            if (!confirm('Delete this user?')) {
+                return;
+            }
+
             try {
-                const response = await fetch(`${this.endpoint}?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+                const response = await fetch(
+                    `${this.endpoint}?id=${encodeURIComponent(id)}`,
+                    {
+                        method: 'DELETE'
+                    }
+                );
+
                 const data = await response.json();
+
                 if (!data.success) {
-                    window.appUtils.showToast(data.message || 'Failed to delete user', 'error');
+                    window.appUtils.showToast(
+                        data.message || 'Failed to delete user',
+                        'error'
+                    );
                     return;
                 }
+
                 await this.loadUsers();
-                window.appUtils.showToast('User deleted', 'success');
+
+                window.appUtils.showToast(
+                    'User deleted',
+                    'success'
+                );
             } catch (err) {
                 console.error('Error deleting user:', err);
-                window.appUtils.showToast('Failed to delete user', 'error');
+
+                window.appUtils.showToast(
+                    'Failed to delete user',
+                    'error'
+                );
             }
         }
-    }
+    };
 }
 </script>
  

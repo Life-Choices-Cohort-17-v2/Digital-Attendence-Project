@@ -64,6 +64,7 @@ backend/
       DashboardController.php
       SettingsController.php
       SyncErrorController.php
+      UserController.php
     data/
       AttendanceRules.php
     exceptions/
@@ -155,6 +156,23 @@ frontend/
   MIGRATION_GUIDE.md
   MIGRATION_SUMMARY.md
   QUICKSTART.md
+storage/
+  sessions/
+    sess_2uknvdtlnaqikef0nctiqdk17k
+    sess_81suoe3sdukhfevecitni7kg2i
+    sess_9ck750tt4udnfu23j2sdnluong
+    sess_bhokk5ifsap1kmogbnd7rimqtg
+    sess_cfrkmqtvou9vga5ollic9des7l
+    sess_g4js7fik15luf4ls6uesnkn3c3
+    sess_gh1ju57hmn4lelkb2dmjo5cvmv
+    sess_jeb4v1vk497o07qu7cb6u356l0
+    sess_k2i00fppr15m20lk2gvjgrmr39
+    sess_neqri08llvi35p3hvihsq1bqlo
+    sess_o7af7br2he1k72une2suprkl9h
+    sess_rbkqu6tpa4ju8qg7pe00f3p99u
+    sess_rppabsrerdbk38sgjql73ofl9m
+    sess_svq89c6rl3rt132l311uo64sr3
+    sess_vcqc6nvibhesljrcid29l2csk6
 .gitignore
 README.md
 start-spysee.bat
@@ -453,6 +471,107 @@ class SyncErrorController
             'success' => true,
             'data' => $errors
         ]);
+    }
+}
+
+================
+File: backend/src/controllers/UserController.php
+================
+<?php
+namespace Controllers;
+
+use Models\User;
+use PDO;
+
+class UserController {
+    private ?PDO $pdo;
+
+    public function __construct(?PDO $pdo = null) {
+        $this->pdo = $pdo;
+    }
+
+    /**
+     * GET /users - list all users
+     */
+    public function index(): void {
+        header('Content-Type: application/json');
+        try {
+            $userModel = new User($this->pdo);
+            $users = $userModel->getAllUsers();
+            echo json_encode(['success' => true, 'data' => $users]);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /users - create a new user
+     */
+    public function store(): void {
+        header('Content-Type: application/json');
+
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        if (str_contains($contentType, 'application/json')) {
+            $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        } else {
+            $input = $_POST;
+        }
+
+        $employeeId = trim($input['employee_id'] ?? '');
+        $name       = trim($input['name'] ?? '');
+        $email      = trim($input['email'] ?? '');
+        $role       = trim($input['role'] ?? 'staff');
+
+        if ($employeeId === '' || $name === '' || $email === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'employee_id, name, and email are required']);
+            return;
+        }
+
+        try {
+            $userModel = new User($this->pdo);
+
+            // Don't allow duplicate employee_id or email
+            if ($userModel->findByEmployeeId($employeeId)) {
+                http_response_code(409);
+                echo json_encode(['success' => false, 'message' => 'Employee ID already exists']);
+                return;
+            }
+            if ($userModel->findByEmail($email)) {
+                http_response_code(409);
+                echo json_encode(['success' => false, 'message' => 'Email already exists']);
+                return;
+            }
+
+            // Generate a default password (staff use a PIN, admins use a hashed password)
+            $tempPassword = substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 8);
+
+            $created = $userModel->create([
+                'employee_id'   => $employeeId,
+                'name'          => $name,
+                'email'         => $email,
+                'passwords'     => $tempPassword,
+                'password_hash' => password_hash($tempPassword, PASSWORD_DEFAULT),
+                'role'          => $role,
+                'status'        => 'active',
+            ]);
+
+            if ($created) {
+                http_response_code(201);
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'User created',
+                    'temp_password' => $tempPassword // show once so admin can share it
+                ]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Failed to create user']);
+            }
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
     }
 }
 
@@ -796,6 +915,81 @@ File: frontend/public/check-php.php
 <?php
 phpinfo();
 ?>
+
+================
+File: storage/sessions/sess_2uknvdtlnaqikef0nctiqdk17k
+================
+
+
+================
+File: storage/sessions/sess_81suoe3sdukhfevecitni7kg2i
+================
+user_id|i:1;user_name|s:5:"Thina";user_email|s:17:"thina@company.com";employee_id|s:6:"EMP001";user_role|s:5:"staff";
+
+================
+File: storage/sessions/sess_9ck750tt4udnfu23j2sdnluong
+================
+user_id|i:2;user_name|s:5:"Marco";user_email|s:17:"marco@company.com";employee_id|s:6:"EMP002";user_role|s:5:"staff";
+
+================
+File: storage/sessions/sess_bhokk5ifsap1kmogbnd7rimqtg
+================
+user_id|i:2;user_name|s:5:"Marco";user_email|s:17:"marco@company.com";employee_id|s:6:"EMP002";user_role|s:5:"staff";
+
+================
+File: storage/sessions/sess_cfrkmqtvou9vga5ollic9des7l
+================
+user_id|i:1;user_name|s:5:"Thina";user_email|s:17:"thina@company.com";employee_id|s:6:"EMP001";user_role|s:5:"staff";
+
+================
+File: storage/sessions/sess_g4js7fik15luf4ls6uesnkn3c3
+================
+
+
+================
+File: storage/sessions/sess_gh1ju57hmn4lelkb2dmjo5cvmv
+================
+
+
+================
+File: storage/sessions/sess_jeb4v1vk497o07qu7cb6u356l0
+================
+
+
+================
+File: storage/sessions/sess_k2i00fppr15m20lk2gvjgrmr39
+================
+user_id|i:2;user_name|s:5:"Marco";user_email|s:17:"marco@company.com";employee_id|s:6:"EMP002";user_role|s:5:"staff";
+
+================
+File: storage/sessions/sess_neqri08llvi35p3hvihsq1bqlo
+================
+
+
+================
+File: storage/sessions/sess_o7af7br2he1k72une2suprkl9h
+================
+
+
+================
+File: storage/sessions/sess_rbkqu6tpa4ju8qg7pe00f3p99u
+================
+
+
+================
+File: storage/sessions/sess_rppabsrerdbk38sgjql73ofl9m
+================
+
+
+================
+File: storage/sessions/sess_svq89c6rl3rt132l311uo64sr3
+================
+user_id|i:4;user_name|s:4:"Jose";user_email|s:16:"jose@company.com";employee_id|s:6:"EMP004";user_role|s:5:"admin";
+
+================
+File: storage/sessions/sess_vcqc6nvibhesljrcid29l2csk6
+================
+
 
 ================
 File: .github/TECH_STACK.md
@@ -2162,111 +2356,6 @@ yarn-error.log
 # PULL_REQUEST_TEMPLATE.md OR pull-request-template.md
 
 ================
-File: backend/src/controllers/AuthController.php
-================
-<?php
-namespace Controllers;
-
-use Models\User;
-use PDO;
-use AuthenticationException;
-
-class AuthController {
-    private ?PDO $pdo;
-
-    public function __construct(?PDO $pdo = null) {
-        $this->pdo = $pdo;
-    }
-
-    public function login(): void {
-        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
-
-        if (str_contains($contentType, 'application/json')) {
-            $input = json_decode(file_get_contents('php://input'), true);
-            $email = $input['email'] ?? $input['username'] ?? '';  // accept both
-            $password = $input['password'] ?? '';
-        } else {
-            // Form submission – the login form sends "identifier" (the email)
-            $email = $_POST['identifier'] ?? $_POST['email'] ?? '';
-            $password = $_POST['password'] ?? '';
-        }
-
-        try {
-            $userModel = new User($this->pdo);
-            $user = $userModel->findByEmail($email);
-
-            if (!$user || !password_verify($password, $user['password_hash'])) {
-                throw new AuthenticationException('Invalid email or password');
-            }
-
-            // Check if user is active
-            if ($user['status'] !== 'active') {
-                throw new AuthenticationException('Account is inactive. Contact administrator.');
-            }
-
-            // Start session and store relevant user info
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
-            }
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['employee_id'] = $user['employee_id'];
-            $_SESSION['name'] = $user['name'];
-            $_SESSION['email'] = $user['email'];
-            $_SESSION['role'] = $user['role'];
-
-            if (str_contains($contentType, 'application/json')) {
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Login successful',
-                    'user' => [
-                        'id' => $user['id'],
-                        'employee_id' => $user['employee_id'],
-                        'name' => $user['name'],
-                        'email' => $user['email'],
-                        'role' => $user['role']
-                    ]
-                ]);
-            } else {
-                // Redirect based on role (optional)
-                if ($user['role'] === 'admin') {
-                    header('Location: /admin/dashboard');
-                } else {
-                    header('Location: /staff/dashboard');
-                }
-            }
-            exit;
-        } catch (AuthenticationException $e) {
-            if (str_contains($contentType, 'application/json')) {
-                http_response_code(401);
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-            } else {
-                header('Location: /login?error=' . urlencode($e->getMessage()));
-            }
-            exit;
-        }
-    }
-
-    public function logout(): void {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        session_unset();
-        session_destroy();
-
-        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
-        if (str_contains($contentType, 'application/json') || $_SERVER['REQUEST_METHOD'] === 'POST') {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => true, 'message' => 'Logged out']);
-        } else {
-            header('Location: /login');
-        }
-        exit;
-    }
-}
-
-================
 File: backend/src/exceptions/AttendanceException.php
 ================
 <?php
@@ -2976,189 +3065,109 @@ class DataBase {
 }
 
 ================
-File: backend/src/models/User.php
+File: backend/src/controllers/AuthController.php
 ================
 <?php
-namespace Models;
+namespace Controllers;
 
+use Models\User;
 use PDO;
+use AuthenticationException;
 
-class User
-{
-    private PDO $pdo;
+class AuthController {
+    private ?PDO $pdo;
 
-    public function __construct(PDO $pdo)
-    {
+    public function __construct(?PDO $pdo = null) {
         $this->pdo = $pdo;
     }
 
-    /**
-     * Find user by employee_id (staff) 
-     * Supports both STF-001 and ADMIN_001 formats
-     */
-    public function findByEmployeeId(string $employeeId): ?array
-    {
-        $stmt = $this->pdo->prepare('
-            SELECT * FROM users 
-            WHERE employee_id = :employee_id 
-            LIMIT 1
-        ');
-        $stmt->execute(['employee_id' => $employeeId]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $user ?: null;
-    }
+    public function login(): void {
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
 
-    /**
-     * Find user by email address
-     */
-    public function findByEmail(string $email): ?array
-    {
-        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
-        $stmt->execute(['email' => $email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $user ?: null;
-    }
-
-    /**
-     * Find user by primary key ID
-     */
-    public function findById(int $id): ?array
-    {
-        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE id = :id LIMIT 1');
-        $stmt->execute(['id' => $id]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $user ?: null;
-    }
-
-    /**
-     * Verify user credentials (password or PIN)
-     */
-    public function verifyCredentials(string $identifier, string $password): ?array
-    {
-        $user = $this->findByEmployeeId($identifier);
-        
-        if (!$user) {
-            return null;
+        if (str_contains($contentType, 'application/json')) {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $email = $input['email'] ?? $input['username'] ?? '';  // accept both
+            $password = $input['password'] ?? '';
+        } else {
+            // Form submission – the login form sends "identifier" (the email)
+            $email = $_POST['identifier'] ?? $_POST['email'] ?? '';
+            $password = $_POST['password'] ?? '';
         }
-        
-        // Check password_hash (for admins)
-        if (isset($user['password_hash']) && password_verify($password, $user['password_hash'])) {
-            return $user;
-        }
-        
-        // Check 'passwords' column (PIN for staff)
-        if (isset($user['passwords']) && $user['passwords'] === $password) {
-            return $user;
-        }
-        
-        return null;
-    }
 
-    /**
-     * Count total users
-     */
-    public function countAll(): int
-    {
-        $stmt = $this->pdo->query('SELECT COUNT(*) AS count FROM users');
-        return (int) $stmt->fetchColumn();
-    }
+        try {
+            $userModel = new User($this->pdo);
+            $user = $userModel->findByEmail($email);
 
-    /**
-     * Count active users
-     */
-    public function countActive(): int
-    {
-        $stmt = $this->pdo->query("SELECT COUNT(*) AS count FROM users WHERE status = 'active'");
-        return (int) $stmt->fetchColumn();
-    }
-
-    /**
-     * Count inactive users
-     */
-    public function countInactive(): int
-    {
-        $stmt = $this->pdo->query("SELECT COUNT(*) AS count FROM users WHERE status = 'inactive'");
-        return (int) $stmt->fetchColumn();
-    }
-
-    /**
-     * Get all users
-     */
-    public function getAllUsers(): array
-    {
-        $stmt = $this->pdo->query('
-            SELECT id, employee_id, name, email, role, status, created_at 
-            FROM users 
-            ORDER BY name ASC
-        ');
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    /**
-     * Create a new user
-     */
-    public function create(array $data): bool
-    {
-        $stmt = $this->pdo->prepare('
-            INSERT INTO users (employee_id, name, email, passwords, password_hash, role, status)
-            VALUES (:employee_id, :name, :email, :passwords, :password_hash, :role, :status)
-        ');
-        return $stmt->execute([
-            'employee_id' => $data['employee_id'],
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'passwords' => $data['passwords'] ?? null,
-            'password_hash' => $data['password_hash'] ?? null,
-            'role' => $data['role'] ?? 'staff',
-            'status' => $data['status'] ?? 'active'
-        ]);
-    }
-
-    /**
-     * Update user
-     */
-    public function update(int $id, array $data): bool
-    {
-        $fields = [];
-        $params = ['id' => $id];
-        
-        $allowed = ['name', 'email', 'role', 'status'];
-        foreach ($allowed as $field) {
-            if (isset($data[$field])) {
-                $fields[] = "$field = :$field";
-                $params[$field] = $data[$field];
+            if (!$user || !password_verify($password, $user['password_hash'])) {
+                throw new AuthenticationException('Invalid email or password');
             }
+
+            // Check if user is active
+            if ($user['status'] !== 'active') {
+                throw new AuthenticationException('Account is inactive. Contact administrator.');
+            }
+
+            // Start session and store relevant user info
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['employee_id'] = $user['employee_id'];
+            $_SESSION['name'] = $user['name'];
+            $_SESSION['email'] = $user['email'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['department'] = $user['department'];
+            $_SESSION['position']   = $user['position'];
+
+            if (str_contains($contentType, 'application/json')) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Login successful',
+                    'user' => [
+                        'id' => $user['id'],
+                        'employee_id' => $user['employee_id'],
+                        'name' => $user['name'],
+                        'email' => $user['email'],
+                        'role' => $user['role']
+                    ]
+                ]);
+            } else {
+                // Redirect based on role (optional)
+                if ($user['role'] === 'admin') {
+                    header('Location: /admin/dashboard');
+                } else {
+                    header('Location: /staff/dashboard');
+                }
+            }
+            exit;
+        } catch (AuthenticationException $e) {
+            if (str_contains($contentType, 'application/json')) {
+                http_response_code(401);
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            } else {
+                header('Location: /login?error=' . urlencode($e->getMessage()));
+            }
+            exit;
         }
-        
-        if (isset($data['password'])) {
-            $fields[] = "passwords = :passwords";
-            $params['passwords'] = $data['password'];
-        }
-        
-        if (isset($data['password_hash'])) {
-            $fields[] = "password_hash = :password_hash";
-            $params['password_hash'] = password_hash($data['password_hash'], PASSWORD_DEFAULT);
-        }
-        
-        if (empty($fields)) {
-            return false;
-        }
-        
-        $stmt = $this->pdo->prepare("
-            UPDATE users 
-            SET " . implode(', ', $fields) . "
-            WHERE id = :id
-        ");
-        return $stmt->execute($params);
     }
 
-    /**
-     * Delete (soft delete) user
-     */
-    public function delete(int $id): bool
-    {
-        $stmt = $this->pdo->prepare("UPDATE users SET status = 'inactive' WHERE id = :id");
-        return $stmt->execute(['id' => $id]);
+    public function logout(): void {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        session_unset();
+        session_destroy();
+
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        if (str_contains($contentType, 'application/json') || $_SERVER['REQUEST_METHOD'] === 'POST') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'message' => 'Logged out']);
+        } else {
+            header('Location: /login');
+        }
+        exit;
     }
 }
 
@@ -4346,6 +4355,221 @@ $activePage = $activePage ?? 'dashboard';
     </div>
 </aside>
 <div id="sidebarOverlay" class="sidebar-overlay" :class="{ 'show': sidebarOpen }" @click="sidebarOpen = false"></div>
+
+================
+File: backend/src/models/User.php
+================
+<?php
+namespace Models;
+
+use PDO;
+
+class User
+{
+    private PDO $pdo;
+
+    public function __construct(PDO $pdo)
+    {
+        $this->pdo = $pdo;
+    }
+
+    /**
+     * Find user by employee_id (staff) 
+     * Supports both STF-001 and ADMIN_001 formats
+     */
+    public function findByEmployeeId(string $employeeId): ?array
+    {
+        $stmt = $this->pdo->prepare('
+            SELECT * FROM users 
+            WHERE employee_id = :employee_id 
+            LIMIT 1
+        ');
+        $stmt->execute(['employee_id' => $employeeId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user ?: null;
+    }
+
+    /**
+     * Find user by email address
+     */
+    public function findByEmail(string $email): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
+        $stmt->execute(['email' => $email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user ?: null;
+    }
+
+    /**
+     * Find user by primary key ID
+     */
+    public function findById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $id]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user ?: null;
+    }
+
+    /**
+     * Verify user credentials (password or PIN)
+     */
+    public function verifyCredentials(string $identifier, string $password): ?array
+    {
+        $user = $this->findByEmployeeId($identifier);
+        
+        if (!$user) {
+            return null;
+        }
+        
+        // Check password_hash (for admins)
+        if (isset($user['password_hash']) && password_verify($password, $user['password_hash'])) {
+            return $user;
+        }
+        
+        // Check 'passwords' column (PIN for staff)
+        if (isset($user['passwords']) && $user['passwords'] === $password) {
+            return $user;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Count total users
+     */
+    public function countAll(): int
+    {
+        $stmt = $this->pdo->query('SELECT COUNT(*) AS count FROM users');
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Count active users
+     */
+    public function countActive(): int
+    {
+        $stmt = $this->pdo->query("SELECT COUNT(*) AS count FROM users WHERE status = 'active'");
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Count inactive users
+     */
+    public function countInactive(): int
+    {
+        $stmt = $this->pdo->query("SELECT COUNT(*) AS count FROM users WHERE status = 'inactive'");
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Get all users
+     */
+    public function getAllUsers(): array
+    {
+        $stmt = $this->pdo->query('
+            SELECT id, employee_id, name, email, role, status, created_at 
+            FROM users 
+            ORDER BY name ASC
+        ');
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Create a new user
+     */
+    public function create(array $data): bool
+    {
+        $stmt = $this->pdo->prepare('
+            INSERT INTO users (employee_id, name, email, passwords, password_hash, role, status, department, position)
+            VALUES (:employee_id, :name, :email, :passwords, :password_hash, :role, :status, :department, :position)
+        ');
+        return $stmt->execute([
+            'employee_id'   => $data['employee_id'],
+            'name'          => $data['name'],
+            'email'         => $data['email'],
+            'passwords'     => $data['passwords'] ?? null,
+            'password_hash' => $data['password_hash'] ?? null,
+            'role'          => $data['role'] ?? 'staff',
+            'status'        => $data['status'] ?? 'active',
+            'department'    => $data['department'] ?? null,
+            'position'      => $data['position'] ?? null,
+        ]);
+    }
+
+    /**
+     * Update user
+     */
+    public function update(int $id, array $data): bool
+    {
+        $fields = [];
+        $params = ['id' => $id];
+        
+        $allowed = ['name', 'email', 'role', 'status', 'department', 'position'];
+        foreach ($allowed as $field) {
+            if (array_key_exists($field, $data)) {
+                $fields[] = "$field = :$field";
+                $params[$field] = $data[$field];
+            }
+        }
+        
+        if (isset($data['password'])) {
+            $fields[] = "passwords = :passwords";
+            $params['passwords'] = $data['password'];
+        }
+        
+        if (isset($data['password_hash'])) {
+            $fields[] = "password_hash = :password_hash";
+            $params['password_hash'] = password_hash($data['password_hash'], PASSWORD_DEFAULT);
+        }
+        
+        if (empty($fields)) {
+            return false;
+        }
+        
+        $stmt = $this->pdo->prepare("
+            UPDATE users 
+            SET " . implode(', ', $fields) . "
+            WHERE id = :id
+        ");
+        return $stmt->execute($params);
+    }
+
+    public function updatePassword(int $id, string $currentPassword, string $newPassword): bool
+    {
+        $user = $this->findById($id);
+        if (!$user) {
+            return false;
+        }
+
+        $currentMatches = false;
+        if (!empty($user['password_hash'])) {
+            $currentMatches = password_verify($currentPassword, $user['password_hash']);
+        }
+        if (!$currentMatches && isset($user['passwords'])) {
+            $currentMatches = hash_equals((string) $user['passwords'], $currentPassword);
+        }
+        if (!$currentMatches) {
+            return false;
+        }
+
+        $stmt = $this->pdo->prepare('UPDATE users SET passwords = :passwords, password_hash = :password_hash WHERE id = :id');
+        return $stmt->execute([
+            'passwords' => $newPassword,
+            'password_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
+            'id' => $id,
+        ]);
+    }
+
+    /**
+     * Delete (soft delete) user
+     */
+    public function delete(int $id): bool
+    {
+        $stmt = $this->pdo->prepare("UPDATE users SET status = 'inactive' WHERE id = :id");
+        return $stmt->execute(['id' => $id]);
+    }
+}
 
 ================
 File: frontend/public/assets/css/style.css
@@ -6146,509 +6370,6 @@ input:checked + .slider:before {
 }
 
 ================
-File: frontend/src/views/admin/attendance.php
-================
-<?php
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'admin') {
-    header('Location: /index.php/login');
-    exit;
-}
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Logs | SpySee</title>
-    <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="<?= asset_url('js/app.js') ?>"></script>
-    <style>
-        [x-cloak] { display: none !important; }
-        
-        .attendance-filters {
-            display: flex;
-            gap: 12px;
-            margin-top: 24px;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
-        }
-        .attendance-filters input,
-        .attendance-filters select {
-            padding: 10px 16px;
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            background: var(--card-bg);
-            color: var(--heading);
-            font-size: 14px;
-            min-width: 180px;
-        }
-        .attendance-filters input:focus,
-        .attendance-filters select:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-        .attendance-filters input::placeholder {
-            color: var(--muted);
-        }
-        
-        .badge-in {
-            background: var(--accent-soft);
-            color: var(--accent);
-            padding: 2px 12px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-        .badge-out {
-            background: rgba(239, 68, 68, 0.1);
-            color: #EF4444;
-            padding: 2px 12px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-        
-        .log-count {
-            color: var(--muted);
-            font-size: 13px;
-            margin-left: 8px;
-        }
-    </style>
-</head>
-<body>
-
-<script>window.themeManager.initTheme();</script>
-
-<div x-data="attendanceApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
-    <div class="app-layout">
-        <?php $activePage = 'attendance'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
-        
-        <main class="main-content">
-            <?php include __DIR__ . '/../partials/top-nav.php'; ?>
-            
-            <div class="page-content">
-                <div class="page-header">
-                    <div>
-                        <h1>Attendance Logs</h1>
-                        <p>Full attendance history with audit trail.</p>
-                    </div>
-                    <div class="action-buttons">
-                        <button class="btn-outline" @click="exportCSV()">📥 Export CSV</button>
-                        <button class="btn-outline" @click="refreshLogs()">🔄 Refresh</button>
-                    </div>
-                </div>
-
-                <div class="attendance-filters">
-                    <input type="text" x-model="searchQuery" placeholder="Search staff or location...">
-                    <select x-model="filterType">
-                        <option value="all">All Types</option>
-                        <option value="sign-in">Sign In</option>
-                        <option value="sign-out">Sign Out</option>
-                    </select>
-                    <span class="log-count" x-text="filteredLogs.length + ' records'"></span>
-                </div>
-
-                <div class="table-container">
-                    <table class="history-table">
-                        <thead>
-                            <tr>
-                                <th>STAFF</th>
-                                <th>TYPE</th>
-                                <th>TIMESTAMP</th>
-                                <th>LOCATION</th>
-                                <th>METHOD</th>
-                                <th>SYNC</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="log in filteredLogs" :key="log.id">
-                                <tr>
-                                    <td x-text="log.staff"></td>
-                                    <td>
-                                        <span class="badge-in" x-show="log.type === 'sign-in'">IN</span>
-                                        <span class="badge-out" x-show="log.type === 'sign-out'">OUT</span>
-                                    </td>
-                                    <td x-text="formatDateTime(log.timestamp)"></td>
-                                    <td x-text="log.location || 'Office'"></td>
-                                    <td x-text="log.method || 'QR'"></td>
-                                    <td>
-                                        <span class="sync-badge synced">Synced</span>
-                                    </td>
-                                </tr>
-                            </template>
-                            <tr x-show="filteredLogs.length === 0">
-                                <td colspan="6" style="text-align:center;padding:40px;color:var(--muted);">
-                                    No attendance records found.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
-    </div>
-</div>
-
-<script>
-function attendanceApp() {
-    return {
-        sidebarOpen: false,
-        logs: [],
-        searchQuery: '',
-        filterType: 'all',
-        isLoading: false,
-        
-        get filteredLogs() {
-            let filtered = this.logs;
-            
-            if (this.filterType !== 'all') {
-                filtered = filtered.filter(log => log.type === this.filterType);
-            }
-            
-            if (this.searchQuery) {
-                const query = this.searchQuery.toLowerCase();
-                filtered = filtered.filter(log => 
-                    log.staff.toLowerCase().includes(query) ||
-                    (log.location && log.location.toLowerCase().includes(query))
-                );
-            }
-            
-            return filtered;
-        },
-        
-        formatDateTime(timestamp) {
-            if (!timestamp) return '--';
-            const date = new Date(timestamp);
-            return date.toLocaleString('en-ZA', { 
-                day: '2-digit', 
-                month: 'short', 
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        },
-        
-        async init() {
-            window.themeManager.initTheme();
-            await this.loadLogs();
-        },
-        
-        async loadLogs() {
-            this.isLoading = true;
-            try {
-                const response = await fetch('/api/attendance-logs');
-                const data = await response.json();
-                this.logs = data.data || [];
-            } catch (err) {
-                console.error('Error loading logs:', err);
-                window.appUtils.showToast('Failed to load logs', 'error');
-            }
-            this.isLoading = false;
-        },
-        
-        async refreshLogs() {
-            await this.loadLogs();
-            window.appUtils.showToast('Logs refreshed!', 'success');
-        },
-        
-        exportCSV() {
-            if (this.filteredLogs.length === 0) {
-                window.appUtils.showToast('No records to export.', 'error');
-                return;
-            }
-            
-            let csv = 'Staff,Type,Timestamp,Location,Method,Sync\n';
-            this.filteredLogs.forEach(log => {
-                csv += `"${log.staff}","${log.type}","${log.timestamp}","${log.location || 'Office'}","${log.method || 'QR'}","Synced"\n`;
-            });
-            
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `attendance_logs_${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            
-            window.appUtils.showToast('CSV exported successfully!', 'success');
-        }
-    }
-}
-</script>
-
-</body>
-</html>
-
-================
-File: frontend/src/views/admin/users.php
-================
-<?php
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'admin') {
-    header('Location: /index.php/login');
-    exit;
-}
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management | SpySee</title>
-    <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="<?= asset_url('js/app.js') ?>"></script>
-    <style>
-        [x-cloak] { display: none !important; }
-        
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-        }
-        .modal-container {
-            background: var(--card-bg);
-            border-radius: 24px;
-            width: 450px;
-            max-width: 95%;
-            max-height: 90vh;
-            overflow-y: auto;
-            border: 1px solid var(--border-color);
-        }
-        .modal-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .modal-header h3 {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--heading);
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: var(--text);
-        }
-        .modal-close:hover {
-            color: var(--accent);
-        }
-        .modal-body {
-            padding: 24px;
-        }
-        .modal-footer {
-            padding: 16px 24px;
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-        }
-        .btn-submit {
-            padding: 10px 24px;
-            background: var(--accent);
-            color: #202020;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: 0.2s;
-        }
-        .btn-submit:hover {
-            background: var(--primary-green-dark);
-            color: #f8f8f8;
-        }
-        .btn-cancel {
-            padding: 10px 24px;
-            background: var(--border-color);
-            color: var(--heading);
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: 0.2s;
-        }
-        .btn-cancel:hover {
-            background: #555;
-        }
-    </style>
-</head>
-<body>
-
-<script>window.themeManager.initTheme();</script>
-
-<div x-data="usersApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
-    <div class="app-layout">
-        <?php $activePage = 'users'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
-        
-        <main class="main-content">
-            <?php include __DIR__ . '/../partials/top-nav.php'; ?>
-            
-            <div class="page-content">
-                <div class="page-header">
-                    <div>
-                        <h1>User Management</h1>
-                        <p>Add, edit, or disable staff accounts.</p>
-                    </div>
-                    <button class="btn-primary" @click="showAddModal = true">+ Add User</button>
-                </div>
-
-                <div class="users-table-container">
-                    <table class="users-table">
-                        <thead>
-                            <tr>
-                                <th>NAME</th>
-                                <th>EMAIL</th>
-                                <th>EMPLOYEE ID</th>
-                                <th>ROLE</th>
-                                <th>STATUS</th>
-                                <th>ACTIONS</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="user in users" :key="user.id">
-                                <tr>
-                                    <td x-text="user.name"></td>
-                                    <td x-text="user.email"></td>
-                                    <td x-text="user.employee_id"></td>
-                                    <td>
-                                        <span class="role-badge-admin" x-show="user.role === 'admin'" x-text="user.role"></span>
-                                        <span class="role-badge-staff" x-show="user.role === 'staff'" x-text="user.role"></span>
-                                    </td>
-                                    <td>
-                                        <span class="status-badge-active" x-text="user.status"></span>
-                                    </td>
-                                    <td class="action-icons">
-                                        <button @click="editUser(user)" title="Edit">✏️</button>
-                                        <button @click="deleteUser(user.id)" title="Delete">🗑️</button>
-                                    </td>
-                                </tr>
-                            </template>
-                            <tr x-show="users.length === 0">
-                                <td colspan="6" style="text-align:center;padding:40px;color:var(--muted);">
-                                    No users found.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Add User Modal -->
-                <div class="modal-overlay" x-show="showAddModal" x-cloak @click.away="showAddModal = false">
-                    <div class="modal-container">
-                        <div class="modal-header">
-                            <h3>Add New User</h3>
-                            <button class="modal-close" @click="showAddModal = false">✕</button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="input-group">
-                                <label>Name</label>
-                                <input type="text" x-model="newUser.name" placeholder="Full name">
-                            </div>
-                            <div class="input-group">
-                                <label>Email</label>
-                                <input type="email" x-model="newUser.email" placeholder="email@company.com">
-                            </div>
-                            <div class="input-group">
-                                <label>Employee ID</label>
-                                <input type="text" x-model="newUser.employee_id" placeholder="e.g. STF-001">
-                            </div>
-                            <div class="input-group">
-                                <label>Role</label>
-                                <select x-model="newUser.role">
-                                    <option value="staff">Staff</option>
-                                    <option value="admin">Admin</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button class="btn-cancel" @click="showAddModal = false">Cancel</button>
-                            <button class="btn-submit" @click="addUser()">Add User</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-</div>
-
-<script>
-function usersApp() {
-    return {
-        sidebarOpen: false,
-        users: [],
-        showAddModal: false,
-        newUser: { name: '', email: '', employee_id: '', role: 'staff' },
-        
-        async init() {
-            window.themeManager.initTheme();
-            await this.loadUsers();
-        },
-        
-        async loadUsers() {
-            try {
-                const response = await fetch('/api/users');
-                const data = await response.json();
-                this.users = data.data || [];
-            } catch (err) {
-                console.error('Error loading users:', err);
-                window.appUtils.showToast('Failed to load users', 'error');
-            }
-        },
-        
-        async addUser() {
-            if (!this.newUser.name || !this.newUser.email) {
-                window.appUtils.showToast('Please fill in all fields', 'error');
-                return;
-            }
-            
-            const newUser = {
-                id: 'user_' + Date.now(),
-                name: this.newUser.name,
-                email: this.newUser.email,
-                employee_id: this.newUser.employee_id || 'EMP-' + String(Math.floor(Math.random() * 1000)).padStart(3, '0'),
-                role: this.newUser.role,
-                status: 'active'
-            };
-            
-            this.users.push(newUser);
-            this.showAddModal = false;
-            this.newUser = { name: '', email: '', employee_id: '', role: 'staff' };
-            window.appUtils.showToast('User added successfully!', 'success');
-        },
-        
-        editUser(user) {
-            window.appUtils.showToast('Edit user: ' + user.name + ' (Coming soon)', 'info');
-        },
-        
-        deleteUser(id) {
-            if (confirm('Delete this user?')) {
-                this.users = this.users.filter(u => u.id !== id);
-                window.appUtils.showToast('User deleted', 'success');
-            }
-        }
-    }
-}
-</script>
-
-</body>
-</html>
-
-================
 File: frontend/src/views/partials/dashboard-grid.php
 ================
 <?php
@@ -7086,151 +6807,6 @@ if (!isset($_SESSION['user_id'])) {
     });
 </script>
 
-</body>
-</html>
-
-================
-File: frontend/src/views/staff/profile.php
-================
-<?php
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
-    header('Location: ' . route_url('/login'));
-    exit;
-}
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $title ?? 'Profile' ?></title>
-    <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="<?= asset_url('js/app.js') ?>"></script>
-    <style>
-        .profile-initials {
-            width: 80px;
-            height: 80px;
-            background: var(--sidebar-blue);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 32px;
-            font-weight: 600;
-            margin: 0 auto 16px;
-        }
-        .profile-detail-row {
-            display: flex;
-            align-items: baseline;
-            margin-bottom: 16px;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-        .profile-detail-label {
-            width: 100px;
-            font-weight: 500;
-            color: var(--text);
-        }
-        .profile-detail-value {
-            flex: 1;
-            font-weight: 600;
-            color: var(--heading);
-        }
-        [x-cloak] { display: none !important; }
-    </style>
-</head>
-<body>
-
-<div x-data="profileApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
-    <div class="app-layout">
-        <?php $activePage = 'profile'; include __DIR__ . '/staff-sidebar.php'; ?>
-        
-        <main class="main-content">
-            <?php if (file_exists(__DIR__ . '/../partials/top-nav.php')) include __DIR__ . '/../partials/top-nav.php'; ?>
-            
-            <div class="profile-container">
-                <div class="profile-header">
-                    <div class="profile-initials" x-text="getInitials(user.name)"></div>
-                    <h2 x-text="user.name"></h2>
-                    <p x-text="user.email"></p>
-                </div>
-
-                <div class="profile-info">
-                    <div class="profile-detail-row">
-                        <span class="profile-detail-label">Email</span>
-                        <span class="profile-detail-value" x-text="user.email"></span>
-                    </div>
-                    <div class="profile-detail-row">
-                        <span class="profile-detail-label">Employee ID</span>
-                        <span class="profile-detail-value" x-text="user.employeeId || 'S-101'"></span>
-                    </div>
-                    <div class="profile-detail-row">
-                        <span class="profile-detail-label">Role</span>
-                        <span class="profile-detail-value">Staff</span>
-                    </div>
-                </div>
-
-                <div class="password-section">
-                    <h3>Change password</h3>
-                    <p>Update your password securely.</p>
-                    <div class="input-group">
-                        <label>Current password</label>
-                        <input type="password" x-model="passwordForm.current" placeholder="Enter current password">
-                    </div>
-                    <div class="input-group">
-                        <label>New password</label>
-                        <input type="password" x-model="passwordForm.new" placeholder="Enter new password">
-                    </div>
-                    <div class="input-group">
-                        <label>Confirm new password</label>
-                        <input type="password" x-model="passwordForm.confirm" placeholder="Confirm new password">
-                    </div>
-                    <button class="update-btn" @click="updatePassword()">Update password</button>
-                </div>
-            </div>
-        </main>
-    </div>
-</div>
-
-<script>
-function profileApp() {
-    return {
-        sidebarOpen: false,
-        user: { name: '', email: '', employeeId: '' },
-        passwordForm: { current: '', new: '', confirm: '' },
-        
-        init() {
-            const userData = <?php echo json_encode($user ?? ['id' => 'staff-001', 'name' => 'Sarah Mthembu', 'email' => 'sarah@spysee.app', 'employeeId' => 'S-101']); ?>;
-            this.user = userData;
-        },
-        
-        getInitials(name) {
-            if (!name) return '?';
-            return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-        },
-        
-        updatePassword() {
-            if (!this.passwordForm.current) {
-                window.appUtils.showToast('Please enter your current password', 'error');
-                return;
-            }
-            if (this.passwordForm.new !== this.passwordForm.confirm) {
-                window.appUtils.showToast('New passwords do not match!', 'error');
-                return;
-            }
-            if (this.passwordForm.new.length < 6) {
-                window.appUtils.showToast('Password must be at least 6 characters', 'error');
-                return;
-            }
-            window.appUtils.showToast('Password changed successfully!', 'success');
-            this.passwordForm = { current: '', new: '', confirm: '' };
-        }
-    }
-}
-</script>
 </body>
 </html>
 
@@ -8789,6 +8365,775 @@ public function clockInByQr(
 }
 
 ================
+File: frontend/src/views/admin/attendance.php
+================
+<?php
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'admin') {
+    header('Location: /index.php/login');
+    exit;
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Logs | SpySee</title>
+    <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="<?= asset_url('js/app.js') ?>"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+
+        /* ── Page Layout ── */
+        .attendance-page {
+            padding: 28px 32px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        @media (max-width: 768px) {
+            .attendance-page {
+                padding: 16px;
+            }
+        }
+
+        /* ── Stats Bar ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin: 24px 0;
+        }
+        @media (max-width: 600px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
+            text-align: center;
+        }
+        .stat-card .number {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--heading);
+            line-height: 1.2;
+        }
+        .stat-card .label {
+            font-size: 12px;
+            color: var(--text);
+            margin-top: 4px;
+            font-weight: 500;
+        }
+        .stat-card .number.green { color: #5DD62C; }
+        .stat-card .number.orange { color: #F59E0B; }
+        .stat-card .number.blue { color: #60A5FA; }
+        .stat-card .number.pink { color: #F472B6; }
+
+        /* ── Filters ── */
+        .filters-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filters-row .search-input {
+            flex: 1;
+            min-width: 180px;
+            padding: 10px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--card-bg);
+            color: var(--heading);
+            font-size: 14px;
+        }
+        .filters-row .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .filters-row .search-input::placeholder {
+            color: var(--muted);
+        }
+        .filters-row select {
+            padding: 10px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--card-bg);
+            color: var(--heading);
+            font-size: 14px;
+            min-width: 130px;
+        }
+        .filters-row select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .filters-row input[type="date"] {
+            padding: 10px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--card-bg);
+            color: var(--heading);
+            font-size: 14px;
+            min-width: 150px;
+        }
+        .filters-row input[type="date"]:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .filters-row .record-badge {
+            padding: 8px 16px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text);
+            white-space: nowrap;
+        }
+
+        /* ── Quick Actions ── */
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .quick-btn {
+            padding: 8px 18px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            background: var(--card-bg);
+            color: var(--text);
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .quick-btn:hover {
+            border-color: var(--accent);
+            color: var(--heading);
+            background: var(--accent-soft);
+        }
+        .quick-btn.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        /* ── Table ── */
+        .table-wrapper {
+            overflow-x: auto;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        .attendance-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .attendance-table thead {
+            background: var(--background);
+        }
+        .attendance-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .attendance-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--heading);
+            vertical-align: middle;
+        }
+        .attendance-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .attendance-table tbody tr:hover td {
+            background: var(--accent-soft);
+        }
+
+        /* ── Staff Name ── */
+        .staff-name {
+            font-weight: 600;
+            color: var(--heading);
+        }
+        .staff-id {
+            display: block;
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 400;
+            margin-top: 2px;
+        }
+
+        /* ── Status Badges ── */
+        .badge-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .badge-status.in {
+            background: rgba(93, 214, 44, 0.15);
+            color: #5DD62C;
+        }
+        .badge-status.in::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #5DD62C;
+        }
+        .badge-status.out {
+            background: rgba(239, 68, 68, 0.12);
+            color: #EF4444;
+        }
+        .badge-status.out::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #EF4444;
+        }
+
+        /* ── Method Badge ── */
+        .badge-method {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            background: var(--border-color);
+            color: var(--text);
+        }
+        .badge-method.qr {
+            background: rgba(96, 165, 250, 0.15);
+            color: #60A5FA;
+        }
+        .badge-method.web {
+            background: rgba(245, 158, 11, 0.15);
+            color: #F59E0B;
+        }
+
+        /* ── Sync Badge ── */
+        .badge-sync {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            background: rgba(93, 214, 44, 0.12);
+            color: #5DD62C;
+        }
+
+        /* ── Time Display ── */
+        .time-main {
+            font-weight: 500;
+            color: var(--heading);
+            font-size: 14px;
+        }
+        .time-date {
+            display: block;
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 400;
+        }
+
+        /* ── Row Number ── */
+        .row-num {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* ── Pagination ── */
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .pagination-bar .info {
+            color: var(--text);
+            font-size: 13px;
+        }
+        .pagination-bar .info strong {
+            color: var(--heading);
+        }
+        .pagination-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .pagination-controls button {
+            padding: 6px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--card-bg);
+            color: var(--heading);
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+        .pagination-controls button:hover:not(:disabled) {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+        }
+        .pagination-controls button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .pagination-controls .page-info {
+            padding: 6px 14px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        /* ── Loading ── */
+        .loading-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text);
+        }
+        .loading-state .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── Empty State ── */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+        }
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        .empty-state h3 {
+            color: var(--heading);
+            font-size: 18px;
+            margin-bottom: 4px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .filters-row {
+                flex-direction: column;
+            }
+            .filters-row .search-input,
+            .filters-row select,
+            .filters-row input[type="date"] {
+                width: 100%;
+                min-width: unset;
+            }
+            .filters-row .record-badge {
+                width: 100%;
+                text-align: center;
+            }
+            .quick-actions {
+                justify-content: center;
+            }
+            .attendance-table th,
+            .attendance-table td {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+            .badge-status {
+                font-size: 10px;
+                padding: 2px 10px;
+            }
+            .pagination-bar {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .stat-card {
+                padding: 12px;
+            }
+            .stat-card .number {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<script>window.themeManager.initTheme();</script>
+
+<div x-data="attendanceApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
+    <div class="app-layout">
+        <?php $activePage = 'attendance'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
+        
+        <main class="main-content">
+            <?php include __DIR__ . '/../partials/top-nav.php'; ?>
+            
+            <div class="attendance-page">
+                <!-- Header -->
+                <div class="page-header" style="margin-bottom:0;">
+                    <div>
+                        <h1>📋 Attendance Logs</h1>
+                        <p style="color:var(--text);font-size:14px;margin-top:4px;">Complete audit trail of all staff check-ins and check-outs</p>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-outline" @click="refreshLogs()" style="height:40px;padding:0 18px;">🔄 Refresh</button>
+                        <button class="btn-primary" @click="exportCSV()" style="height:40px;padding:0 18px;">📥 Export CSV</button>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="number" x-text="stats.total">0</div>
+                        <div class="label">Total Events</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number green" x-text="stats.checkIns">0</div>
+                        <div class="label">Check-Ins</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number orange" x-text="stats.checkOuts">0</div>
+                        <div class="label">Check-Outs</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number blue" x-text="stats.uniqueStaff">0</div>
+                        <div class="label">Unique Staff</div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="filters-row">
+                    <input type="text" class="search-input" x-model="searchQuery" placeholder="🔍 Search by name, ID, or location...">
+                    <select x-model="filterType">
+                        <option value="all">All Types</option>
+                        <option value="sign-in">Check-Ins</option>
+                        <option value="sign-out">Check-Outs</option>
+                    </select>
+                    <select x-model="filterMethod">
+                        <option value="all">All Methods</option>
+                        <option value="QR">QR Scan</option>
+                        <option value="web">Web Manual</option>
+                    </select>
+                    <input type="date" x-model="filterDate">
+                    <span class="record-badge" x-text="filteredLogs.length + ' records'"></span>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <button class="quick-btn" @click="todayFilter()" :class="{ active: isTodayFilter }">📅 Today</button>
+                    <button class="quick-btn" @click="weekFilter()" :class="{ active: isWeekFilter }">📆 This Week</button>
+                    <button class="quick-btn" @click="clearFilters()">✕ Clear Filters</button>
+                </div>
+
+                <!-- Loading -->
+                <div class="loading-state" x-show="isLoading">
+                    <div class="spinner"></div>
+                    <p style="margin-top:16px;">Loading attendance records...</p>
+                </div>
+
+                <!-- Table -->
+                <div class="table-wrapper" x-show="!isLoading">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th style="width:50px;">#</th>
+                                <th style="min-width:140px;">Staff</th>
+                                <th style="width:120px;">Type</th>
+                                <th style="min-width:160px;">Timestamp</th>
+                                <th style="width:100px;">Method</th>
+                                <th style="width:90px;">Sync</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(log, index) in paginatedLogs" :key="log.id">
+                                <tr>
+                                    <td><span class="row-num" x-text="(currentPage - 1) * pageSize + index + 1"></span></td>
+                                    <td>
+                                        <span class="staff-name" x-text="log.staff || log.name || 'Unknown'"></span>
+                                        <span class="staff-id" x-text="log.employee_id || log.staff_id || ''"></span>
+                                    </td>
+                                    <td>
+                                        <span class="badge-status in" x-show="log.type === 'sign-in'">Check-In</span>
+                                        <span class="badge-status out" x-show="log.type === 'sign-out'">Check-Out</span>
+                                        <span x-show="log.type !== 'sign-in' && log.type !== 'sign-out'" x-text="log.type" style="color:var(--text);"></span>
+                                    </td>
+                                    <td>
+                                        <span class="time-main" x-text="formatTime(log.timestamp)"></span>
+                                        <span class="time-date" x-text="formatDate(log.timestamp)"></span>
+                                    </td>
+                                    <td>
+                                        <span class="badge-method" :class="(log.method || 'QR').toLowerCase()" x-text="log.method || 'QR'"></span>
+                                    </td>
+                                    <td>
+                                        <span class="badge-sync" x-text="log.sync || 'Synced'"></span>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr x-show="filteredLogs.length === 0">
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <div class="icon">📭</div>
+                                        <h3>No Records Found</h3>
+                                        <p style="font-size:13px;">Try adjusting your filters or refresh the page.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination-bar" x-show="!isLoading && filteredLogs.length > 0">
+                    <span class="info">
+                        Showing <strong x-text="((currentPage - 1) * pageSize) + 1"></strong> 
+                        to <strong x-text="Math.min(currentPage * pageSize, filteredLogs.length)"></strong> 
+                        of <strong x-text="filteredLogs.length"></strong> records
+                    </span>
+                    <div class="pagination-controls">
+                        <button @click="currentPage = Math.max(1, currentPage - 1)" :disabled="currentPage === 1">←</button>
+                        <span class="page-info" x-text="currentPage + ' / ' + totalPages"></span>
+                        <button @click="currentPage = Math.min(totalPages, currentPage + 1)" :disabled="currentPage === totalPages">→</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+function attendanceApp() {
+    return {
+        sidebarOpen: false,
+        logs: [],
+        searchQuery: '',
+        filterType: 'all',
+        filterMethod: 'all',
+        filterDate: '',
+        isLoading: false,
+        currentPage: 1,
+        pageSize: 20,
+        refreshInterval: null,
+
+        get stats() {
+            const total = this.logs.length;
+            const checkIns = this.logs.filter(l => l.type === 'sign-in').length;
+            const checkOuts = this.logs.filter(l => l.type === 'sign-out').length;
+            const uniqueStaff = new Set(this.logs.map(l => l.staff || l.name)).size;
+            return { total, checkIns, checkOuts, uniqueStaff };
+        },
+
+        get isTodayFilter() {
+            const today = new Date().toISOString().split('T')[0];
+            return this.filterDate === today && this.filterDate !== '';
+        },
+
+        get isWeekFilter() {
+            if (!this.filterDate) return false;
+            const today = new Date();
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - today.getDay());
+            return this.filterDate === weekStart.toISOString().split('T')[0];
+        },
+
+        get filteredLogs() {
+            let filtered = [...this.logs];
+            
+            if (this.filterType !== 'all') {
+                filtered = filtered.filter(log => log.type === this.filterType);
+            }
+            
+            if (this.filterMethod !== 'all') {
+                filtered = filtered.filter(log => (log.method || 'QR').toLowerCase() === this.filterMethod.toLowerCase());
+            }
+            
+            if (this.searchQuery) {
+                const query = this.searchQuery.toLowerCase();
+                filtered = filtered.filter(log => 
+                    (log.staff && log.staff.toLowerCase().includes(query)) ||
+                    (log.name && log.name.toLowerCase().includes(query)) ||
+                    (log.location && log.location.toLowerCase().includes(query)) ||
+                    (log.employee_id && log.employee_id.toLowerCase().includes(query)) ||
+                    (log.staff_id && log.staff_id.toLowerCase().includes(query))
+                );
+            }
+            
+            if (this.filterDate) {
+                filtered = filtered.filter(log => {
+                    try {
+                        const date = new Date(log.timestamp);
+                        return date.toISOString().split('T')[0] === this.filterDate;
+                    } catch {
+                        return false;
+                    }
+                });
+            }
+            
+            // Sort newest first
+            filtered.sort((a, b) => {
+                try {
+                    const dateA = new Date(a.timestamp);
+                    const dateB = new Date(b.timestamp);
+                    return dateB - dateA;
+                } catch {
+                    return 0;
+                }
+            });
+            
+            return filtered;
+        },
+
+        get paginatedLogs() {
+            const start = (this.currentPage - 1) * this.pageSize;
+            const end = start + this.pageSize;
+            return this.filteredLogs.slice(start, end);
+        },
+
+        get totalPages() {
+            return Math.ceil(this.filteredLogs.length / this.pageSize) || 1;
+        },
+
+        formatTime(timestamp) {
+            if (!timestamp) return '--';
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleTimeString('en-ZA', { 
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+            } catch (e) {
+                return timestamp;
+            }
+        },
+
+        formatDate(timestamp) {
+            if (!timestamp) return '--';
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleDateString('en-ZA', { 
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            } catch (e) {
+                return timestamp;
+            }
+        },
+
+        async init() {
+            window.themeManager.initTheme();
+            await this.loadLogs();
+            this.refreshInterval = setInterval(() => this.loadLogs(), 30000);
+        },
+
+        async loadLogs() {
+            this.isLoading = true;
+            try {
+                const response = await fetch('/index.php/api/attendance-logs?_=' + Date.now());
+                const data = await response.json();
+                this.logs = data.data || [];
+            } catch (err) {
+                console.error('Error loading logs:', err);
+                window.appUtils.showToast('Failed to load logs', 'error');
+            }
+            this.isLoading = false;
+        },
+
+        async refreshLogs() {
+            await this.loadLogs();
+            window.appUtils.showToast('Logs refreshed!', 'success');
+        },
+
+        todayFilter() {
+            this.filterDate = new Date().toISOString().split('T')[0];
+            this.currentPage = 1;
+        },
+
+        weekFilter() {
+            const today = new Date();
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - today.getDay());
+            this.filterDate = weekStart.toISOString().split('T')[0];
+            this.currentPage = 1;
+        },
+
+        clearFilters() {
+            this.searchQuery = '';
+            this.filterType = 'all';
+            this.filterMethod = 'all';
+            this.filterDate = '';
+            this.currentPage = 1;
+        },
+
+        exportCSV() {
+            if (this.filteredLogs.length === 0) {
+                window.appUtils.showToast('No records to export.', 'error');
+                return;
+            }
+            
+            let csv = 'Staff,Type,Timestamp,Location,Method,Sync\n';
+            this.filteredLogs.forEach(log => {
+                const staff = log.staff || log.name || 'Unknown';
+                const type = log.type === 'sign-in' ? 'Check-In' : 'Check-Out';
+                const timestamp = log.timestamp || '';
+                const location = log.location || 'Office';
+                const method = log.method || 'QR';
+                const sync = log.sync || 'Synced';
+                csv += `"${staff}","${type}","${timestamp}","${location}","${method}","${sync}"\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance_logs_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            window.appUtils.showToast('CSV exported successfully!', 'success');
+        }
+    }
+}
+</script>
+
+</body>
+</html>
+
+================
 File: frontend/src/views/admin/settings.php
 ================
 <?php
@@ -10179,203 +10524,6 @@ function getStaffListFromCache() {
 }
 
 ================
-File: backend/src/routes/web.php
-================
-<?php
-/**
- * CENTRAL APPLICATION ROUTER
- * Merged router supporting Auth (Dev 2), Attendance (Dev 3), and Dashboard (Dev 5).
- */
-
-// --- AUTOLOADER ---
-spl_autoload_register(function (string $class) {
-    // Standard PSR-4 style mapping relative to project root
-    $relPath = str_replace('\\', '/', ltrim($class, '\\')) . '.php';
-
-    // 1. Exact match attempt
-    $file = __DIR__ . '/../' . $relPath;
-    if (file_exists($file)) {
-        require_once $file;
-        return;
-    }
-
-    // 2. Lowercase folder + exact filename fallback (e.g., backend/src/validators/AttendanceValidator.php)
-    $parts = explode('\\', ltrim($class, '\\'));
-    $fileName = array_pop($parts);
-    $dirPath = strtolower(implode('/', $parts));
-    $mixedFile = __DIR__ . '/../' . $dirPath . '/' . $fileName . '.php';
-    if (file_exists($mixedFile)) {
-        require_once $mixedFile;
-        return;
-    }
-});
-
-// --- GLOBAL NON-NAMESPACED DEPENDENCIES ---
-if (file_exists(__DIR__ . '/../config/DataBase.php')) {
-    require_once __DIR__ . '/../config/DataBase.php';
-} elseif (file_exists(__DIR__ . '/../config/Database.php')) {
-    require_once __DIR__ . '/../config/Database.php';
-}
-
-if (file_exists(__DIR__ . '/../exceptions/AuthenticationException.php')) {
-    require_once __DIR__ . '/../exceptions/AuthenticationException.php';
-}
-
-// --- DATABASE CONNECTION ---
-require_once __DIR__ . '/../config/DataBase.php';
-
-try {
-    $pdo = Database::getConnection();
-} catch (\Throwable $e) {
-    $pdo = null;
-}
-
-// --- ROUTE & REQUEST PARSING ---
-$requestUri = $_SERVER['REQUEST_URI'] ?? '/';
-$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-
-// Ensure $uri defaults to empty string if parse_url returns null or false
-$uri = parse_url($requestUri, PHP_URL_PATH) ?? '';
-
-// Dynamic path resolution (supports subfolders or defined BASE_PATH constant)
-if (defined('BASE_PATH')) {
-    $route = substr($uri, strlen(BASE_PATH));
-} else {
-    $route = preg_replace('#^/.*?(backend|Digital-Attendence-Project)#i', '', $uri);
-}
-
-// Normalize multiple slashes and trailing slashes
-$route = preg_replace('#/+#', '/', $route);
-$route = str_replace('/index.php', '', $route);
-$route = rtrim($route, '/');
-
-if (empty($route)) {
-    $route = '/';
-}
-
-// Global API response header
-header('Content-Type: application/json');
-
-// --- ROUTE DISPATCHER ---
-switch ($route) {
-    case '/':
-        echo json_encode(['success' => true, 'message' => 'Digital Attendance System API running']);
-        break;
-
-    // --- AUTHENTICATION ROUTES (Dev 2) ---
-    case '/auth/login':
-    case '/login':
-        if ($method === 'POST') {
-            (new Controllers\AuthController($pdo))->login();
-        } else {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-        }
-        break;
-
-    case '/auth/logout':
-        if ($method === 'POST') {
-            (new Controllers\AuthController($pdo))->logout();
-        } else {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-        }
-        break;
-
-        case '/test/auth':
-    Middleware\AuthMiddleware::handle();
-
-    echo json_encode([
-        'success' => true,
-        'message' => 'You are authenticated'
-    ]);
-    break;
-
-    // --- ATTENDANCE ENGINE ROUTES (Dev 3) ---
-    case '/attendance/scan':
-        if ($method === 'POST') {
-            (new Controllers\AttendanceController($pdo))->scan();
-        } else {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-        }
-        break;
-
-    case '/attendance/clock-in':
-    case '/attendance/Spy-in': // Maintained backward compatibility for Dev 2's temporary route
-        if ($method === 'POST') {
-            (new Controllers\AttendanceController($pdo))->clockIn();
-        } else {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-        }
-        break;
-
-    case '/attendance/clock-out':
-    case '/attendance/Spy-out': // Maintained backward compatibility for Dev 2's temporary route
-        if ($method === 'POST') {
-            (new Controllers\AttendanceController($pdo))->clockOut();
-        } else {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-        }
-        break;
-
-    // --- DASHBOARD ENDPOINTS (Dev 5) ---
-    case '/dashboard/stats':
-        if ($method === 'GET') {
-            (new Controllers\DashboardController($pdo))->stats();
-        } else {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-        }
-        break;
-
-    case '/dashboard/onsite':
-        if ($method === 'GET') {
-            (new Controllers\DashboardController($pdo))->onsite();
-        } else {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-        }
-        break;
-
-    case '/dashboard/recent':
-        if ($method === 'GET') {
-            (new Controllers\DashboardController($pdo))->recent();
-        } else {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-        }
-        break;
-
-        // --- SETTINGS ENDPOINTS ---
-    case '/settings':
-        if ($method === 'GET') {
-            (new Controllers\SettingsController($pdo))->index();
-        } else {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-        }
-        break;
-
-    case '/sync-errors':
-    if ($method === 'GET') {
-        (new Controllers\SyncErrorController($pdo))->index(); // <-- Singular matches SyncErrorController.php
-    } else {
-        http_response_code(405);
-        echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-    }
-    break;
-
-    // Default 404
-    default:
-        http_response_code(404);
-        echo json_encode(['success' => false, 'message' => 'Route not found.']);
-        break;
-}
-
-================
 File: frontend/public/assets/js/app.js
 ================
 /** app.js – Dark mode only, no toggle */
@@ -10821,9 +10969,1048 @@ async function testSheetsConnection() {
 </html>
 
 ================
-File: backend/storage/cache/sheets_cache.json
+File: frontend/src/views/admin/users.php
 ================
-{"data":{"success":true,"rows":[["2026-08-24T13:34:30.692Z","EMP001","Thina","Check-in","QR","EMP001_20260824","Web"],["2026-08-24T13:36:30.208Z","TEST-153626","Debug Test","Check-in","web","TEST-153626_20260824","Web"],["2026-08-24 15:52:52","EMP002","Marco","Check-out","web"]]},"fetched_at":1787579572}
+<?php
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'admin') {
+    header('Location: /index.php/login');
+    exit;
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management | SpySee</title>
+    <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="<?= asset_url('js/app.js') ?>"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .modal-container {
+            background: var(--card-bg);
+            border-radius: 24px;
+            width: 450px;
+            max-width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+        }
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--heading);
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text);
+        }
+        .modal-close:hover {
+            color: var(--accent);
+        }
+        .modal-body {
+            padding: 24px;
+        }
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        .btn-submit {
+            padding: 10px 24px;
+            background: var(--accent);
+            color: #202020;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .btn-submit:hover {
+            background: var(--primary-green-dark);
+            color: #f8f8f8;
+        }
+        .btn-cancel {
+            padding: 10px 24px;
+            background: var(--border-color);
+            color: var(--heading);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .btn-cancel:hover {
+            background: #555;
+        }
+
+        /* ---- Alignment fix for user table ---- */
+        .users-table td,
+        .users-table th {
+            vertical-align: middle;
+        }
+        .status-col,
+        .actions-col {
+            text-align: center;
+        }
+
+        /* ---- Action buttons ---- */
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            color: var(--text);
+            transition: color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-btn.edit-btn:hover {
+            color: var(--accent);
+        }
+        .action-btn.delete-btn:hover {
+            color: #EF4444; /* red */
+        }
+    </style>
+</head>
+<body>
+ 
+<script>window.themeManager.initTheme();</script>
+ 
+<div x-data="usersApp()" x-init="init()" @keydown.escape="sidebarOpen = false" x-cloak>
+    <div class="app-layout">
+        <?php $activePage = 'users'; include __DIR__ . '/../partials/admin-sidebar.php'; ?>
+        
+        <main class="main-content">
+            <?php include __DIR__ . '/../partials/top-nav.php'; ?>
+            
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1>User Management</h1>
+                        <p>Add, edit, or disable staff accounts.</p>
+                    </div>
+                    <button class="btn-primary" @click="openAddModal()">+ Add User</button>
+                </div>
+ 
+                <div class="users-table-container">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>NAME</th>
+                                <th>EMAIL</th>
+                                <th>EMPLOYEE ID</th>
+                                <th>DEPARTMENT</th>
+                                <th>POSITION</th>
+                                <th>ROLE</th>
+                                <th class="status-col">STATUS</th>
+                                <th class="actions-col">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="user in users" :key="user.id">
+                                <tr>
+                                    <td x-text="user.name"></td>
+                                    <td x-text="user.email"></td>
+                                    <td x-text="user.employee_id"></td>
+                                    <td x-text="user.department || '-'"></td>
+                                    <td x-text="user.position || '-'"></td>
+                                    <td>
+                                        <span class="role-badge-admin" x-show="user.role === 'admin'" x-text="user.role"></span>
+                                        <span class="role-badge-staff" x-show="user.role === 'staff'" x-text="user.role"></span>
+                                    </td>
+                                    <td class="status-col">
+                                        <span class="status-badge-active" x-text="user.status"></span>
+                                    </td>
+                                    <td class="actions-col">
+                                        <button @click="editUser(user)" title="Edit" class="action-btn edit-btn">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                            </svg>
+                                        </button>
+                                        <button @click="deleteUser(user.id)" title="Delete" class="action-btn delete-btn">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                                <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr x-show="users.length === 0">
+                                <td colspan="8" style="text-align:center;padding:40px;color:var(--muted);">
+                                    No users found.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+ 
+                <!-- Add / Edit User Modal -->
+                <div class="modal-overlay" x-show="showAddModal" x-cloak @click.away="closeModal()">
+                    <div class="modal-container">
+                        <div class="modal-header">
+                            <h3 x-text="editingUser ? 'Edit User' : 'Add New User'"></h3>
+                            <button class="modal-close" @click="closeModal()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="input-group">
+                                <label>Name</label>
+                                <input type="text" x-model="newUser.name" placeholder="Full name">
+                            </div>
+                            <div class="input-group">
+                                <label>Email</label>
+                                <input type="email" x-model="newUser.email" placeholder="email@company.com">
+                            </div>
+                            <div class="input-group">
+                                <label>Employee ID</label>
+                                <input type="text" x-model="newUser.employee_id" placeholder="e.g. STF-001">
+                            </div>
+                            <div class="input-group">
+                                <label>Department</label>
+                                <select x-model="newUser.department">
+                                    <option value="">-- Select Department --</option>
+                                    <template x-for="dept in departments" :key="dept">
+                                        <option x-text="dept" :value="dept"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Position</label>
+                                <select x-model="newUser.position">
+                                    <option value="">-- Select Position --</option>
+                                    <template x-for="pos in positions" :key="pos">
+                                        <option x-text="pos" :value="pos"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Role</label>
+                                <select x-model="newUser.role">
+                                    <option value="staff">Staff</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn-cancel" @click="closeModal()">Cancel</button>
+                            <button class="btn-submit" @click="saveUser()" x-text="editingUser ? 'Save Changes' : 'Add User'"></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+ 
+<script>
+function usersApp() {
+    return {
+        sidebarOpen: false,
+        users: [],
+        showAddModal: false,
+        editingUser: null,
+        departments: ['Sales', 'IT', 'Finance', 'Warehouse', 'HR', 'Operations', 'Marketing', 'Management', 'Other'],
+        positions: ['Sales Rep', 'Developer', 'Accountant', 'Stock Controller', 'HR Officer', 'Supervisor', 'Coordinator', 'Branch Manager', 'Other'],
+        newUser: { name: '', email: '', employee_id: '', role: 'staff', department: '', position: '' },
+        endpoint: <?= json_encode(route_url('/index.php/api/users')) ?>,
+ 
+        async init() {
+            window.themeManager.initTheme();
+            await this.loadUsers();
+        },
+ 
+        async loadUsers() {
+            try {
+                const response = await fetch(this.endpoint);
+                const data = await response.json();
+                if (data.success) {
+                    this.users = data.data || [];
+                } else {
+                    console.error(data.message);
+                    window.appUtils.showToast(data.message || 'Failed to load users', 'error');
+                }
+            } catch (err) {
+                console.error('Error loading users:', err);
+                window.appUtils.showToast('Failed to load users', 'error');
+            }
+        },
+ 
+        openAddModal() {
+            this.editingUser = null;
+            this.newUser = { name: '', email: '', employee_id: '', role: 'staff', department: '', position: '' };
+            this.showAddModal = true;
+        },
+
+        closeModal() {
+            this.showAddModal = false;
+            this.editingUser = null;
+        },
+
+        async saveUser() {
+            if (!this.newUser.name || !this.newUser.email || !this.newUser.employee_id) {
+                window.appUtils.showToast('Please fill in all required fields', 'error');
+                return;
+            }
+ 
+            try {
+                const isEditing = Boolean(this.editingUser);
+                const url = isEditing ? `${this.endpoint}?id=${encodeURIComponent(this.editingUser.id)}` : this.endpoint;
+                const response = await fetch(url, {
+                    method: isEditing ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.newUser)
+                });
+                const data = await response.json();
+ 
+                if (data.success) {
+                    this.closeModal();
+                    this.newUser = { name: '', email: '', employee_id: '', role: 'staff', department: '', position: '' };
+                    await this.loadUsers();
+                    const message = isEditing
+                        ? 'User updated successfully!'
+                        : `User added. Initial PIN: ${data.temp_password}`;
+                    window.appUtils.showToast(message, 'success');
+                } else {
+                    window.appUtils.showToast(data.message || 'Failed to save user', 'error');
+                }
+            } catch (err) {
+                console.error('Error saving user:', err);
+                window.appUtils.showToast('Failed to save user', 'error');
+            }
+        },
+ 
+        editUser(user) {
+            this.editingUser = user;
+            this.newUser = {
+                name: user.name || '',
+                email: user.email || '',
+                employee_id: user.employee_id || '',
+                role: user.role || 'staff',
+                department: user.department || '',
+                position: user.position || ''
+            };
+            this.showAddModal = true;
+        },
+ 
+        async deleteUser(id) {
+            if (!confirm('Delete this user?')) return;
+            try {
+                const response = await fetch(`${this.endpoint}?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (!data.success) {
+                    window.appUtils.showToast(data.message || 'Failed to delete user', 'error');
+                    return;
+                }
+                await this.loadUsers();
+                window.appUtils.showToast('User deleted', 'success');
+            } catch (err) {
+                console.error('Error deleting user:', err);
+                window.appUtils.showToast('Failed to delete user', 'error');
+            }
+        }
+    }
+}
+</script>
+ 
+</body>
+</html>
+
+================
+File: frontend/src/views/staff/profile.php
+================
+```php
+<?php
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
+    header('Location: ' . route_url('/login'));
+    exit;
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= $title ?? 'Profile' ?></title>
+
+    <link rel="stylesheet" href="<?= asset_url('css/style.css') ?>">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="<?= asset_url('js/app.js') ?>"></script>
+
+    <style>
+        /* ============================================================
+           PROFILE PAGE
+           ============================================================ */
+
+        .profile-container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 32px;
+            box-sizing: border-box;
+        }
+
+        .profile-header {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .profile-detail-section {
+            width: 100%;
+            margin-bottom: 24px;
+        }
+
+        .profile-detail-section h3 {
+            margin-bottom: 12px;
+        }
+
+        .profile-detail-container {
+            width: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .profile-detail-row {
+            display: grid;
+            grid-template-columns: 120px minmax(0, 1fr);
+            align-items: center;
+            column-gap: 20px;
+            width: 100%;
+            padding: 12px 0;
+            box-sizing: border-box;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .profile-detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .profile-detail-label {
+            min-width: 0;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .profile-detail-value {
+            min-width: 0;
+            font-weight: 600;
+            color: var(--heading);
+            overflow-wrap: break-word;
+        }
+
+        /* ============================================================
+           CHANGE PASSWORD
+           This is intentionally inside .profile-container so it
+           shares the exact same width as Profile Details.
+           ============================================================ */
+
+        .password-section {
+            width: 100%;
+            margin: 0 0 24px;
+            padding: 24px;
+            box-sizing: border-box;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+        }
+
+        .password-section h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--heading);
+            margin-bottom: 8px;
+        }
+
+        .password-section p {
+            color: var(--text);
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        .password-section .input-group {
+            width: 100%;
+            margin-bottom: 14px;
+            box-sizing: border-box;
+        }
+
+        .password-section .input-group label {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .password-section .input-group input {
+            display: block;
+            width: 100%;
+            max-width: none;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            font-size: 14px;
+        }
+
+        .password-section .update-btn {
+            display: block;
+            width: 100%;
+            max-width: none;
+            box-sizing: border-box;
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+
+        /* ============================================================
+           MOBILE
+           ============================================================ */
+
+        @media (max-width: 600px) {
+            .profile-container {
+                max-width: 100%;
+                padding: 24px 16px;
+            }
+
+            .profile-detail-container,
+            .password-section {
+                padding: 20px;
+            }
+
+            .profile-detail-row {
+                grid-template-columns: 100px minmax(0, 1fr);
+                column-gap: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div
+    x-data="profileApp()"
+    x-init="init()"
+    @keydown.escape="sidebarOpen = false"
+    x-cloak
+>
+    <div class="app-layout">
+
+        <?php
+        $activePage = 'profile';
+        include __DIR__ . '/staff-sidebar.php';
+        ?>
+
+        <main class="main-content">
+
+            <?php
+            if (file_exists(__DIR__ . '/../partials/top-nav.php')) {
+                include __DIR__ . '/../partials/top-nav.php';
+            }
+            ?>
+
+            <!-- ONE shared container for the entire profile page -->
+            <div class="profile-container">
+
+                <!-- Profile header -->
+                <div class="profile-header">
+                    <div
+                        class="profile-initials"
+                        x-text="getInitials(user.name)"
+                    ></div>
+
+                    <h2 x-text="user.name"></h2>
+                    <p x-text="user.email"></p>
+                </div>
+
+
+                <!-- Profile details -->
+                <div class="profile-detail-section">
+
+                    <div class="profile-detail-container">
+
+                        <div class="profile-detail-row">
+                            <span class="profile-detail-label">Name</span>
+                            <span
+                                class="profile-detail-value"
+                                x-text="user.name"
+                            ></span>
+                        </div>
+
+                        <div class="profile-detail-row">
+                            <span class="profile-detail-label">Email</span>
+                            <span
+                                class="profile-detail-value"
+                                x-text="user.email"
+                            ></span>
+                        </div>
+
+                        <div class="profile-detail-row">
+                            <span class="profile-detail-label">Employee ID</span>
+                            <span
+                                class="profile-detail-value"
+                                x-text="user.employeeId || 'EMP001'"
+                            ></span>
+                        </div>
+
+                        <div class="profile-detail-row">
+                            <span class="profile-detail-label">Role</span>
+                            <span
+                                class="profile-detail-value"
+                                x-text="user.role || 'Staff'"
+                            ></span>
+                        </div>
+
+                        <div class="profile-detail-row">
+                            <span class="profile-detail-label">Department</span>
+                            <span
+                                class="profile-detail-value"
+                                x-text="user.department || 'Not assigned'"
+                            ></span>
+                        </div>
+
+                        <div class="profile-detail-row">
+                            <span class="profile-detail-label">Position</span>
+                            <span
+                                class="profile-detail-value"
+                                x-text="user.position || 'Not assigned'"
+                            ></span>
+                        </div>
+
+                    </div>
+                </div>
+
+
+                <!-- Change password -->
+                <!-- IMPORTANT: This remains INSIDE profile-container -->
+                <div class="password-section">
+
+                    <h3>Change password</h3>
+
+                    <p>Update your password securely.</p>
+
+                    <div class="input-group">
+                        <label>Current password</label>
+
+                        <input
+                            type="password"
+                            x-model="passwordForm.current"
+                            placeholder="Enter current password"
+                        >
+                    </div>
+
+                    <div class="input-group">
+                        <label>New password</label>
+
+                        <input
+                            type="password"
+                            x-model="passwordForm.new"
+                            placeholder="Enter new password"
+                        >
+                    </div>
+
+                    <div class="input-group">
+                        <label>Confirm new password</label>
+
+                        <input
+                            type="password"
+                            x-model="passwordForm.confirm"
+                            placeholder="Confirm new password"
+                        >
+                    </div>
+
+                    <button
+                        class="update-btn"
+                        @click="updatePassword()"
+                    >
+                        Update password
+                    </button>
+
+                </div>
+
+            </div>
+            <!-- END profile-container -->
+
+        </main>
+
+    </div>
+</div>
+
+
+<script>
+function profileApp() {
+    return {
+        sidebarOpen: false,
+
+        user: {
+            name: '',
+            email: '',
+            employeeId: '',
+            role: '',
+            department: '',
+            position: ''
+        },
+
+        passwordForm: {
+            current: '',
+            new: '',
+            confirm: ''
+        },
+
+        init() {
+            const userData = <?php
+                echo json_encode(
+                    $user ?? [
+                        'id' => 'staff-001',
+                        'name' => 'Sarah Mthembu',
+                        'email' => 'sarah@spysee.app',
+                        'employeeId' => 'S-101',
+                        'role' => 'staff',
+                        'department' => '',
+                        'position' => ''
+                    ]
+                );
+            ?>;
+
+            this.user = userData;
+        },
+
+        getInitials(name) {
+            if (!name) return '?';
+
+            return name
+                .split(' ')
+                .map(n => n[0])
+                .join('')
+                .toUpperCase()
+                .substring(0, 2);
+        },
+
+        async updatePassword() {
+
+            if (!this.passwordForm.current) {
+                window.appUtils.showToast(
+                    'Please enter your current password',
+                    'error'
+                );
+                return;
+            }
+
+            if (this.passwordForm.new !== this.passwordForm.confirm) {
+                window.appUtils.showToast(
+                    'New passwords do not match!',
+                    'error'
+                );
+                return;
+            }
+
+            if (this.passwordForm.new.length < 6) {
+                window.appUtils.showToast(
+                    'Password must be at least 6 characters',
+                    'error'
+                );
+                return;
+            }
+
+            if (this.passwordForm.current === this.passwordForm.new) {
+                window.appUtils.showToast(
+                    'New password must be different from the current password',
+                    'error'
+                );
+                return;
+            }
+
+            try {
+
+                const response = await fetch(
+                    <?= json_encode(route_url('/index.php/api/profile/password')) ?>,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            current_password: this.passwordForm.current,
+                            new_password: this.passwordForm.new
+                        })
+                    }
+                );
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    window.appUtils.showToast(
+                        data.message || 'Unable to update password',
+                        'error'
+                    );
+                    return;
+                }
+
+                window.appUtils.showToast(
+                    'Password changed successfully!',
+                    'success'
+                );
+
+                this.passwordForm = {
+                    current: '',
+                    new: '',
+                    confirm: ''
+                };
+
+            } catch (error) {
+
+                console.error(
+                    'Error updating password:',
+                    error
+                );
+
+                window.appUtils.showToast(
+                    'Unable to update password',
+                    'error'
+                );
+            }
+        }
+    }
+}
+</script>
+
+</body>
+</html>
+
+================
+File: backend/src/routes/web.php
+================
+<?php
+/**
+ * CENTRAL APPLICATION ROUTER
+ * Merged router supporting Auth (Dev 2), Attendance (Dev 3), and Dashboard (Dev 5).
+ */
+
+// --- AUTOLOADER ---
+spl_autoload_register(function (string $class) {
+    // Standard PSR-4 style mapping relative to project root
+    $relPath = str_replace('\\', '/', ltrim($class, '\\')) . '.php';
+
+    // 1. Exact match attempt
+    $file = __DIR__ . '/../' . $relPath;
+    if (file_exists($file)) {
+        require_once $file;
+        return;
+    }
+
+    // 2. Lowercase folder + exact filename fallback (e.g., backend/src/validators/AttendanceValidator.php)
+    $parts = explode('\\', ltrim($class, '\\'));
+    $fileName = array_pop($parts);
+    $dirPath = strtolower(implode('/', $parts));
+    $mixedFile = __DIR__ . '/../' . $dirPath . '/' . $fileName . '.php';
+    if (file_exists($mixedFile)) {
+        require_once $mixedFile;
+        return;
+    }
+});
+
+// --- GLOBAL NON-NAMESPACED DEPENDENCIES ---
+if (file_exists(__DIR__ . '/../config/DataBase.php')) {
+    require_once __DIR__ . '/../config/DataBase.php';
+} elseif (file_exists(__DIR__ . '/../config/Database.php')) {
+    require_once __DIR__ . '/../config/Database.php';
+}
+
+if (file_exists(__DIR__ . '/../exceptions/AuthenticationException.php')) {
+    require_once __DIR__ . '/../exceptions/AuthenticationException.php';
+}
+
+// --- DATABASE CONNECTION ---
+require_once __DIR__ . '/../config/DataBase.php';
+
+try {
+    $pdo = Database::getConnection();
+} catch (\Throwable $e) {
+    $pdo = null;
+}
+
+// --- ROUTE & REQUEST PARSING ---
+$requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+// Ensure $uri defaults to empty string if parse_url returns null or false
+$uri = parse_url($requestUri, PHP_URL_PATH) ?? '';
+
+// Dynamic path resolution (supports subfolders or defined BASE_PATH constant)
+if (defined('BASE_PATH')) {
+    $route = substr($uri, strlen(BASE_PATH));
+} else {
+    $route = preg_replace('#^/.*?(backend|Digital-Attendence-Project)#i', '', $uri);
+}
+
+// Normalize multiple slashes and trailing slashes
+$route = preg_replace('#/+#', '/', $route);
+$route = str_replace('/index.php', '', $route);
+$route = rtrim($route, '/');
+
+if (empty($route)) {
+    $route = '/';
+}
+
+// Global API response header
+header('Content-Type: application/json');
+
+// --- ROUTE DISPATCHER ---
+switch ($route) {
+    case '/':
+        echo json_encode(['success' => true, 'message' => 'Digital Attendance System API running']);
+        break;
+
+    // --- AUTHENTICATION ROUTES (Dev 2) ---
+    case '/auth/login':
+    case '/login':
+        if ($method === 'POST') {
+            (new Controllers\AuthController($pdo))->login();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    case '/auth/logout':
+        if ($method === 'POST') {
+            (new Controllers\AuthController($pdo))->logout();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+        case '/test/auth':
+    Middleware\AuthMiddleware::handle();
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'You are authenticated'
+    ]);
+    break;
+
+    // --- ATTENDANCE ENGINE ROUTES (Dev 3) ---
+    case '/attendance/scan':
+        if ($method === 'POST') {
+            (new Controllers\AttendanceController($pdo))->scan();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    case '/attendance/clock-in':
+    case '/attendance/Spy-in': // Maintained backward compatibility for Dev 2's temporary route
+        if ($method === 'POST') {
+            (new Controllers\AttendanceController($pdo))->clockIn();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    case '/attendance/clock-out':
+    case '/attendance/Spy-out': // Maintained backward compatibility for Dev 2's temporary route
+        if ($method === 'POST') {
+            (new Controllers\AttendanceController($pdo))->clockOut();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    // --- DASHBOARD ENDPOINTS (Dev 5) ---
+    case '/dashboard/stats':
+        if ($method === 'GET') {
+            (new Controllers\DashboardController($pdo))->stats();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    case '/dashboard/onsite':
+        if ($method === 'GET') {
+            (new Controllers\DashboardController($pdo))->onsite();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    case '/dashboard/recent':
+        if ($method === 'GET') {
+            (new Controllers\DashboardController($pdo))->recent();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+        case '/users':
+    if ($method === 'GET') {
+        (new Controllers\UserController($pdo))->index();
+    } elseif ($method === 'POST') {
+        (new Controllers\UserController($pdo))->store();
+    } else {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+    }
+    break;
+
+        // --- SETTINGS ENDPOINTS ---
+    case '/settings':
+        if ($method === 'GET') {
+            (new Controllers\SettingsController($pdo))->index();
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+        }
+        break;
+
+    case '/sync-errors':
+    if ($method === 'GET') {
+        (new Controllers\SyncErrorController($pdo))->index(); // <-- Singular matches SyncErrorController.php
+    } else {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+    }
+    break;
+
+    // Default 404
+    default:
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Route not found.']);
+        break;
+}
 
 ================
 File: frontend/src/views/admin/qr.php
@@ -11883,6 +13070,11 @@ function dashboardApp() {
 </html>
 
 ================
+File: backend/storage/cache/sheets_cache.json
+================
+{"data":{"success":true,"rows":[["Timestamp ","Staff_ID","Name","Status","Method","Session_ID","Row_Source"],["2026-08-24T13:34:30.692Z","EMP001","Thina","Check-in","QR","EMP001_20260824","Web"],["2026-08-24T13:45:18.059Z","EMP002","Marco","Check-in","QR","EMP002_20260824","Web"],["2026-08-24T13:52:54.691Z","EMP002","Marco","Check-out","QR","EMP002_20260824","Web"],["2026-08-24T14:18:27.431Z","EMP001","Thina","Check-out","QR","EMP001_20260824","Web"],["2026-08-25T07:29:08.661Z","EMP003","Dominic","Check-in","QR","EMP003_20260825","Web"],["2026-08-25T07:30:13.047Z","EMP003","Dominic","Check-out","QR","EMP003_20260825","Web"],["2026-08-25T07:35:47.634Z","EMP001","Thina","Check-in","QR","EMP001_20260825","Web"],["2026-08-25T07:42:05.830Z","EMP001","Thina","Check-out","QR","EMP001_20260825","Web"],["2026-08-25T08:11:26.608Z","EMP001","Thina","Check-in","QR","EMP001_20260825","Web"],["2026-08-25T08:25:57.684Z","EMP001","Thina","Check-out","QR","EMP001_20260825","Web"],["2026-08-25T10:14:34.373Z","EMP003","Dominic","Check-in","QR","EMP003_20260825","Web"],["2026-08-25T10:47:45.082Z","EMP001","Thina","Check-in","QR","EMP001_20260825","Web"],["2026-08-25T14:09:49.220Z","EMP003","Dominic","Check-out","QR","EMP003_20260825","Web"],["2026-08-25T14:10:57.059Z","EMP003","Dominic","Check-in","QR","EMP003_20260825","Web"],["2026-08-25T14:12:05.920Z","EMP001","Thina","Check-out","QR","EMP001_20260825","Web"]]},"fetched_at":1787726498}
+
+================
 File: frontend/src/views/login.php
 ================
 <!DOCTYPE html>
@@ -12261,7 +13453,7 @@ File: frontend/src/views/login.php
             <div class="login-card">
                 <div class="login-header">
                     <h3>Sign in</h3>
-                    <p>Use the credentials provided by your administrator.</p>
+                    <p>Use your Employee ID or email address with your PIN/password.</p>
                 </div>
 
                 <?php if (!empty($error)): ?>
@@ -12270,8 +13462,8 @@ File: frontend/src/views/login.php
 
                 <form method="POST" action="<?= route_url('/login') ?>" @submit="loading = true">
                     <div class="input-group">
-                        <label>Staff / Admin ID</label>
-                        <input type="text" name="username" placeholder="e.g. STF-001 or ADMIN_001" required>
+                        <label>Employee ID or Email</label>
+                        <input type="text" name="username" placeholder="e.g. EMP001 or thina@spysee.app" required>
                     </div>
                     <div class="input-group">
                         <label>PIN / Password</label>
@@ -12286,9 +13478,9 @@ File: frontend/src/views/login.php
                 <div class="demo-accounts">
                     <p>DEMO ACCOUNTS</p>
                     <div class="demo-items">
-                        <div><strong>ADMIN_001</strong> / admin123 <span class="role-badge admin">Admin</span></div>
-                        <div><strong>STF-001</strong> / 1234 <span class="role-badge staff">Staff</span></div>
-                        <div><strong>STF-004</strong> / 5678 <span class="role-badge staff">Staff</span></div>
+                        <div><strong>EMP001</strong> / thina@01 <span class="role-badge staff">Staff</span></div>
+                        <div><strong>EMP004</strong> / jose@04 <span class="role-badge admin">Admin</span></div>
+                        <div><strong>admin@spysee.app</strong> / admin123 <span class="role-badge admin">Admin</span></div>
                     </div>
                 </div>
 
@@ -12402,7 +13594,7 @@ function getAllUsersFromDatabase() {
     try {
         $pdo = DataBase::getConnection();
         $stmt = $pdo->query("
-            SELECT id, employee_id, name, email, role, status, created_at 
+            SELECT id, employee_id, name, email, role, status, created_at, department, position
             FROM users 
             ORDER BY name ASC
         ");
@@ -12416,6 +13608,145 @@ function getAllUsersFromDatabase() {
 function getAllUsers() {
     $users = getAllUsersFromDatabase();
     return ['success' => true, 'data' => $users];
+}
+
+function createUser(array $input): array {
+    $employeeId = trim($input['employee_id'] ?? '');
+    $name = trim($input['name'] ?? '');
+    $email = trim($input['email'] ?? '');
+    $role = trim($input['role'] ?? 'staff');
+    $department = trim($input['department'] ?? '');
+    $position = trim($input['position'] ?? '');
+
+    if ($employeeId === '' || $name === '' || $email === '') {
+        return ['success' => false, 'message' => 'Employee ID, name, and email are required'];
+    }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['success' => false, 'message' => 'Enter a valid email address'];
+    }
+    if (!in_array($role, ['staff', 'admin'], true)) {
+        return ['success' => false, 'message' => 'Role must be staff or admin'];
+    }
+
+    try {
+        $userModel = new Models\User(DataBase::getConnection());
+        if ($userModel->findByEmployeeId($employeeId)) {
+            return ['success' => false, 'message' => 'Employee ID already exists'];
+        }
+        if ($userModel->findByEmail($email)) {
+            return ['success' => false, 'message' => 'Email already exists'];
+        }
+
+        $tempPassword = substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 8);
+        if (!$userModel->create([
+            'employee_id'   => $employeeId,
+            'name'          => $name,
+            'email'         => $email,
+            'passwords'     => $tempPassword,
+            'password_hash' => password_hash($tempPassword, PASSWORD_DEFAULT),
+            'role'          => $role,
+            'status'        => 'active',
+            'department'    => $department ?: null,
+            'position'      => $position ?: null,
+        ])) {
+            return ['success' => false, 'message' => 'Failed to create user'];
+        }
+
+        return ['success' => true, 'message' => 'User created', 'temp_password' => $tempPassword];
+    } catch (Throwable $e) {
+        error_log('Database error creating user: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Unable to create user'];
+    }
+}
+
+function updateUser(int $id, array $input): array {
+    $employeeId = trim($input['employee_id'] ?? '');
+    $name = trim($input['name'] ?? '');
+    $email = trim($input['email'] ?? '');
+    $role = trim($input['role'] ?? 'staff');
+    $department = trim($input['department'] ?? '');
+    $position = trim($input['position'] ?? '');
+
+    if ($employeeId === '' || $name === '' || $email === '') {
+        return ['success' => false, 'message' => 'Employee ID, name, and email are required'];
+    }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['success' => false, 'message' => 'Enter a valid email address'];
+    }
+    if (!in_array($role, ['staff', 'admin'], true)) {
+        return ['success' => false, 'message' => 'Role must be staff or admin'];
+    }
+
+    try {
+        $userModel = new Models\User(DataBase::getConnection());
+        if (!$userModel->findById($id)) {
+            return ['success' => false, 'message' => 'User not found'];
+        }
+        $existingEmployee = $userModel->findByEmployeeId($employeeId);
+        if ($existingEmployee && (int) $existingEmployee['id'] !== $id) {
+            return ['success' => false, 'message' => 'Employee ID already exists'];
+        }
+        $existingEmail = $userModel->findByEmail($email);
+        if ($existingEmail && (int) $existingEmail['id'] !== $id) {
+            return ['success' => false, 'message' => 'Email already exists'];
+        }
+
+        $updated = $userModel->update($id, [
+            'employee_id' => $employeeId,
+            'name'        => $name,
+            'email'       => $email,
+            'role'        => $role,
+            'department'  => $department ?: null,
+            'position'    => $position ?: null,
+        ]);
+        return $updated
+            ? ['success' => true, 'message' => 'User updated']
+            : ['success' => false, 'message' => 'Failed to update user'];
+    } catch (Throwable $e) {
+        error_log('Database error updating user: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Unable to update user'];
+    }
+}
+
+function deleteUser(int $id): array {
+    try {
+        $userModel = new Models\User(DataBase::getConnection());
+        if (!$userModel->findById($id)) {
+            return ['success' => false, 'message' => 'User not found'];
+        }
+        return $userModel->delete($id)
+            ? ['success' => true, 'message' => 'User deleted']
+            : ['success' => false, 'message' => 'Failed to delete user'];
+    } catch (Throwable $e) {
+        error_log('Database error deleting user: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Unable to delete user'];
+    }
+}
+
+function updateOwnPassword(int $id, array $input): array {
+    $currentPassword = (string) ($input['current_password'] ?? '');
+    $newPassword = (string) ($input['new_password'] ?? '');
+
+    if ($currentPassword === '' || $newPassword === '') {
+        return ['success' => false, 'message' => 'Current and new passwords are required'];
+    }
+    if (strlen($newPassword) < 6) {
+        return ['success' => false, 'message' => 'Password must be at least 6 characters'];
+    }
+    if ($currentPassword === $newPassword) {
+        return ['success' => false, 'message' => 'New password must be different from the current password'];
+    }
+
+    try {
+        $userModel = new Models\User(DataBase::getConnection());
+        if (!$userModel->updatePassword($id, $currentPassword, $newPassword)) {
+            return ['success' => false, 'message' => 'Current password is incorrect'];
+        }
+        return ['success' => true, 'message' => 'Password updated successfully'];
+    } catch (Throwable $e) {
+        error_log('Database error updating password: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Unable to update password'];
+    }
 }
 
 // ============================================================
@@ -12784,7 +14115,7 @@ function redirect_to(string $path): never
 }
 
 // ============================================================
-// HANDLE LOGIN - DATABASE (HYBRID)
+// HANDLE LOGIN - DATABASE (HYBRID) - SUPPORTS BOTH ID & EMAIL
 // ============================================================
 if ($path === '/login' && $method === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -12794,11 +14125,16 @@ if ($path === '/login' && $method === 'POST') {
         $pdo = DataBase::getConnection();
         $userModel = new Models\User($pdo);
         
-        // Find user by employee_id (works for both staff and admins)
+        // FIRST: Try to find by employee_id
         $user = $userModel->findByEmployeeId($username);
         
+        // SECOND: If not found, try by email
         if (!$user) {
-            $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
+            $user = $userModel->findByEmail($username);
+        }
+        
+        if (!$user) {
+            $_SESSION['login_error'] = '❌ Invalid Employee ID/Email or PIN/Password.';
             redirect_to('/login');
         }
         
@@ -12816,7 +14152,7 @@ if ($path === '/login' && $method === 'POST') {
         }
         
         if (!$valid) {
-            $_SESSION['login_error'] = '❌ Invalid Staff ID/Admin ID or PIN/Password.';
+            $_SESSION['login_error'] = '❌ Invalid Employee ID/Email or PIN/Password.';
             redirect_to('/login');
         }
         
@@ -12835,6 +14171,8 @@ if ($path === '/login' && $method === 'POST') {
         $_SESSION['user_name'] = $user['name'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['employee_id'] = $user['employee_id'];
+        $_SESSION['department'] = $user['department'] ?? null;
+        $_SESSION['position'] = $user['position'] ?? null;
         
         if (!empty($_SESSION['redirect_after_login'])) {
             $redirectUrl = $_SESSION['redirect_after_login'];
@@ -12869,7 +14207,7 @@ if ($path === '/logout') {
 if (str_starts_with($path, '/api/')) {
     header('Content-Type: application/json');
     header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type');
     
     if ($method === 'OPTIONS') {
@@ -12881,8 +14219,46 @@ if (str_starts_with($path, '/api/')) {
     
     $apiMap = [
         // ---- DATABASE APIS ----
-        '/api/users' => function() {
-            echo json_encode(getAllUsers());
+        '/api/users' => function() use ($method) {
+            if ($method === 'GET') {
+                echo json_encode(getAllUsers());
+                return;
+            }
+
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            if ($method === 'POST') {
+                $result = createUser($data);
+                http_response_code($result['success'] ? 201 : 422);
+            } elseif ($method === 'PUT') {
+                $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+                $result = $id ? updateUser($id, $data) : ['success' => false, 'message' => 'A valid user id is required'];
+                http_response_code($result['success'] ? 200 : 422);
+            } elseif ($method === 'DELETE') {
+                $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+                $result = $id ? deleteUser($id) : ['success' => false, 'message' => 'A valid user id is required'];
+                http_response_code($result['success'] ? 200 : 422);
+            } else {
+                http_response_code(405);
+                $result = ['success' => false, 'message' => 'Method Not Allowed'];
+            }
+            echo json_encode($result);
+        },
+        '/api/profile/password' => function() use ($method) {
+            if ($method !== 'POST') {
+                http_response_code(405);
+                echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+                return;
+            }
+            if (!isset($_SESSION['logged_in'], $_SESSION['user_id']) || $_SESSION['logged_in'] !== true) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'message' => 'You must be logged in']);
+                return;
+            }
+
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $result = updateOwnPassword((int) $_SESSION['user_id'], $data);
+            http_response_code($result['success'] ? 200 : 422);
+            echo json_encode($result);
         },
         
         // ---- GOOGLE SHEETS APIS (KEEP THESE) ----
@@ -13012,10 +14388,10 @@ switch ($path) {
         if ($role !== 'staff') { redirect_to('/login'); break; }
         $title = 'Staff Dashboard | SpySee';
         $user = [
-            'id' => $_SESSION['staff_id'] ?? $_SESSION['user_id'] ?? 'STF-001',
+            'id' => $_SESSION['staff_id'] ?? $_SESSION['user_id'] ?? 'EMP001',
             'name' => $_SESSION['staff_name'] ?? $_SESSION['user_name'] ?? 'Staff',
             'email' => $_SESSION['user_email'] ?? '',
-            'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'STF-001',
+            'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'EMP001',
             'role' => 'staff'
         ];
         view('staff/dashboard', compact('title', 'user'));
@@ -13024,35 +14400,40 @@ switch ($path) {
     case '/scan-qr':
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
         $title = 'Scan QR Code | SpySee';
-        $user = ['id' => $_SESSION['staff_id'] ?? 'STF-001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
+        $user = ['id' => $_SESSION['staff_id'] ?? 'EMP001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
         view('staff/scan-qr', compact('title', 'user'));
         break;
         
     case '/history':
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
         $title = 'Attendance History | SpySee';
-        $user = ['id' => $_SESSION['staff_id'] ?? 'STF-001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
+        $user = ['id' => $_SESSION['staff_id'] ?? 'EMP001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
         view('staff/history', compact('title', 'user'));
         break;
         
     case '/calendar':
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
         $title = 'Calendar | SpySee';
-        $user = ['id' => $_SESSION['staff_id'] ?? 'STF-001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
+        $user = ['id' => $_SESSION['staff_id'] ?? 'EMP001', 'name' => $_SESSION['staff_name'] ?? 'Staff'];
         view('staff/calendar', compact('title', 'user'));
         break;
         
     case '/profile':
-        if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
-        $title = 'Profile | SpySee';
-        $user = [
-            'id' => $_SESSION['staff_id'] ?? 'STF-001',
-            'name' => $_SESSION['staff_name'] ?? 'Staff',
-            'email' => $_SESSION['user_email'] ?? '',
-            'employeeId' => $_SESSION['staff_id'] ?? 'STF-001'
-        ];
-        view('staff/profile', compact('title', 'user'));
-        break;
+    if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'staff') { redirect_to('/login'); break; }
+
+    $title = 'Profile | SpySee';
+
+    $user = [
+        'id' => $_SESSION['user_id'] ?? null,
+        'name' => $_SESSION['staff_name'] ?? $_SESSION['user_name'] ?? 'Staff',
+        'email' => $_SESSION['user_email'] ?? '',
+        'employeeId' => $_SESSION['staff_id'] ?? $_SESSION['employee_id'] ?? 'EMP001',
+        'department' => $_SESSION['department'] ?? 'Not assigned',
+        'position' => $_SESSION['position'] ?? 'Not assigned'
+    ];
+
+    view('staff/profile', compact('title', 'user'));
+    break;
         
     case '/admin-dashboard':
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['user_role'] !== 'admin') { redirect_to('/login'); break; }

@@ -434,12 +434,43 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                 <!-- Header -->
                 <div class="page-header" style="margin-bottom:0;">
                     <div>
-                        <h1>📋 Attendance Logs</h1>
+                    <h1>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            style="vertical-align: middle; margin-right: 8px;">
+                            <rect width="8" height="4" x="8" y="2" rx="1"/>
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                            <path d="M12 11h4"/>
+                            <path d="M12 16h4"/>
+                            <path d="M8 11h.01"/>
+                            <path d="M8 16h.01"/>
+                        </svg>
+                        Attendance Logs
+                    </h1>
                         <p style="color:var(--text);font-size:14px;margin-top:4px;">Complete audit trail of all staff check-ins and check-outs</p>
                     </div>
                     <div class="action-buttons">
-                        <button class="btn-outline" @click="refreshLogs()" style="height:40px;padding:0 18px;">🔄 Refresh</button>
-                        <button class="btn-primary" @click="exportCSV()" style="height:40px;padding:0 18px;">📥 Export CSV</button>
+                <button class="btn-outline" @click="refreshLogs()" style="height:40px;padding:0 18px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        style="vertical-align: middle; margin-right: 6px;">
+                        <path d="M21 12a9 9 0 0 0-15.3-6.4L3 8"/>
+                        <path d="M3 3v5h5"/>
+                        <path d="M3 12a9 9 0 0 0 15.3 6.4L21 16"/>
+                        <path d="M21 21v-5h-5"/>
+                    </svg>
+                    Refresh
+                </button>
+                <button class="btn-primary" @click="exportCSV()" style="height:40px;padding:0 18px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        style="vertical-align: middle; margin-right: 6px;">
+                        <path d="M12 3v12"/>
+                        <path d="m7 10 5 5 5-5"/>
+                        <path d="M5 21h14"/>
+                    </svg>
+                    Export CSV
+                </button>
                     </div>
                 </div>
 
@@ -465,7 +496,20 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
 
                 <!-- Filters -->
                 <div class="filters-row">
-                    <input type="text" class="search-input" x-model="searchQuery" placeholder="🔍 Search by name, ID, or location...">
+                    <div style="position:relative; flex:1; min-width:180px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none;">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.3-4.3"/>
+                        </svg>
+
+                        <input type="text"
+                            class="search-input"
+                            x-model="searchQuery"
+                            placeholder="Search by name, ID, or location..."
+                            style="width:100%; padding-left:40px;">
+                    </div>
                     <select x-model="filterType">
                         <option value="all">All Types</option>
                         <option value="sign-in">Check-Ins</option>
@@ -481,10 +525,41 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
                 </div>
 
                 <!-- Quick Actions -->
-                <div class="quick-actions">
-                    <button class="quick-btn" @click="todayFilter()" :class="{ active: isTodayFilter }">📅 Today</button>
-                    <button class="quick-btn" @click="weekFilter()" :class="{ active: isWeekFilter }">📆 This Week</button>
-                    <button class="quick-btn" @click="clearFilters()">✕ Clear Filters</button>
+                    <button class="quick-btn" @click="todayFilter()" :class="{ active: isTodayFilter }">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            style="vertical-align: middle; margin-right: 5px;">
+                            <rect width="18" height="18" x="3" y="4" rx="2"/>
+                            <path d="M16 2v4"/>
+                            <path d="M8 2v4"/>
+                            <path d="M3 10h18"/>
+                        </svg>
+                        Today
+                    </button>
+                    <button class="quick-btn" @click="weekFilter()" :class="{ active: isWeekFilter }">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        style="vertical-align: middle; margin-right: 5px;">
+                        <rect width="18" height="18" x="3" y="4" rx="2"/>
+                        <path d="M16 2v4"/>
+                        <path d="M8 2v4"/>
+                        <path d="M3 10h18"/>
+                        <path d="M8 14h2"/>
+                        <path d="M14 14h2"/>
+                        <path d="M8 18h2"/>
+                        <path d="M14 18h2"/>
+                    </svg>
+                    This Week
+                </button>
+                <button class="quick-btn" @click="clearFilters()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        style="vertical-align: middle; margin-right: 5px;">
+                        <path d="M18 6 6 18"/>
+                        <path d="m6 6 12 12"/>
+                    </svg>
+                    Clear Filters
+                </button>
                 </div>
 
                 <!-- Loading -->

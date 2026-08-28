@@ -207,13 +207,49 @@ if ($role !== 'admin') {
             
             <div class="qr-page-content">
                 <div class="qr-header">
-                    <h1>📱 QR Terminal</h1>
+                    <h1 style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7"/>
+                            <rect x="14" y="3" width="7" height="7"/>
+                            <rect x="3" y="14" width="7" height="7"/>
+                            <path d="M14 14h3v3h-3z"/>
+                            <path d="M21 14v3"/>
+                            <path d="M17 21h4"/>
+                        </svg>
+                        QR Terminal
+                    </h1>
                     <p class="sub">Scan this QR code with your phone to clock in/out</p>
-                    <div class="location-badge" id="locationBadge">📍 HQ Entrance</div>
+                    <div class="location-badge" id="locationBadge">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"
+                            style="vertical-align:middle; margin-right:4px;">
+                            <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        HQ Entrance
+                    </div>
                 </div>
 
                 <div class="qr-card" @click="generateQR()" id="qrCard">
-                    <div class="label">📸 Scan to Clock In/Out</div>
+                    <div class="label">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"
+                            style="vertical-align:middle; margin-right:4px;">
+                            <path d="M9 2H5a2 2 0 0 0-2 2v4"/>
+                            <path d="M15 2h4a2 2 0 0 1 2 2v4"/>
+                            <path d="M21 15v4a2 2 0 0 1-2 2h-4"/>
+                            <path d="M9 21H5a2 2 0 0 1-2-2v-4"/>
+                            <path d="M7 7h3v3H7z"/>
+                            <path d="M14 7h3v3h-3z"/>
+                            <path d="M7 14h3v3H7z"/>
+                            <path d="M14 14h3v3h-3z"/>
+                        </svg>
+                        Scan to Clock In/Out
+                    </div>
                     <div id="qrbox">
                         <div class="qr-loading" id="qrLoading">
                             <div class="spinner"></div>
@@ -222,15 +258,37 @@ if ($role !== 'admin') {
                     </div>
                     <div class="countdown" id="countdown">30</div>
                     <div class="countdown-label">seconds until refresh</div>
-                    <div class="refresh-hint">👆 Tap the QR code to refresh</div>
+                    <div class="refresh-hint">Tap the QR code to refresh</div>
                 </div>
 
                 <div class="info-text">
-                    🔄 <strong>Dynamic QR</strong> • Refreshes every 30s • <strong>No token storage</strong> • Uses your logged-in session
+                    <div class="info-text">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"
+                            style="vertical-align:middle; margin-right:4px;">
+                            <path d="M21 12a9 9 0 0 0-15.3-6.3L3 8"/>
+                            <path d="M3 3v5h5"/>
+                            <path d="M3 12a9 9 0 0 0 15.3 6.3L21 16"/>
+                            <path d="M21 21v-5h-5"/>
+                        </svg>
+                        <strong>Dynamic QR</strong> • Refreshes every 30s • <strong>No token storage</strong> • Uses your logged-in session
+                    </div>
                 </div>
 
                 <div class="staff-card">
-                    <div class="title">👥 Staff Online</div>
+                    <div class="title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"
+                            style="vertical-align:middle; margin-right:4px;">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        Staff Online
+                    </div>
                     <div id="staffList">
                         <div class="staff-empty">Loading staff...</div>
                     </div>
@@ -343,7 +401,16 @@ async function generateQR() {
             correctLevel: QRCode.CorrectLevel.H
         });
         
-        document.getElementById('locationBadge').textContent = '📍 ' + currentLocation;
+        document.getElementById('locationBadge').innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"
+                style="vertical-align:middle; margin-right:4px;">
+                <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/>
+                <circle cx="12" cy="10" r="3"/>
+            </svg>
+            ${currentLocation}
+        `;
         
         // Reset and start countdown
         startCountdown(30);
@@ -354,7 +421,7 @@ async function generateQR() {
         
     } catch (err) {
         console.error('QR Generation Error:', err);
-        box.innerHTML = '<div style="color:#EF4444;padding:20px;">❌ Error generating QR: ' + err.message + '</div>';
+        box.innerHTML = '<div style="color:#EF4444;padding:20px;">Error generating QR: ' + err.message + '</div>';
     }
 }
 
@@ -394,7 +461,20 @@ async function loadStaff() {
             const html = staff.map(s => {
                 const status = s.status === 'signed_in' ? 'in' : 'out';
                 const badgeClass = status === 'in' ? 'badge-in' : 'badge-out';
-                const label = status === 'in' ? '✅ In' : '❌ Out';
+            const label = status === 'in'
+                ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    style="vertical-align:middle; margin-right:3px;">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg> In`
+                : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    style="vertical-align:middle; margin-right:3px;">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg> Out`;
                 return `
                     <div class="staff-item">
                         <span>${escapeHtml(s.name)}</span>
@@ -408,7 +488,7 @@ async function loadStaff() {
         }
     } catch (err) {
         console.error('Error loading staff:', err);
-        document.getElementById('staffList').innerHTML = '<div style="color:#EF4444;font-size:13px;">❌ Error loading staff: ' + err.message + '</div>';
+        document.getElementById('staffList').innerHTML = '<div style="color:#EF4444;font-size:13px;">Error loading staff: ' + err.message + '</div>';
     }
 }
 
