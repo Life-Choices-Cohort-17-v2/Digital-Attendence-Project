@@ -3,7 +3,7 @@ declare(strict_types=1);
 /**
  * Main Router – HYBRID SYSTEM
  * - Login: Database (users table)
- * - Attendance: Google Sheets (Log tab)
+ * - Attendance history: Database (attendance_records)
  * - Dashboard: Google Sheets (cache)
  * - QR Scanner: Google Sheets
  */
@@ -145,6 +145,60 @@ function get_flash(): ?array
     return $flash;
 }
 
+/**
+ * Staff Attendance History — read from MySQL attendance_records.
+ *
+ * The history page expects:
+ *   { success: true, data: [ { id, date, timestamp, type, location, method, sync } ] }
+ *
+ * DB stores type as sign_in / sign_out. The page groups on sign-in / sign-out.
+ */
+function get_user_history_from_db($userId): array
+{
+    if ($userId === null || $userId === '') {
+        return ['success' => false, 'message' => 'Authentication required'];
+    }
+
+    try {
+        $pdo = DataBase::getConnection();
+        $stmt = $pdo->prepare(
+            "SELECT id, type, timestamp, location, device, sync_status
+             FROM attendance_records
+             WHERE user_id = :user_id
+             ORDER BY timestamp DESC"
+        );
+        $stmt->execute([':user_id' => $userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $history = array_map(static function (array $row): array {
+            $timestamp = $row['timestamp'] ?? null;
+            $type = $row['type'] ?? '';
+
+            if ($type === 'sign_in') {
+                $mappedType = 'sign-in';
+            } elseif ($type === 'sign_out') {
+                $mappedType = 'sign-out';
+            } else {
+                $mappedType = $type;
+            }
+
+            return [
+                'id'        => $row['id'],
+                'date'      => $timestamp ? date('Y-m-d', strtotime($timestamp)) : null,
+                'timestamp' => $timestamp,
+                'type'      => $mappedType,
+                'location'  => $row['location'] ?? 'Office',
+                'method'    => $row['device'] ?? 'QR',
+                'sync'      => $row['sync_status'] ?? 'pending',
+            ];
+        }, $rows);
+
+        return ['success' => true, 'data' => $history];
+    } catch (Throwable $e) {
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
 // ============================================================
 // HANDLE LOGIN - DATABASE (HYBRID)
 // ============================================================
@@ -272,8 +326,19 @@ if (str_starts_with($path, '/api/')) {
             // SECURITY: always use the authenticated session's user id.
             // A user_id passed in the query string is intentionally ignored
             // so one employee can never request another employee's history.
-            $userId = $_SESSION['user_id'] ?? '';
-            echo json_encode(getUserHistory($userId));
+            $userId = $_SESSION['user_id'] ?? null;
+
+            if (!$userId) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'message' => 'Authentication required']);
+                return;
+            }
+
+            $result = get_user_history_from_db($userId);
+            if (empty($result['success'])) {
+                http_response_code(500);
+            }
+            echo json_encode($result);
         },
         '/api/attendance-logs' => function() {
             echo json_encode(getAllAttendanceLogs());

@@ -381,7 +381,7 @@
                     <div class="error-message"><?= htmlspecialchars($error) ?></div>
                 <?php endif; ?>
 
-                <form method="post" action="http://localhost:8000/auth/login" @submit="loading = true">
+              <form method="post" action="<?= route_url('/login') ?>" @submit="loading = true">
                     <div class="input-group">
                         <label>Staff / Admin ID</label>
                         <input type="text" name="username" placeholder="e.g. STF-001 or ADMIN_001" required>
