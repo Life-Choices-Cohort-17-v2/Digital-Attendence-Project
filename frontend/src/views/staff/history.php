@@ -345,191 +345,134 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'staff') {
                             </tr>
                         </thead>
                         <tbody>
-
-                            <template x-for="row in displayRows" :key="row.key">
-
-                                <tr
-                                    x-show="row.type === 'day' || isDayExpanded(row.date)"
-                                    :class="{
-                                        'clickable-row': row.type === 'day',
-                                        'detail-row': row.type === 'detail',
-                                        'expanded': row.type === 'day' && isDayExpanded(row.date)
-                                    }"
-                                    @click="row.type === 'day' && toggleDay(row.date)"
-                                >
-
-                                    <td>
-                                        <template x-if="row.type === 'day'">
+                        <template x-for="row in displayRows" :key="row.key">
+                            <tr
+                                :class="{
+                                    'clickable-row': row.type === 'day',
+                                    'detail-row': row.type === 'detail',
+                                    'expanded': row.type === 'day' && isDayExpanded(row.date)
+                                }"
+                                @click="row.type === 'day' && toggleDay(row.date)"
+                            >
+                                <td>
+                                    <template x-if="row.type === 'day'">
+                                        <span>
                                             <span
                                                 class="toggle-icon"
                                                 :class="{ 'expanded': isDayExpanded(row.date) }"
                                                 aria-hidden="true"
-                                            >
-                                                ▶
-                                            </span>
-                                        </template>
-
-                                        <template x-if="row.type === 'day'">
+                                            >▶</span>
                                             <span x-text="row.date"></span>
-                                        </template>
-
-                                        <template x-if="row.type === 'detail'">
-                                            <span></span>
-                                        </template>
-                                    </td>
-
-
-                                    <!-- FIRST IN / DETAIL CONTENT -->
-                                    <td>
-
-                                        <template x-if="row.type === 'day'">
-                                            <span x-text="row.firstIn || '--:--'"></span>
-                                        </template>
-
-                                        <template x-if="row.type === 'detail'">
-                                            <span
-                                                class="detail-time"
-                                                x-text="row.record.time"
-                                            ></span>
-                                        </template>
-
-                                    </td>
-
-
-                                    <!-- LAST OUT / DETAIL TYPE -->
-                                    <td>
-
-                                        <template x-if="row.type === 'day'">
-                                            <span x-text="row.lastOut || '--:--'"></span>
-                                        </template>
-
-                                        <template x-if="row.type === 'detail'">
-                                            <span
-                                                class="detail-type"
-                                                :class="row.record.type"
-                                                x-text="row.record.type === 'sign-in' ? 'IN' : 'OUT'"
-                                            ></span>
-                                        </template>
-
-                                    </td>
-
-
-                                    <!-- TOTAL HOURS / LOCATION -->
-                                    <td>
-
-                                        <template x-if="row.type === 'day'">
-
-                                            <span
-                                                :class="
-                                                    row.totalHours > 0
-                                                        ? 'hours-positive'
-                                                        : (row.totalHours < 0
-                                                            ? 'hours-negative'
-                                                            : 'hours-zero')
-                                                "
-                                                x-text="
-                                                    row.totalHours !== null
-                                                        ? row.totalHours.toFixed(1) + 'h'
-                                                        : '--'
-                                                "
-                                            ></span>
-
-                                        </template>
-
-                                        <template x-if="row.type === 'detail'">
-
-                                            <span class="detail-location">
-
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                    aria-hidden="true"
-                                                >
-                                                    <path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z"></path>
-                                                    <circle cx="12" cy="9" r="2"></circle>
-                                                </svg>
-
-                                                <span x-text="row.record.location"></span>
-
-                                            </span>
-
-                                        </template>
-
-                                    </td>
-
-
-                                    <!-- ENTRIES / METHOD -->
-                                    <td>
-
-                                        <template x-if="row.type === 'day'">
-
-                                            <span
-                                                class="entry-count"
-                                                x-text="row.records.length + ' entries'"
-                                            ></span>
-
-                                        </template>
-
-                                        <template x-if="row.type === 'detail'">
-
-                                            <span class="detail-method">
-
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                    aria-hidden="true"
-                                                >
-                                                    <rect
-                                                        x="5"
-                                                        y="3"
-                                                        width="14"
-                                                        height="18"
-                                                        rx="2"
-                                                    ></rect>
-
-                                                    <path d="M9 18h6"></path>
-                                                </svg>
-
-                                                <span x-text="row.record.method || 'QR'"></span>
-
-                                            </span>
-
-                                        </template>
-
-                                    </td>
-
-
-                                    <!-- SYNC -->
-                                    <td>
-
-                                        <template x-if="row.type === 'day'">
-
-                                            <span class="sync-badge">
-                                                Synced
-                                            </span>
-
-                                        </template>
-
-                                    </td>
-
-                                </tr>
-
-                            </template>
-
-
-                            <tr x-show="displayRows.length === 0">
-
-                                <td colspan="6" class="empty-row">
-                                    No records found for the selected filters.
+                                        </span>
+                                    </template>
                                 </td>
 
-                            </tr>
+                                <td>
+                                    <template x-if="row.type === 'day'">
+                                        <span x-text="row.firstIn || '--:--'"></span>
+                                    </template>
+                                    <template x-if="row.type === 'detail'">
+                                        <span class="detail-time" x-text="row.record.time"></span>
+                                    </template>
+                                </td>
 
-                        </tbody>
+                                <td>
+                                    <template x-if="row.type === 'day'">
+                                        <span x-text="row.lastOut || '--:--'"></span>
+                                    </template>
+                                    <template x-if="row.type === 'detail'">
+                                        <span
+                                            class="detail-type"
+                                            :class="row.record.type"
+                                            x-text="row.record.type === 'sign-in' ? 'IN' : 'OUT'"
+                                        ></span>
+                                    </template>
+                                </td>
+
+                                <td>
+                                    <template x-if="row.type === 'day'">
+                                        <span
+                                            :class="
+                                                row.totalHours > 0
+                                                    ? 'hours-positive'
+                                                    : (row.totalHours < 0
+                                                        ? 'hours-negative'
+                                                        : 'hours-zero')
+                                            "
+                                            x-text="
+                                                row.totalHours !== null
+                                                    ? row.totalHours.toFixed(1) + 'h'
+                                                    : '--'
+                                            "
+                                        ></span>
+                                    </template>
+                                    <template x-if="row.type === 'detail'">
+                                        <span class="detail-location">
+
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                aria-hidden="true"
+                                            >
+                                                <path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z"></path>
+                                                <circle cx="12" cy="9" r="2"></circle>
+                                            </svg>
+
+                                            <span x-text="row.record.location"></span>
+
+                                        </span>
+                                    </template>
+                                </td>
+
+                                <td>
+                                    <template x-if="row.type === 'day'">
+                                        <span
+                                            class="entry-count"
+                                            x-text="row.records.length + ' entries'"
+                                        ></span>
+                                    </template>
+                                    <template x-if="row.type === 'detail'">
+                                        <span class="detail-method">
+
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                aria-hidden="true"
+                                            >
+                                                <rect
+                                                    x="5"
+                                                    y="3"
+                                                    width="14"
+                                                    height="18"
+                                                    rx="2"
+                                                ></rect>
+
+                                                <path d="M9 18h6"></path>
+                                            </svg>
+
+                                            <span x-text="row.record.method || 'QR'"></span>
+
+                                        </span>
+                                    </template>
+                                </td>
+                                <td>
+                                    <template x-if="row.type === 'day'">
+                                        <span class="sync-badge">Synced</span>
+                                    </template>
+                                </td>
+                            </tr>
+                        </template>
+
+                        <tr x-show="displayRows.length === 0">
+                            <td colspan="6" class="empty-row">
+                                No records found for the selected filters.
+                            </td>
+                        </tr>
+                    </tbody>
                     </table>
                 </div>
             </div>
@@ -577,116 +520,123 @@ function historyApp() {
         },
         
         get groupedRecords() {
-            const grouped = {};
-            
-            this.filteredRecords.forEach(record => {
-                if (!grouped[record.date]) {
-                    grouped[record.date] = {
-                        date: record.date,
-                        firstIn: null,
-                        lastOut: null,
-                        totalHours: null,
-                        records: [],
-                        expanded: false
-                    };
+        const grouped = {};
+
+        this.filteredRecords.forEach(record => {
+            if (!grouped[record.date]) {
+                grouped[record.date] = {
+                    date: record.date,
+                    firstIn: null,
+                    lastOut: null,
+                    totalHours: null,
+                    records: []
+                };
+            }
+
+            grouped[record.date].records.push(record);
+        });
+
+        const result = Object.values(grouped);
+        const today = new Date().toISOString().split('T')[0];
+
+        result.forEach(day => {
+            day.records.sort(
+                (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+            );
+
+            let firstIn = null;
+            let lastOut = null;
+            let totalSeconds = 0;
+            let lastCheckIn = null;
+            let isToday = day.date === today;
+            let hasValidPair = false;
+
+            for (const record of day.records) {
+                if (record.type === 'sign-in') {
+                    if (lastCheckIn && !isToday) {
+                        lastCheckIn = null;
+                    }
+
+                    lastCheckIn = record;
+
+                    if (!firstIn) {
+                        firstIn = record;
+                    }
+
+                } else if (
+                    record.type === 'sign-out' &&
+                    lastCheckIn
+                ) {
+                    const inTime = new Date(lastCheckIn.timestamp);
+                    const outTime = new Date(record.timestamp);
+
+                    if (outTime > inTime) {
+                        const diffMs = outTime - inTime;
+                        totalSeconds += diffMs / 1000;
+                        hasValidPair = true;
+                    }
+
+                    lastCheckIn = null;
+                    lastOut = record;
                 }
-                grouped[record.date].records.push(record);
+            }
+
+            if (lastCheckIn && isToday) {
+                const inTime = new Date(lastCheckIn.timestamp);
+                const now = new Date();
+
+                if (inTime < now) {
+                    const diffMs = now - inTime;
+                    totalSeconds += diffMs / 1000;
+                    hasValidPair = true;
+                }
+            }
+
+            day.firstIn = firstIn ? firstIn.time : null;
+            day.lastOut = lastOut ? lastOut.time : null;
+
+            if (hasValidPair && totalSeconds > 0) {
+                day.totalHours =
+                    Math.round((totalSeconds / 3600) * 10) / 10;
+            } else if (day.records.length > 0) {
+                day.totalHours = 0;
+            } else {
+                day.totalHours = null;
+            }
+        });
+
+        return result;
+    },
+
+    get displayRows() {
+        const rows = [];
+
+        this.groupedRecords.forEach(day => {
+
+            rows.push({
+                type: 'day',
+                key: `day-${day.date}`,
+                date: day.date,
+                firstIn: day.firstIn,
+                lastOut: day.lastOut,
+                totalHours: day.totalHours,
+                records: day.records
             });
 
-            get displayRows() {
-            const rows = [];
-
-            this.groupedRecords.forEach(day => {
-
-                // Main date row
-                rows.push({
-                    type: 'day',
-                    key: `day-${day.date}`,
-                    date: day.date,
-                    firstIn: day.firstIn,
-                    lastOut: day.lastOut,
-                    totalHours: day.totalHours,
-                    records: day.records
-                });
-
-                // Detail rows
+            if (this.isDayExpanded(day.date)) {
                 day.records.forEach(record => {
-
                     rows.push({
                         type: 'detail',
                         key: `detail-${day.date}-${record.id}`,
                         date: day.date,
                         record: record
                     });
-
                 });
+            }
+        });
 
-            });
-
-            return rows;
-        },
-            
-            const result = Object.values(grouped);
-            const today = new Date().toISOString().split('T')[0];
-            
-            result.forEach(day => {
-                day.records.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                
-                let firstIn = null;
-                let lastOut = null;
-                let totalSeconds = 0;
-                let lastCheckIn = null;
-                let isToday = day.date === today;
-                let hasValidPair = false;
-                
-                for (const record of day.records) {
-                    if (record.type === 'sign-in') {
-                        if (lastCheckIn && !isToday) {
-                            lastCheckIn = null;
-                        }
-                        lastCheckIn = record;
-                        if (!firstIn) {
-                            firstIn = record;
-                        }
-                    } else if (record.type === 'sign-out' && lastCheckIn) {
-                        const inTime = new Date(lastCheckIn.timestamp);
-                        const outTime = new Date(record.timestamp);
-                        
-                        if (outTime > inTime) {
-                            const diffMs = outTime - inTime;
-                            totalSeconds += diffMs / 1000;
-                            hasValidPair = true;
-                        }
-                        
-                        lastCheckIn = null;
-                        lastOut = record;
-                    }
-                }
-                
-                if (lastCheckIn && isToday) {
-                    const inTime = new Date(lastCheckIn.timestamp);
-                    const now = new Date();
-                    if (inTime < now) {
-                        const diffMs = now - inTime;
-                        totalSeconds += diffMs / 1000;
-                        hasValidPair = true;
-                    }
-                }
-                
-                day.firstIn = firstIn ? firstIn.time : null;
-                day.lastOut = lastOut ? lastOut.time : null;
-                
-                if (hasValidPair && totalSeconds > 0) {
-                    day.totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
-                } else if (day.records.length > 0) {
-                    day.totalHours = 0;
-                } else {
-                    day.totalHours = null;
-                }
-            });
-            
-            return result;
-        },
+        return rows;
+    },
 
         toggleDay(date) {
         this.expandedDays[date] = !this.expandedDays[date];
@@ -695,6 +645,17 @@ function historyApp() {
         isDayExpanded(date) {
             return !!this.expandedDays[date];
         },
+
+        normalizeRecordType(type) {
+            const normalized = String(type || '').toLowerCase().trim().replace(/_/g, '-');
+
+            if (normalized === 'sign-in' || normalized === 'check-in' || normalized === 'in') {
+                return 'sign-in';
+            }
+
+            return 'sign-out';
+        },
+
         async init() {
             window.themeManager.initTheme();
             
@@ -719,9 +680,9 @@ function historyApp() {
                     return {
                         id: r.id,
                         date: r.date,
-                        time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        time: date.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false }),
                         timestamp: r.timestamp,
-                        type: r.type,
+                        type: this.normalizeRecordType(r.type),
                         location: r.location || 'Office',
                         method: r.method || 'QR'
                     };

@@ -54,6 +54,69 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
             .result-card { padding: 28px 20px; }
             .result-card .icon { font-size: 48px; }
         }
+
+        .ui-icon {
+        width: 28px;
+        height: 28px;
+        display: inline-block;
+        vertical-align: -5px;
+        margin-right: 8px;
+        }
+
+        .button-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .status-icon {
+            width: 12px;
+            height: 12px;
+            flex-shrink: 0;
+        }
+
+        .inline-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-block;
+            vertical-align: -3px;
+            margin-right: 4px;
+        }
+
+        .ready-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .camera-btn,
+        .camera-switch-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .scan-instructions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .result-card .icon svg {
+            width: 64px;
+            height: 64px;
+        }
+
+        .result-card.success .icon svg {
+            color: var(--accent);
+        }
+
+        .result-card.error .icon svg {
+            color: #EF4444;
+        }
+
     </style>
 </head>
 <body>
@@ -64,31 +127,118 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
         <main class="main-content">
             <?php include __DIR__ . '/../partials/top-nav.php'; ?>
             <div class="scan-container">
-                <h1>📷 Scan QR Code</h1>
+                <h1>
+                    <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                        <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                        <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                        <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                        <path d="M8 8h8v8H8z"></path>
+                    </svg>
+                    Scan QR Code
+                </h1>
                 <p>Point your camera at the workplace QR code to sign in or out.</p>
                 <div class="scanner-card">
                     <div class="scanner-header">
-                        <span class="ready-badge" x-show="!scannerActive">● Ready to scan</span>
-                        <span class="ready-badge" x-show="scannerActive && !_scanDetected" style="background: #fef3c7; color: #d97706;" x-cloak>● Scanning...</span>
-                        <span class="ready-badge" x-show="scannerActive && _scanDetected" style="background: var(--accent-soft); color: var(--accent);" x-cloak>✅ Scan captured</span>
+                        <span class="ready-badge" x-show="!scannerActive">
+                        <svg class="status-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <circle cx="12" cy="12" r="5"></circle>
+                        </svg>
+                        Ready to scan
+                        </span>
+                        <span
+                        class="ready-badge"
+                        x-show="scannerActive && !_scanDetected"
+                        style="background: #fef3c7; color: #d97706;"
+                        x-cloak
+                        >
+                        <svg class="status-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <circle cx="12" cy="12" r="5"></circle>
+                        </svg>
+                        Scanning...
+                        </span>
+                        <span
+                        class="ready-badge"
+                        x-show="scannerActive && _scanDetected"
+                        style="background: var(--accent-soft); color: var(--accent);"
+                        x-cloak
+                        >
+                        <svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M5 12l4 4L19 6"></path>
+                        </svg>
+                        Scan captured
+                        </span>
                         <p x-show="!_scanDetected">Hold steady and center the QR code in the frame.</p>
                         <p x-show="_scanDetected" style="color: var(--accent);" x-cloak>✓ Scan captured! Redirecting...</p>
                     </div>
                     <div class="camera-section">
-                        <button class="camera-btn" @click="startScanner()" x-show="!scannerActive && !_scanDetected">📷 Open Camera</button>
-                        <button class="camera-btn stop" @click="stopScanner()" x-show="scannerActive" x-cloak>⏹️ Stop Camera</button>
+                        <button class="camera-btn" @click="startScanner()" x-show="!scannerActive && !_scanDetected">
+                        <svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M4 7h4l2-3h4l2 3h4a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"></path>
+                            <circle cx="12" cy="13" r="3"></circle>
+                        </svg>
+                        Open Camera
+                        </button>
+                        <button class="camera-btn stop" @click="stopScanner()" x-show="scannerActive" x-cloak>
+                        <svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+                        </svg>
+                        Stop Camera
+                        </button>
                         <div id="reader" x-show="scannerActive" x-cloak></div>
-                        <button class="camera-switch-btn" @click="switchCamera()" x-show="scannerActive" x-cloak>🔄 Switch Camera</button>
+                        <button class="camera-switch-btn" @click="switchCamera()" x-show="scannerActive" x-cloak>
+                        <svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M17 2l4 4-4 4"></path>
+                            <path d="M3 12V9a3 3 0 0 1 3-3h15"></path>
+                            <path d="M7 22l-4-4 4-4"></path>
+                            <path d="M21 12v3a3 3 0 0 1-3 3H3"></path>
+                        </svg>
+                        Switch Camera
+                        </button>
                     </div>
-                    <div class="scan-instructions">💡 <strong>Tip:</strong> Make sure the QR code is well-lit and centered.</div>
+                    <div class="scan-instructions">
+                    <svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M9 18h6"></path>
+                        <path d="M10 22h4"></path>
+                        <path d="M8.5 14.5a6 6 0 1 1 7 0c-.8.6-1.5 1.5-1.5 2.5h-4c0-1-.7-1.9-1.5-2.5z"></path>
+                    </svg>
+
+                    <strong>Tip:</strong>
+                    Make sure the QR code is well-lit and centered.
+                    </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <div class="result-overlay" x-show="showResult" x-cloak @click.away="closeResult()">
-        <div class="result-card" :class="resultType">
-            <div class="icon" x-text="resultType === 'success' ? '✅' : '❌'"></div>
+                <div class="result-overlay" x-show="showResult" x-cloak @click.away="closeResult()">
+                    <div class="result-card" :class="resultType">
+                        <div class="icon">
+                <svg
+                    x-show="resultType === 'success'"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    aria-hidden="true"
+                >
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M8 12l2.5 2.5L16 9"></path>
+                </svg>
+
+                <svg
+                    x-show="resultType !== 'success'"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    aria-hidden="true"
+                >
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M9 9l6 6"></path>
+                    <path d="M15 9l-6 6"></path>
+                </svg>
+            </div>
             <div class="title" x-text="resultTitle"></div>
             <div class="subtitle" x-text="resultSubtitle"></div>
             <div class="detail" x-text="resultDetail"></div>
