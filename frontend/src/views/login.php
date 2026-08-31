@@ -397,7 +397,7 @@
                     <div class="pupil" id="eyePupil"></div>
                 </div>
             </div>
-            <h2>Real-time attendance.<br>Always connected.<br>Built for frontline staff.</h2>
+            <h2>Always live. <br>Always connected.<br>Know who's here.<br>Right now.</h2>
             <p>Fast QR-based sign-in. Live onsite visibility. Seamless Google Sheets sync — wherever your team works.</p>
             <div class="feature-badges">
                 <div class="badge-item">&lt;2s <span>sign-in time</span></div>
