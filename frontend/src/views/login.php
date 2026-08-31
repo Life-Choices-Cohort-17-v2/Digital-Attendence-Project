@@ -401,7 +401,6 @@
                     <div class="demo-items">
                         <div><strong>EMP001</strong> / thina@01 <span class="role-badge staff">Staff</span></div>
                         <div><strong>EMP004</strong> / jose@04 <span class="role-badge admin">Admin</span></div>
-                        <div><strong>admin@spysee.app</strong> / admin123 <span class="role-badge admin">Admin</span></div>
                     </div>
                 </div>
 
