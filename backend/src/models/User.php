@@ -200,12 +200,36 @@ class User
         ]);
     }
 
-    /**
+    public function countActiveAdmins(): int
+{
+    $stmt = $this->pdo->query(
+        "SELECT COUNT(*) FROM users WHERE role = 'admin' AND status = 'active'"
+    );
+
+    return (int) $stmt->fetchColumn();
+}
+
+       /**
      * Delete (soft delete) user
      */
     public function delete(int $id): bool
     {
-        $stmt = $this->pdo->prepare("UPDATE users SET status = 'inactive' WHERE id = :id");
+        $stmt = $this->pdo->prepare(
+            "UPDATE users SET status = 'inactive' WHERE id = :id"
+        );
+
+        return $stmt->execute(['id' => $id]);
+    }
+
+    /**
+     * Reactivate an inactive user
+     */
+    public function reactivate(int $id): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE users SET status = 'active' WHERE id = :id"
+        );
+
         return $stmt->execute(['id' => $id]);
     }
 }

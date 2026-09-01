@@ -74,6 +74,32 @@ if (empty($route)) {
 // Global API response header
 header('Content-Type: application/json');
 
+// --- USER MANAGEMENT ACTION ROUTES ---
+if (preg_match('#^/users/(\d+)/(deactivate|reactivate)$#', $route, $matches)) {
+
+    $userId = (int) $matches[1];
+    $action = $matches[2];
+
+    if ($method !== 'PATCH') {
+        http_response_code(405);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Method Not Allowed'
+        ]);
+        exit;
+    }
+
+    $userController = new Controllers\UserController($pdo);
+
+    if ($action === 'deactivate') {
+        $userController->deactivate($userId);
+    } elseif ($action === 'reactivate') {
+        $userController->reactivate($userId);
+    }
+
+    exit;
+}
+
 // --- ROUTE DISPATCHER ---
 switch ($route) {
     case '/':
@@ -166,16 +192,22 @@ switch ($route) {
             echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
         }
         break;
-        case '/users':
-    if ($method === 'GET') {
-        (new Controllers\UserController($pdo))->index();
-    } elseif ($method === 'POST') {
-        (new Controllers\UserController($pdo))->store();
-    } else {
-        http_response_code(405);
-        echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-    }
-    break;
+    
+
+    // --- USER MANAGEMENT ROUTES ---
+    case '/users':
+        if ($method === 'GET') {
+            (new Controllers\UserController($pdo))->index();
+        } elseif ($method === 'POST') {
+            (new Controllers\UserController($pdo))->store();
+        } else {
+            http_response_code(405);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Method Not Allowed'
+            ]);
+        }
+        break;
 
         // --- SETTINGS ENDPOINTS ---
     case '/settings':
