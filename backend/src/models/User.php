@@ -53,26 +53,40 @@ class User
     /**
      * Verify user credentials (password or PIN)
      */
-    public function verifyCredentials(string $identifier, string $password): ?array
-    {
-        $user = $this->findByEmployeeId($identifier);
-        
-        if (!$user) {
-            return null;
-        }
-        
-        // Check password_hash (for admins)
-        if (isset($user['password_hash']) && password_verify($password, $user['password_hash'])) {
-            return $user;
-        }
-        
-        // Check 'passwords' column (PIN for staff)
-        if (isset($user['passwords']) && $user['passwords'] === $password) {
-            return $user;
-        }
-        
+public function verifyCredentials(string $identifier, string $password): ?array
+{
+    // Try employee ID first
+    $user = $this->findByEmployeeId($identifier);
+
+    // If not found, try email
+    if (!$user) {
+        $user = $this->findByEmail($identifier);
+    }
+
+    // User does not exist
+    if (!$user) {
         return null;
     }
+
+    // Check hashed password
+    if (
+        !empty($user['password_hash']) &&
+        password_verify($password, $user['password_hash'])
+    ) {
+        return $user;
+    }
+
+    // Check staff PIN/password
+    if (
+        isset($user['passwords']) &&
+        $user['passwords'] !== null &&
+        hash_equals((string) $user['passwords'], $password)
+    ) {
+        return $user;
+    }
+
+    return null;
+}
 
     /**
      * Count total users
